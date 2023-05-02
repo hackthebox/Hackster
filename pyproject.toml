@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "Hackster"
+version = "1.0.0"
+description = "Awesome hackster created by Hack The Box"
+authors = [
+  "dimoschi <dimos@hackthebox.eu>",
+  "makelarisjr <makelarisjr@hackthebox.eu",
+  "0xEmma <emma@hackthebox.eu>"
+]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiodns = "^3.0.0"
+arrow = "^1.2.3"
+py-cord = "^2.4.1"
+pydantic = { extras = ["dotenv"], version = "^1.10.7" }
+taskipy = "^1.10.4"
+sqlalchemy = { extras = ["asyncio"], version = "^2.0.9" }
+bcrypt = "^4.0.1"
+asyncmy = "^0.2.7"
+fastapi = "^0.95.1"
+sentry-sdk = {extras = ["sqlalchemy"], version = "^1.20.0"}
+uvicorn = "^0.21.1"
+alembic = "^1.10.3"
+pymysql = "^1.0.3"
+prometheus-client = "^0.16.0"
+
+[tool.poetry.group.dev.dependencies]
+colorlog = "^6.5.0"
+coverage = "^7.2"
+flake8 = "^6.0"
+flake8-annotations = "^3.0"
+flake8-bugbear = "^23.3"
+flake8-docstrings = "^1.6.0"
+flake8-isort = "^6.0"
+flake8-string-format = "^0.3.0"
+flake8-tidy-imports = "^4.8.0"
+flake8-todo = "^0.7"
+pep8-naming = "^0.13"
+pre-commit = "^3.2"
+pytest = "^7.1.2"
+pytest-asyncio = "^0.21"
+python-dotenv = "^1.0"
+ipython = "^8.12.0"
+ipdb = "^0.13.13"
+aioresponses = "^0.7.4"
+pytest-mock = "^3.10.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.taskipy.tasks]
+start = "python -m src"
+test = "coverage run -m pytest tests/"
+coverage = "coverage"
+report = "coverage report"
+lint = "pre-commit run --all-files"
+precommit = "pre-commit install"
+
+[tool.isort]
+profile = "black"
+line_length = 119
+honor_noqa = true
+skip_gitignore = true

@@ -1,0 +1,57 @@
+name: Test
+
+on: [ push, workflow_dispatch ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3.5.0
+
+      - id: setup-python
+        name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.4.2
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      # Only when the context is exactly the same, we will restore the cache.
+      - name: Load cached venv
+        id: restore-poetry-dependencies
+        uses: actions/cache/restore@v3.3.1
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Create venv and install dependencies
+        if: steps.restore-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --with dev
+
+      - id: cache-poetry-dependencies
+        name: Cache venv
+        if: steps.restore-poetry-dependencies.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3.3.1
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Run tests with pytest and generate coverage report
+        run: |
+          ENV_PATH=".test.env" poetry run task test
+          poetry run task coverage xml
+
+      - name: Upload coverage reports to CodeCov
+        uses: codecov/codecov-action@v3
