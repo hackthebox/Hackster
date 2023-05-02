@@ -12,7 +12,7 @@
 The first step will be to clone the repo
 
 ```shell
-git clone https://github.com/dimoschi/hackster.git
+git clone https://github.com/hackthebox/hackster.git
 ```
 
 The requirements are:
@@ -68,5 +68,3 @@ Distributed under the MIT License. See [LICENSE](./LICENSE) for more information
 <!-- Shields.io links -->
 
 [gitHub license]: https://img.shields.io/badge/license-MIT-blue.svg
-
-[test action]: https://github.com/dimoschi/hackster/actions/workflows/test.yaml/badge.svg
