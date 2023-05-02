@@ -1,7 +1,8 @@
+import hmac
 import logging
 from typing import Any, Dict, Union
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from uvicorn import Config, Server
 
 from src.bot import bot
@@ -40,7 +41,7 @@ async def webhook_handler(body: WebhookBody, authorization: Union[str, None] = H
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     token = authorization[6:].strip()
-    if not token == settings.WEBHOOK_TOKEN:
+    if hmac.compare_digest(token, settings.WEBHOOK_TOKEN):
         logger.warning("Unauthorized webhook request")
         raise HTTPException(status_code=401, detail="Unauthorized")
 
