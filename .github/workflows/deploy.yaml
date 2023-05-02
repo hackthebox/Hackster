@@ -45,11 +45,3 @@ jobs:
           command: |
             set image deployment ${{ env.DEPLOYMENT_NAME }} hackster=${{ env.DOCKER_IMAGE }};
             kubectl annotate deployment ${{ env.DEPLOYMENT_NAME }} kubernetes.io/change-cause="${{ env.CHANGE_CAUSE }}";
-      - name: Send project deployed notification
-        if: success()
-        run: |
-          ./.github/slack_notification.sh deployed
-      - name: Send deployment failed notification
-        if: failure()
-        run: |
-          ./.github/slack_notification.sh failed
