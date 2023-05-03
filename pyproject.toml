@@ -4,7 +4,7 @@ version = "1.0.2"
 description = "Awesome hackster created by Hack The Box"
 authors = [
     "dimoschi <dimos@hackthebox.eu>",
-    "makelarisjr <makelarisjr@hackthebox.eu",
+    "makelarisjr <makelarisjr@hackthebox.eu>",
     "0xEmma <emma@hackthebox.eu>"
 ]
 license = "MIT"
