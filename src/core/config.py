@@ -189,6 +189,7 @@ class Global(BaseSettings):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    @validator("VERSION")
     @classmethod
     def get_project_versions(cls, v: Optional[str], values: dict[str, Any]) -> str:
         def _get_from_pyproject():
