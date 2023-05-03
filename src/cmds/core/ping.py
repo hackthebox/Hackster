@@ -24,7 +24,7 @@ class PingCog(commands.Cog):
     @slash_command(guild_ids=settings.guild_ids)
     @cooldown(1, 3600, commands.BucketType.user)
     async def ping(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
-        """Ping the bot to see its latency and uptime."""
+        """Ping the bot to see its latency, uptime and version."""
         difference = relativedelta(arrow.utcnow() - start_time)
         uptime: str = start_time.shift(
             seconds=-difference.seconds,
@@ -37,7 +37,8 @@ class PingCog(commands.Cog):
 
         embed = Embed(
             colour=color_level(latency),
-            description=f"• Gateway Latency: **{latency}ms**\n• Start time: **{uptime}**"
+            description=f"• Gateway Latency: **{latency}ms**\n• Start time: **{uptime}**\n• Version: **"
+                        f"{settings.VERSION}**"
         )
 
         return await ctx.respond(embed=embed)
