@@ -67,6 +67,7 @@ logging.basicConfig(
 if settings.SENTRY_DSN and not settings.DEBUG:
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
+        release=settings.VERSION,
         environment=settings.bot.ENVIRONMENT if settings.bot.ENVIRONMENT else "local",
         integrations=[
             SqlalchemyIntegration(),
