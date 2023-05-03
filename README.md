@@ -46,7 +46,7 @@ To set up and deploy the Discord bot, follow these steps:
 3. add the following environment variables.
 
    | Variable       | Description                | Default    |
-                                                                                                                                                                     |----------------|----------------------------|------------|
+                                                                                                                                                                           |----------------|----------------------------|------------|
    | BOT_NAME       | The name of the bot        | "Hackster" |
    | BOT_TOKEN      | The token of the bot       | *Required  |
    | CHANNEL_DEVLOG | The devlog channel id      | 0          |
@@ -96,17 +96,7 @@ help you out.
 
 ## Contributors
 
-[//]: contributor-faces
-
-<a href="https://github.com/clubby789"><img src="https://avatars.githubusercontent.com/u/13556931?v=4" width="50" height="50" alt=""/></a>
-<a href="https://github.com/0xEmma"><img src="https://avatars.githubusercontent.com/u/47154306?v=4" width="50" height="50" alt=""/></a>
-<a href="https://github.com/HeckerBirb"><img src="https://avatars.githubusercontent.com/u/7443606?v=4" width="50" height="50" alt=""/></a>
-<a href="https://github.com/ToxicBiohazard"><img src="https://avatars.githubusercontent.com/u/98106526?v=4" width="50" height="50" alt=""/></a>
-<a href="https://github.com/khaoticdude"><img src="https://avatars.githubusercontent.com/u/6080590?v=4" width="50" height="50" alt=""/></a>
-
-Thank you for your interest in our Discord bot, and happy coding! 🚀
-
-<!-- Packages Links -->
+Check [CONTRIBUTORS](CONTRIBUTORS) to see all project contributors.
 
 [docker ce]: https://docs.docker.com/install/
 
