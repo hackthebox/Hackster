@@ -9,7 +9,7 @@ on:
 jobs:
   deploy:
     environment:
-      name: ${{ (endsWith(github.ref, '-rc')) && 'development' || 'production' }}
+      name: ${{ (contains(github.ref, '-rc')) && 'development' || 'production' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -20,7 +20,7 @@ jobs:
       DOCKER_IMAGE: ghcr.io/hackthebox/hackster:${{ github.sha }}
       LATEST_IMAGE: ghcr.io/hackthebox/hackster:latest
       CHANGE_CAUSE: ${{ github.run_number }}-${{ github.sha }}
-      DEPLOYMENT_NAME: ${{ (endsWith(github.ref, '-rc')) && 'hackster-dev' || 'hackster' }}
+      DEPLOYMENT_NAME: ${{ (contains(github.ref, '-rc')) && 'hackster-dev' || 'hackster' }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3.5.0
