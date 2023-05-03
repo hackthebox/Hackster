@@ -52,7 +52,7 @@ class Fun(Cog):
 
     @slash_command(guild_ids=settings.guild_ids, name="cre4k", default_permission=True)
     @cooldown(1, 60, BucketType.user)
-    async def start_here(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
+    async def cre4k(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
         """cre4k"""
         return await ctx.respond(
             "https://gfycat.com/ringedunlawfulfairyfly"
