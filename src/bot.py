@@ -5,17 +5,11 @@ from abc import ABC
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
 from discord import ApplicationContext, Cog, DiscordException, Embed, HTTPException
-from discord.ext.commands import Bot as DiscordBot
 from discord.ext.commands import (
-    CommandNotFound,
-    CommandOnCooldown,
-    DefaultHelpCommand,
-    MissingAnyRole,
-    MissingPermissions,
-    MissingRequiredArgument,
-    NoPrivateMessage,
-    UserInputError,
+    Bot as DiscordBot, CommandNotFound, CommandOnCooldown, DefaultHelpCommand,
+    MissingAnyRole, MissingPermissions, MissingRequiredArgument, NoPrivateMessage, UserInputError,
 )
+from sqlalchemy.exc import NoResultFound
 
 from src import trace_config
 from src.core import constants, settings
@@ -78,13 +72,15 @@ class Bot(DiscordBot, ABC):
             message = "This command cannot be run in a DM."
         elif isinstance(error, CommandOnCooldown):
             message = f"You are on cooldown. Try again in {error.retry_after:.2f}s"
+        elif isinstance(error, NoResultFound):
+            message = f"The requested object could not be found."
 
         errored_commands.labels(ctx.command.name).inc()
 
         if message is None:
             raise error
         else:
-            log.debug(f'A user caused and error which was handled. Message: "{message}".')
+            log.debug(f"A user caused an error which was handled.", exc_info=error)
             await ctx.respond(message, delete_after=15, ephemeral=True)
 
     async def on_application_command_completion(self, ctx: ApplicationContext) -> None:
