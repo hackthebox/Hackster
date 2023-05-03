@@ -7,13 +7,14 @@ failing to comply with our guidelines may lead to a rejection of the contributio
 
 ***
 
-## The paperwork
+## Guidelines
 
 To contribute, please follow these guidelines:
 
 * Look at the current Issues and/or discussions taking place in the #bot-dev channel on Discord for things that needs to
   be done.
-* Please create a feature branch for your work.
+* Please create an issue in Github. For feature requests wait the community moderators to approve the issue.
+* Always create a feature branch for your work.
 * Please use pull requests from feature branch to development once you are confident that the implementation is done.
 * **Do not open a pull request if you aren't assigned to the issue**. If someone is already working on it, consider
   offering to collaborate with that person.
@@ -24,10 +25,9 @@ Please ensure that the following is fulfilled:
 
 ### Functionality and testing
 
-* The code has been tested on your own server and appears to work as intended.
+* The code has been tested on your own machine and appears to work as intended.
 * The code handles errors and malformed input gracefully.
-* The command is implemented in both slash commands and prefix commands using the same approach as all other places (if
-  applicable).
+* The command is implemented in slash commands using the same approach as all other places (if applicable).
 * Permissions are set correctly.
 
 ### Code quality
@@ -38,7 +38,6 @@ Please ensure that the following is fulfilled:
   lint your code before committing or pushing.
 * Try/except the actual error which is raised.
 * Proofread the code and fix oddities.
-* If in doubt, assume Birb is already exhausted from work. 🙃
 
 ***Always leave the campground cleaner than you found it.***
 
