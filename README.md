@@ -24,7 +24,6 @@ features to the broader community.
 - User management: warn, mute, kick, or ban users based on customizable rules.
 - CTF Events management: create and manage channels, roles, and permissions for CTF Events.
 - And much more!
-- And much more!
 
 ## Getting Started
 
@@ -46,7 +45,7 @@ To set up and deploy the Discord bot, follow these steps:
 3. add the following environment variables.
 
    | Variable       | Description                | Default    |
-                                                                                                                                                                           |----------------|----------------------------|------------|
+      |----------------|----------------------------|------------|
    | BOT_NAME       | The name of the bot        | "Hackster" |
    | BOT_TOKEN      | The token of the bot       | *Required  |
    | CHANNEL_DEVLOG | The devlog channel id      | 0          |
