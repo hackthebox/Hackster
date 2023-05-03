@@ -36,9 +36,6 @@ class OtherCog(commands.Cog):
         if len(url) == 0:
             return await ctx.respond("Please provide the spoiler URL.")
 
-        if ctx.guild:
-            await ctx.message.delete()
-
         embed = Embed(title="Spoiler Report", color=0xB98700)
         embed.add_field(name=f"{ctx.user} has submitted a spoiler.", value=f"URL: <{url}>", inline=False)
 
