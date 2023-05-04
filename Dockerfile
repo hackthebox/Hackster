@@ -6,7 +6,7 @@ RUN apt-get update && \
     apt-get install -y mariadb-client libmariadb-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
+COPY --from=builder-base $APP_PATH $APP_PATH
 
 WORKDIR $APP_PATH
 
