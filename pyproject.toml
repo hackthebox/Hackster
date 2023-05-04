@@ -3,9 +3,9 @@ name = "Hackster"
 version = "1.0.2"
 description = "Awesome hackster created by Hack The Box"
 authors = [
-  "dimoschi <dimos@hackthebox.eu>",
-  "makelarisjr <makelarisjr@hackthebox.eu",
-  "0xEmma <emma@hackthebox.eu>"
+    "dimoschi <dimos@hackthebox.eu>",
+    "makelarisjr <makelarisjr@hackthebox.eu>",
+    "0xEmma <emma@hackthebox.eu>"
 ]
 license = "MIT"
 
@@ -20,11 +20,12 @@ sqlalchemy = { extras = ["asyncio"], version = "^2.0.9" }
 bcrypt = "^4.0.1"
 asyncmy = "^0.2.7"
 fastapi = "^0.95.1"
-sentry-sdk = {extras = ["sqlalchemy"], version = "^1.20.0"}
+sentry-sdk = { extras = ["sqlalchemy"], version = "^1.20.0" }
 uvicorn = "^0.21.1"
 alembic = "^1.10.3"
 pymysql = "^1.0.3"
 prometheus-client = "^0.16.0"
+toml = "^0.10.2"
 
 [tool.poetry.group.dev.dependencies]
 colorlog = "^6.5.0"

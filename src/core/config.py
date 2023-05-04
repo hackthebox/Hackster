@@ -1,8 +1,9 @@
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
+import toml
 from pydantic import BaseSettings, validator
 
 
@@ -183,8 +184,23 @@ class Global(BaseSettings):
 
     ROOT: Path = None
 
+    VERSION: str | None = None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    @validator("VERSION")
+    @classmethod
+    def get_project_versions(cls, v: Optional[str], values: dict[str, Any]) -> str:
+        def _get_from_pyproject():
+            with open('pyproject.toml', 'r') as f:
+                config = toml.load(f)
+                version = config.get('tool', {}).get('poetry', {}).get('version')
+                return version
+
+        if not v:
+            return values.get("VERSION", _get_from_pyproject())
+        return v
 
     @validator("guild_ids", "dev_guild_ids")
     def check_ids_format(cls, v: list[int]) -> list[int]:
