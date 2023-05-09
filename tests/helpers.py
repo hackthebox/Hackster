@@ -154,7 +154,7 @@ class MockGuild(CustomMockMixin, mock.Mock, HashableMixin):
     instance of `MockGuild`:
     """
     spec_set = guild_instance
-    additional_spec_asyncs = None
+    additional_spec_asyncs = ("get_channel",)
 
     def __init__(self, roles: Optional[Iterable[MockRole]] = None, **kwargs) -> None:
         default_kwargs = {'id': next(self.discord_id), 'members': []}
