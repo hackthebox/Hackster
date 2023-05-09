@@ -30,6 +30,8 @@ class BanCog(commands.Cog):
     async def ban(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
         """Ban a user from the server permanently."""
         member = await get_member_safe(user, ctx.guild)
+        if not member:
+            member = await self.bot.get_or_fetch_user(user.id)
         response = await ban_member(self.bot, ctx.guild, member, "500w", reason, ctx.user, needs_approval=False)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
@@ -45,6 +47,8 @@ class BanCog(commands.Cog):
     ) -> Interaction | WebhookMessage:
         """Ban a user from the server temporarily."""
         member = await get_member_safe(user, ctx.guild)
+        if not member:
+            member = await self.bot.get_or_fetch_user(user.id)
         response = await ban_member(self.bot, ctx.guild, member, duration, reason, ctx.user, needs_approval=True)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
