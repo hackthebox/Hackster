@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 
 import discord
-from discord import Forbidden, Guild, HTTPException, Member, NotFound
+from discord import Forbidden, Guild, HTTPException, Member, NotFound, User
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
@@ -23,12 +23,15 @@ logger = logging.getLogger(__name__)
 
 # TODO: Clean up method, return ban record and raise BanError when something goes wrong.  # noqa: T000
 async def ban_member(
-    local_bot: Bot, guild: Guild, member: Member, duration: str, reason: str, author: Member = None,
+    local_bot: Bot, guild: Guild, member: Member | User, duration: str, reason: str, author: Member = None,
     needs_approval: bool = True
 ) -> SimpleResponse | None:
     """Ban a member from the guild."""
-    if member_is_staff(member):
-        return SimpleResponse(message="You cannot ban another staff member.", delete_after=None)
+    if isinstance(member, Member):
+        if member_is_staff(member):
+            return SimpleResponse(message="You cannot ban another staff member.", delete_after=None)
+    elif isinstance(member, User):
+        member = await local_bot.get_or_fetch_user(member.id)
     if member.bot:
         return SimpleResponse(message="You cannot ban a bot.", delete_after=None)
     if author.id == member.id:

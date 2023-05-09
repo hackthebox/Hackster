@@ -1,7 +1,8 @@
 import logging
 from functools import singledispatch
 
-from discord import Bot, Forbidden, Guild, HTTPException, Member, User
+from discord import Bot, Guild, Member, User
+from discord.errors import Forbidden, HTTPException, NotFound
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ async def _(user: User, guild: Guild) -> Member | None:
         member = await guild.fetch_member(user.id)
     except Forbidden as exc:
         logger.warning(f"Unauthorized attempt to fetch member with id: {user.id}", exc_info=exc)
+        return
+    except NotFound as exc:
+        logger.error(f"Could not find guild member with id: {user.id}", exc_info=exc)
         return
     except HTTPException as exc:
         logger.error(f"Discord error while fetching guild member with id: {user.id}", exc_info=exc)
@@ -70,7 +74,7 @@ async def _(user_id: str, bot: Bot) -> User | None:
     logger.debug("Attempting to get user by type str")
     try:
         user_id = int(user_id.replace("<@", "").replace("!", "").replace(">", ""))
-        return await bot.fetch_user(user_id)
+        return await bot.get_or_fetch_user(user_id)
     except KeyError as exc:
         logger.debug(f"Could not find user by id: {user_id}", exc_info=exc)
     except ValueError as exc:
@@ -81,7 +85,7 @@ async def _(user_id: str, bot: Bot) -> User | None:
 async def _(user_id: int, bot: Bot) -> User | None:
     logger.debug("Attempting to get user by type int")
     try:
-        return await bot.fetch_user(user_id)
+        return await bot.get_or_fetch_user(user_id)
     except KeyError as exc:
         logger.debug(f"Could not find user by id: {user_id}", exc_info=exc)
     except ValueError as exc:
