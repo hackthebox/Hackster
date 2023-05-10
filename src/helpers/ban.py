@@ -31,7 +31,7 @@ async def ban_member(
         return SimpleResponse(message="You cannot ban another staff member.", delete_after=None)
     if member.bot:
         return SimpleResponse(message="You cannot ban a bot.", delete_after=None)
-    if author.id == member.id:
+    if author and author.id == member.id:
         return SimpleResponse(message="You cannot ban yourself.", delete_after=None)
 
     # Validate reason
