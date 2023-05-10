@@ -29,7 +29,7 @@ async def _(user: User, guild: Guild) -> Member | None:
         logger.warning(f"Unauthorized attempt to fetch member with id: {user.id}", exc_info=exc)
         return
     except NotFound as exc:
-        logger.error(f"Could not find guild member with id: {user.id}", exc_info=exc)
+        logger.warning(f"Could not find guild member with id: {user.id}", exc_info=exc)
         return
     except HTTPException as exc:
         logger.error(f"Discord error while fetching guild member with id: {user.id}", exc_info=exc)
@@ -76,9 +76,9 @@ async def _(user_id: str, bot: Bot) -> User | None:
         user_id = int(user_id.replace("<@", "").replace("!", "").replace(">", ""))
         return await bot.get_or_fetch_user(user_id)
     except KeyError as exc:
-        logger.debug(f"Could not find user by id: {user_id}", exc_info=exc)
+        logger.warning(f"Could not find user by id: {user_id}", exc_info=exc)
     except ValueError as exc:
-        logger.debug(f"Error getting user, invalid id: {user_id}", exc_info=exc)
+        logger.error(f"Error getting user, invalid id: {user_id}", exc_info=exc)
 
 
 @get_user_safe.register
@@ -87,6 +87,6 @@ async def _(user_id: int, bot: Bot) -> User | None:
     try:
         return await bot.get_or_fetch_user(user_id)
     except KeyError as exc:
-        logger.debug(f"Could not find user by id: {user_id}", exc_info=exc)
+        logger.warning(f"Could not find user by id: {user_id}", exc_info=exc)
     except ValueError as exc:
-        logger.debug(f"Error getting user, invalid id: {user_id}", exc_info=exc)
+        logger.error(f"Error getting user, invalid id: {user_id}", exc_info=exc)

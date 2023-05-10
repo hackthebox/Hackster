@@ -61,34 +61,19 @@ async def ban_member(
         date=datetime.now().date()
     )
     async with AsyncSessionLocal() as session:
+        stmt = select(Ban).filter(Ban.user_id == member.id, Ban.unbanned.is_(False)).limit(1)
+        result = await session.scalars(stmt)
+        existing_ban = result.first()
+        if existing_ban:
+            return SimpleResponse(message=f"A ban already exists for member {member}", delete_after=None)
+
         session.add(ban)
         session.add(infraction)
         await session.commit()
     ban_id = ban.id
     assert ban_id is not None
 
-    message = (f"You have been banned from {guild.name} until {end_date} (UTC). "
-               f"To appeal the ban, please reach out to an Administrator.\n"
-               f"Following is the reason given:\n>>> {reason}\n")
-    try:
-        await member.send(message)
-    except Forbidden as ex:
-        logger.warning(f"HTTPException when trying to unban user with ID {member.id}", exc_info=ex)
-        if author:
-            return SimpleResponse(
-                message="Could not DM member due to privacy settings, however will still attempt to ban them...",
-                delete_after=None
-            )
-        return
-    except HTTPException as ex:
-        logger.warning(f"HTTPException when trying to unban user with ID {member.id}: {ex}")
-        if author:
-            return SimpleResponse(
-                message="Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week.",
-                delete_after=None
-            )
-        return
-
+    # Try to actually ban the member from the guild
     try:
         await guild.ban(member, reason=reason, delete_message_days=0)
     except Forbidden as exc:
@@ -100,7 +85,7 @@ async def ban_member(
             return SimpleResponse(message="You do not have the proper permissions to ban.", delete_after=None)
         return
     except HTTPException as ex:
-        logger.warning(f"HTTPException when trying to unban user with ID {member.id}", exc_info=ex)
+        logger.warning(f"HTTPException when trying to ban user with ID {member.id}", exc_info=ex)
         if author:
             return SimpleResponse(
                 message="Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week.",
@@ -108,25 +93,37 @@ async def ban_member(
             )
         return
 
+    dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
+
+    # If approval is required, send a message to the moderator channel about the ban
     if not needs_approval:
         if member:
             message = f"Member {member.display_name} has been banned permanently."
         else:
             message = f"Member {member.id} has been banned permanently."
-        logger.info(f"Member {member.id} has been banned permanently.")
-        # run_at = datetime.fromtimestamp(dur)
-        # unban_coro = unban_member(guild, member)
-        # sch = schedule(unban_coro, run_at=run_at)
+
+        if not dm_banned_member:
+            message += " Could not DM banned member due to permission error."
+
+        logger.info(
+            "Member has been banned permanently.",
+            extra={"ban_requestor": author.name, "ban_receiver": member.id, "dm_banned_member": dm_banned_member}
+        )
 
         local_bot.loop.call_later(
             int(dur - calendar.timegm(time.gmtime())), lambda: asyncio.create_task(unban_member(guild, member))
         )
+        logger.debug("Unbanned sceduled for ban", extra={"ban_id": ban_id, "unban_time": ban.unban_time})
         return SimpleResponse(message=message, delete_after=0)
     else:
         if member:
             message = f"{member.display_name} ({member.id}) has been banned until {end_date} (UTC)."
         else:
             message = f"{member.id} has been banned until {end_date} (UTC)."
+
+        if not dm_banned_member:
+            message += " Could not DM banned member due to permission error."
+
         member_name = f"{member.name} ({member.id})"
         embed = discord.Embed(
             title=f"Ban request #{ban_id}",
@@ -136,7 +133,26 @@ async def ban_member(
         embed.add_field(name="Change duration:", value=f"/dispute {ban_id} <duration>", inline=True)
         embed.add_field(name="Deny and unban:", value=f"/deny {ban_id}", inline=True)
         await guild.get_channel(settings.channels.SR_MOD).send(embed=embed)
-        return SimpleResponse(message=message, delete_after=0)
+        return SimpleResponse(message=message)
+
+
+async def _dm_banned_member(end_date, guild, member, reason) -> bool:
+    """Send a message to the member about the ban"""
+    message = (f"You have been banned from {guild.name} until {end_date} (UTC). "
+               f"To appeal the ban, please reach out to an Administrator.\n"
+               f"Following is the reason given:\n>>> {reason}\n")
+    try:
+        await member.send(message)
+        return True
+    except Forbidden as ex:
+        logger.warning(
+            f"Could not DM member with id {member.id} due to privacy settings, however will still attempt to ban "
+            f"them...",
+            exc_info=ex
+        )
+    except HTTPException as ex:
+        logger.warning(f"HTTPException when trying to unban user with ID {member.id}", exc_info=ex)
+    return False
 
 
 async def unban_member(guild: Guild, member: Member) -> Member | None:
@@ -146,15 +162,12 @@ async def unban_member(guild: Guild, member: Member) -> Member | None:
         logger.info(f"Unbanned user {member.id}.")
     except Forbidden as ex:
         logger.error(f"Permission denied when trying to unban user with ID {member.id}", exc_info=ex)
-        return None
     except NotFound as ex:
         logger.error(
             f"NotFound when trying to unban user with ID {member.id}. "
             f"This could indicate that the user is not currently banned.", exc_info=ex, )
-        return None
     except HTTPException as ex:
         logger.error(f"HTTPException when trying to unban user with ID {member.id}", exc_info=ex)
-        return None
 
     async with AsyncSessionLocal() as session:
         stmt = select(Ban).filter(Ban.user_id == member.id).limit(1)

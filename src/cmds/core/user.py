@@ -69,9 +69,9 @@ class UserCog(commands.Cog):
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def kick(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
         """Kick a user from the server."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
-            return await ctx.respond(f"User {user} not found in guild.")
+            return await ctx.respond(f"User {user} not found.")
         if member_is_staff(member):
             return await ctx.respond("You cannot kick another staff member.")
         if member.bot:

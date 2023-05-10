@@ -1,11 +1,12 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Coroutine
 
 from discord.ext import commands, tasks
 from sqlalchemy import select
 
+from src import settings
 from src.bot import Bot
 from src.database.models import Ban, Mute
 from src.database.session import AsyncSessionLocal
@@ -36,11 +37,7 @@ class ScheduledTasks(commands.Cog):
         unban_tasks = []
         now = datetime.now()
         async with AsyncSessionLocal() as session:
-            stmt = (
-                select(Ban)
-                .filter(Ban.unbanned.is_(False), Ban.unban_time - now <= timedelta(days=365))
-            )
-            result = await session.scalars(stmt)
+            result = await session.scalars(select(Ban).filter(Ban.unbanned.is_(False)))
             bans = result.all()
 
         for ban in bans:
@@ -50,15 +47,9 @@ class ScheduledTasks(commands.Cog):
                     user_id=ban.user_id, unban_ts=run_at
                 )
             )
-            # This remains as check, since we filter out those records in the query directly.
-            if (run_at - now).days > 365:
-                logger.info(
-                    f"Skipping scheduled unban for user_id {ban.user_id}, "
-                    f"is over one years into the future ({str(run_at)})"
-                )
-                continue
 
-            for guild in self.bot.guilds:
+            for guild_id in settings.guild_ids:
+                guild = await self.bot.fetch_guild(guild_id)
                 unban_tasks.append(
                     schedule(unban_member(guild, ban.user_id), run_at=run_at)
                 )
@@ -71,11 +62,7 @@ class ScheduledTasks(commands.Cog):
         unmute_tasks = []
         now = datetime.now()
         async with AsyncSessionLocal() as session:
-            stmt = (
-                select(Mute)
-                .filter(Mute.unmute_time - now <= timedelta(days=365))
-            )
-            result = await session.scalars(stmt)
+            result = await session.scalars(select(Mute))
             mutes = result.all()
 
         for mute in mutes:
