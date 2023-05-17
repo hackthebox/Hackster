@@ -6,7 +6,6 @@ import time
 logger = logging.getLogger(__name__)
 
 
-# TODO: Change name of the validate_duration function  # noqa: T000
 def validate_duration(duration: str, baseline_ts: int = None) -> (int, str):
     """Validate duration string and convert to seconds."""
     if duration.isnumeric():
