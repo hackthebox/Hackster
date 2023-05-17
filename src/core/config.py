@@ -180,6 +180,7 @@ class Global(BaseSettings):
     HTB_API_SECRET: str | None = None
 
     START_WEBHOOK_SERVER: bool = False
+    WEBHOOK_PORT: int = 1337
     WEBHOOK_TOKEN: str = ""
 
     ROOT: Path = None
