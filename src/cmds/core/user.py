@@ -16,7 +16,6 @@ from src.core import settings
 from src.database.models import HtbDiscordLink
 from src.database.session import AsyncSessionLocal
 from src.helpers.checks import member_is_staff
-from src.helpers.getters import get_member_safe, get_user_safe
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +36,9 @@ class UserCog(commands.Cog):
         description="Changes the nickname of a user to ChangeMe."
     )
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
-    async def bad_name(self, ctx: ApplicationContext, user: discord.Member) -> Interaction | WebhookMessage:
+    async def bad_name(self, ctx: ApplicationContext, user: Member) -> Interaction | WebhookMessage:
         """Changes the nickname of a user to ChangeMe."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
             return await ctx.respond(f"User {user} not found in guild.")
 
@@ -67,7 +66,7 @@ class UserCog(commands.Cog):
         guild_ids=settings.guild_ids, description="Kick a user from the server."
     )
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
-    async def kick(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
+    async def kick(self, ctx: ApplicationContext, user: Member, reason: str) -> Interaction | WebhookMessage:
         """Kick a user from the server."""
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
@@ -157,9 +156,9 @@ class UserCog(commands.Cog):
         description="Remove all records of identification the user has made from the database.",
     )
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
-    async def remove_user_token(self, ctx: ApplicationContext, user: discord.Member) -> Interaction | WebhookMessage:
+    async def remove_user_token(self, ctx: ApplicationContext, user: Member) -> Interaction | WebhookMessage:
         """Remove all records of identification the user has made from the database."""
-        member = await get_user_safe(user, self.bot)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
 
         if not member:
             return await ctx.respond(f"User {user} not found.")
@@ -186,12 +185,9 @@ class UserCog(commands.Cog):
         *settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"),
         *settings.role_groups.get("ALL_HTB_STAFF")
     )
-    async def whois(
-        self, ctx: ApplicationContext,
-        user: Option(User | Member, description="Member to show cases of", required=True)
-    ) -> Interaction | WebhookMessage:
+    async def whois(self, ctx: ApplicationContext, user: User | Member) -> Interaction | WebhookMessage:
         """Given a Discord user ID, show the associated HTB user ID and vise versa."""
-        member = await get_user_safe(user, self.bot)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
 
         if member is None:
             logger.debug(f"Could not find user by id: {user.id}")
