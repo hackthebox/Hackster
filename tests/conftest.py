@@ -37,6 +37,17 @@ def member():
 
 
 @pytest.fixture
+def author():
+    return helpers.MockMember()
+
+
+@pytest.fixture
+def guild():
+    # Create and return a mocked instance of the Guild class
+    return helpers.MockGuild()
+
+
+@pytest.fixture
 def id_():
     return 297552404041814548  # Randomly generated id.
 
