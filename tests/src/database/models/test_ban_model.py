@@ -34,6 +34,21 @@ class TestBanModel:
             session.commit.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_insert_unban_time_bigint(self, session):
+        async with session() as session:
+            # Define return value for insert
+            session.add.return_value = None
+            session.commit.return_value = None
+
+            query = insert(Ban).values(name="John Doe", age=30, unban_time=2153337603)
+            session.add(query)
+            await session.commit()
+
+            # Check if the methods were called with the correct arguments
+            session.add.assert_called_once_with(query)
+            session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_update(self, session):
         async with session() as session:
             # Define return value for update

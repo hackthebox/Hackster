@@ -11,4 +11,4 @@ class Mute(Base):
     user_id: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
     reason: Mapped[str] = mapped_column(TEXT, nullable=False)
     moderator_id: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
-    unmute_time: Mapped[int] = mapped_column(Integer, nullable=False)
+    unmute_time: Mapped[int] = mapped_column(BIGINT(11, unsigned=True), nullable=False)

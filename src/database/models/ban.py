@@ -26,7 +26,7 @@ class Ban(Base):
     user_id: Mapped[int] = mapped_column(BIGINT(18))
     reason: Mapped[str] = mapped_column(TEXT, nullable=False)
     moderator_id: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
-    unban_time: Mapped[int] = mapped_column(Integer)
+    unban_time: Mapped[int] = mapped_column(BIGINT(11, unsigned=True))
     approved: Mapped[bool] = mapped_column(Boolean, nullable=False)
     unbanned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     timestamp: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
