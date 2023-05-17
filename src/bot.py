@@ -3,9 +3,10 @@ import socket
 
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
-from discord import ApplicationContext, Cog, DiscordException, Embed, HTTPException, Forbidden, NotFound, Member, \
-    User, \
-    Guild
+from discord import (
+    ApplicationContext, Cog, DiscordException, Embed, HTTPException, Forbidden, NotFound, Member,
+    User, Guild
+)
 from discord.ext.commands import (
     Bot as DiscordBot, CommandNotFound, CommandOnCooldown, DefaultHelpCommand,
     MissingAnyRole, MissingPermissions, MissingRequiredArgument, NoPrivateMessage, UserInputError
@@ -23,6 +24,7 @@ class Bot(DiscordBot):
     """Base bot class."""
 
     name = settings.bot.NAME
+    logger = logger
 
     def __init__(self, mock: bool = False, **kwargs):
         """
@@ -49,6 +51,12 @@ class Bot(DiscordBot):
         self.loop.create_task(self.send_log(devlog_msg, colour=constants.colours.bright_green))
 
         logger.info(f"Started bot as {name}")
+        print("Loading ScheduledTasks cog...")
+        try:
+            bot.load_extension("src.cmds.automation.scheduled_tasks")
+            print("ScheduledTasks cog loaded!")
+        except Exception as e:
+            print(f"Failed to load ScheduledTasks cog: {e}")
 
     async def on_application_command(self, ctx: ApplicationContext) -> None:
         """A global handler cog."""
@@ -133,7 +141,7 @@ class Bot(DiscordBot):
             await self.http_session.close()
 
     async def get_member_or_user(self, guild: Guild, id_: int) -> Member | User | None:
-        """Get a member or a user from the database."""
+        """Get a member or a user from the guild or discord."""
         try:
             return await guild.fetch_member(id_)
         except Forbidden as exc:
