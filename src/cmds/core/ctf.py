@@ -12,7 +12,6 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import Ctf
 from src.database.session import AsyncSessionLocal
-from src.helpers.getters import get_member_safe
 
 CTF_RULES = """
 Do not attack the backend infrastructure of the CTF.
@@ -187,7 +186,7 @@ class CtfCog(commands.Cog):
 
         if ctf_pass == ctf.password:
             # Passwords matched - add roles
-            member = await get_member_safe(ctx.user.id, ctx.guild)
+            member = await self.bot.get_member_or_user(ctx.guild, ctx.user.id)
             await member.add_roles(ctx.guild.get_role(ctf.participant_role_id))
             return await ctx.respond(f"You've been added to {ctf.name}", ephemeral=True)
         else:
