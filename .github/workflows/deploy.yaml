@@ -45,3 +45,13 @@ jobs:
           command: |
             set image deployment ${{ env.DEPLOYMENT_NAME }} hackster=${{ env.DOCKER_IMAGE }};
             kubectl annotate deployment ${{ env.DEPLOYMENT_NAME }} kubernetes.io/change-cause="${{ env.CHANGE_CAUSE }}";
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ secrets.SENTRY_URL }}
+        with:
+          environment: ${{ (contains(github.ref, '-rc')) && 'development' || 'production' }}
+          version: ${{ github.ref }}
