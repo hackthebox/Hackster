@@ -1,17 +1,10 @@
 from unittest import mock
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 from discord import Forbidden, HTTPException
 
-from src.helpers.ban import ban_member, _check_member, _dm_banned_member
-from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock, AsyncMock
-
-import pytest
-
-from src.database.models import Infraction, Ban
-from src.helpers.ban import ban_member
+from src.helpers.ban import _check_member, _dm_banned_member, ban_member
 from src.helpers.responses import SimpleResponse
 from tests import helpers
 
@@ -138,112 +131,54 @@ class TestBanMember:
                                      f"(UTC)."
 
     @pytest.mark.asyncio
-    async def test_ban_member_success(self, ctx, bot, guild):
-        ctx.user = helpers.MockMember(id=1, name="Test User")
-        user = helpers.MockMember(id=2, name="Banned User")
-        mock_ban = MagicMock()
-        mock_infraction = MagicMock()
-        mock_session = AsyncMock()
-
+    async def test_ban_member_permanently_success(self, bot, guild, member, author):
+        duration = "500w"
         reason = 'Why not?'
-        duration = '1h'
+        member.display_name = "Banned Member"
 
         # Patching the necessary classes and functions
-        with patch('src.helpers.ban.Ban', return_value=mock_ban):
-            with patch('src.helpers.ban.Infraction', return_value=mock_infraction):
-                with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
-                    # Creating an instance of the Ban class
-                    ban_instance = Ban(
-                        user_id=user.id, reason=reason, moderator_id=ctx.user.id,
-                        unban_time=datetime.now() + timedelta(hours=1), approved=False
-                    )
-
-                    # Creating an instance of the Infraction class
-                    infraction_instance = Infraction(
-                        user_id=user.id, reason=f"Previously banned for: {reason}", weight=0, moderator_id=ctx.user.id,
-                        date=datetime.now().date()
-                    )
-
-                    # Mocking the session.add() and session.commit() methods
-                    mock_session.add.side_effect = lambda \
-                            obj: mock_session if obj == ban_instance or obj == infraction_instance else None
-                    mock_session.commit.return_value = None
-
-                    response = await ban_member(bot, guild, user, duration, reason, ctx.user, False)
-                    assert isinstance(response, SimpleResponse)
-                    assert response.message == f"Member {user.display_name} has been banned permanently."
+        with (
+            mock.patch("src.helpers.ban._check_member", return_value=None),
+            mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
+            mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+        ):
+            response = await ban_member(bot, guild, member, duration, reason, author, False)
+            assert isinstance(response, SimpleResponse)
+            assert response.message == f"Member {member.display_name} has been banned permanently."
 
     @pytest.mark.asyncio
-    async def test_ban_member_no_reason_success(self, ctx, bot, guild):
-        ctx.user = helpers.MockMember(id=1, name="Test User")
-        user = helpers.MockMember(id=2, name="Banned User")
-        mock_ban = MagicMock()
-        mock_infraction = MagicMock()
-        mock_session = AsyncMock()
-
+    async def test_ban_member_no_reason_success(self, bot, guild, member, author):
+        duration = "500w"
         reason = ''
-        duration = '1h'
+        member.display_name = "Banned Member"
 
         # Patching the necessary classes and functions
-        with patch('src.helpers.ban.Ban', return_value=mock_ban):
-            with patch('src.helpers.ban.Infraction', return_value=mock_infraction):
-                with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
-                    # Creating an instance of the Ban class
-                    ban_instance = Ban(
-                        user_id=user.id, reason=reason, moderator_id=ctx.user.id,
-                        unban_time=datetime.now() + timedelta(hours=1), approved=False
-                    )
-
-                    # Creating an instance of the Infraction class
-                    infraction_instance = Infraction(
-                        user_id=user.id, reason=f"Previously banned for: {reason}", weight=0, moderator_id=ctx.user.id,
-                        date=datetime.now().date()
-                    )
-
-                    # Mocking the session.add() and session.commit() methods
-                    mock_session.add.side_effect = lambda \
-                            obj: mock_session if obj == ban_instance or obj == infraction_instance else None
-                    mock_session.commit.return_value = None
-
-                    response = await ban_member(bot, guild, user, duration, reason, ctx.user, False)
-                    assert isinstance(response, SimpleResponse)
-                    assert response.message == f"Member {user.display_name} has been banned permanently."
+        with (
+            mock.patch("src.helpers.ban._check_member", return_value=None),
+            mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
+            mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+        ):
+            response = await ban_member(bot, guild, member, duration, reason, author, False)
+            assert isinstance(response, SimpleResponse)
+            assert response.message == f"Member {member.display_name} has been banned permanently."
 
     @pytest.mark.asyncio
-    async def test_ban_member_no_author_success(self, ctx, bot, guild):
-        # bot.id = 1337
-        user = helpers.MockMember(id=2, name="Banned User")
-        mock_ban = MagicMock()
-        mock_infraction = MagicMock()
-        mock_session = AsyncMock()
-
+    async def test_ban_member_no_author_success(self, bot, guild, member):
+        duration = '500w'
         reason = ''
-        duration = '1h'
+        member.display_name = "Banned Member"
 
-        # Patching the necessary classes and functions
-        with patch('src.helpers.ban.Ban', return_value=mock_ban):
-            with patch('src.helpers.ban.Infraction', return_value=mock_infraction):
-                with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
-                    # Creating an instance of the Ban class
-                    ban_instance = Ban(
-                        user_id=user.id, reason=reason, moderator_id=1337,
-                        unban_time=datetime.now() + timedelta(hours=1), approved=False
-                    )
-
-                    # Creating an instance of the Infraction class
-                    infraction_instance = Infraction(
-                        user_id=user.id, reason=f"Previously banned for: {reason}", weight=0, moderator_id=1337,
-                        date=datetime.now().date()
-                    )
-
-                    # Mocking the session.add() and session.commit() methods
-                    mock_session.add.side_effect = lambda \
-                            obj: mock_session if obj == ban_instance or obj == infraction_instance else None
-                    mock_session.commit.return_value = None
-
-                    response = await ban_member(bot, guild, user, duration, reason, None, False)
-                    assert isinstance(response, SimpleResponse)
-                    assert response.message == f"Member {user.display_name} has been banned permanently."
+        with (
+            mock.patch("src.helpers.ban._check_member", return_value=None),
+            mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
+            mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+        ):
+            response = await ban_member(bot, guild, member, duration, reason, None, False)
+            assert isinstance(response, SimpleResponse)
+            assert response.message == f"Member {member.display_name} has been banned permanently."
 
     @pytest.mark.asyncio
     async def test_ban_member_staff(self, ctx, bot, guild):
