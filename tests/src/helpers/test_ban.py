@@ -131,6 +131,20 @@ class TestBanMember:
                                      f"(UTC)."
 
     @pytest.mark.asyncio
+    async def test_ban_member_invalid_duration(self, bot, guild, member, author):
+        duration = "1d"
+        reason = "xf reason"
+        member.display_name = "Banned Member"
+
+        with (
+            mock.patch("src.helpers.ban._check_member", return_value=None),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(0, "Invalid duration: could not parse.")),
+        ):
+            result = await ban_member(bot, guild, member, duration, reason)
+            assert isinstance(result, SimpleResponse)
+            assert result.message == "Invalid duration: could not parse."
+
+    @pytest.mark.asyncio
     async def test_ban_member_permanently_success(self, bot, guild, member, author):
         duration = "500w"
         reason = 'Why not?'
@@ -179,6 +193,22 @@ class TestBanMember:
             response = await ban_member(bot, guild, member, duration, reason, None, False)
             assert isinstance(response, SimpleResponse)
             assert response.message == f"Member {member.display_name} has been banned permanently."
+
+    @pytest.mark.asyncio
+    async def test_ban_already_exists(self, bot, guild, member, author):
+        duration = '500w'
+        reason = ''
+        member.display_name = "Banned Member"
+
+        with (
+            mock.patch("src.helpers.ban._check_member", return_value=None),
+            mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
+            mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, True)),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+        ):
+            response = await ban_member(bot, guild, member, duration, reason, author)
+            assert isinstance(response, SimpleResponse)
+            assert response.message == f"A ban with id: 1 already exists for member {member}"
 
     @pytest.mark.asyncio
     async def test_ban_member_staff(self, ctx, bot, guild):
