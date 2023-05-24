@@ -107,7 +107,8 @@ async def process_identification(
         embed = discord.Embed(
             title="Identification error",
             description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
-            color=0xFF2429, )
+            color=0xFF2429,
+        )
 
         await guild.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
         return None
@@ -120,24 +121,27 @@ async def process_identification(
 
     to_assign = []
     logger.debug(
-        "Getting role 'rank':", extra={
+        "Getting role 'rank':",
+        extra={
             "role_id": settings.get_post_or_rank(htb_user_details["rank"]),
             "role_obj": guild.get_role(settings.get_post_or_rank(htb_user_details["rank"])),
             "htb_rank": htb_user_details["rank"],
-        }, )
+        },
+    )
     if htb_user_details["rank"] not in ["Deleted", "Moderator", "Ambassador", "Admin", "Staff"]:
         to_assign.append(guild.get_role(settings.get_post_or_rank(htb_user_details["rank"])))
     if season_rank:
         to_assign.append(guild.get_role(settings.get_season(season_rank)))
     if htb_user_details["vip"]:
         logger.debug(
-            'Getting role "VIP":', extra={"role_id": settings.roles.VIP, "role_obj": guild.get_role(settings.roles.VIP)}
+            'Getting role "VIP":',
+            extra={"role_id": settings.roles.VIP, "role_obj": guild.get_role(settings.roles.VIP)},
         )
         to_assign.append(guild.get_role(settings.roles.VIP))
     if htb_user_details["dedivip"]:
         logger.debug(
             'Getting role "VIP+":',
-            extra={"role_id": settings.roles.VIP_PLUS, "role_obj": guild.get_role(settings.roles.VIP_PLUS)}
+            extra={"role_id": settings.roles.VIP_PLUS, "role_obj": guild.get_role(settings.roles.VIP_PLUS)},
         )
         to_assign.append(guild.get_role(settings.roles.VIP_PLUS))
     if htb_user_details["hof_position"] != "unranked":
@@ -159,24 +163,30 @@ async def process_identification(
         if pos_top:
             logger.debug(f"User is Hall of Fame rank {position}. Assigning role Top-{pos_top}...")
             logger.debug(
-                'Getting role "HoF role":', extra={
+                'Getting role "HoF role":',
+                extra={
                     "role_id": settings.get_post_or_rank(pos_top),
-                    "role_obj": guild.get_role(settings.get_post_or_rank(pos_top)), "hof_val": pos_top,
-                }, )
+                    "role_obj": guild.get_role(settings.get_post_or_rank(pos_top)),
+                    "hof_val": pos_top,
+                },
+            )
             to_assign.append(guild.get_role(settings.get_post_or_rank(pos_top)))
         else:
             logger.debug(f"User is position {position}. No Hall of Fame roles for them.")
     if htb_user_details["machines"]:
         logger.debug(
             'Getting role "BOX_CREATOR":',
-            extra={"role_id": settings.roles.BOX_CREATOR, "role_obj": guild.get_role(settings.roles.BOX_CREATOR)}, )
+            extra={"role_id": settings.roles.BOX_CREATOR, "role_obj": guild.get_role(settings.roles.BOX_CREATOR)},
+        )
         to_assign.append(guild.get_role(settings.roles.BOX_CREATOR))
     if htb_user_details["challenges"]:
         logger.debug(
-            'Getting role "CHALLENGE_CREATOR":', extra={
+            'Getting role "CHALLENGE_CREATOR":',
+            extra={
                 "role_id": settings.roles.CHALLENGE_CREATOR,
                 "role_obj": guild.get_role(settings.roles.CHALLENGE_CREATOR),
-            }, )
+            },
+        )
         to_assign.append(guild.get_role(settings.roles.CHALLENGE_CREATOR))
 
     if member.nick != htb_user_details["user_name"]:

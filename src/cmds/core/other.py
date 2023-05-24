@@ -16,9 +16,7 @@ class OtherCog(commands.Cog):
         self.bot = bot
 
     @slash_command(guild_ids=settings.guild_ids, description="A simple reply stating hints are not allowed.")
-    async def no_hints(
-        self, ctx: ApplicationContext
-    ) -> Message:
+    async def no_hints(self, ctx: ApplicationContext) -> Message:
         """A simple reply stating hints are not allowed."""
         return await ctx.channel.send(
             "No hints are allowed for the duration the event is going on. This is a competitive event with prizes. "

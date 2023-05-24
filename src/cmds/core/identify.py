@@ -25,7 +25,8 @@ class IdentifyCog(commands.Cog):
     @slash_command(
         guild_ids=settings.guild_ids,
         description="Identify yourself on the HTB Discord server by linking your HTB account ID to your Discord user "
-                    "ID.", guild_only=False
+        "ID.",
+        guild_only=False,
     )
     @cooldown(1, 60, commands.BucketType.user)
     async def identify(self, ctx: ApplicationContext, account_identifier: str) -> Interaction | WebhookMessage:
@@ -33,7 +34,7 @@ class IdentifyCog(commands.Cog):
         if len(account_identifier) != 60:
             return await ctx.respond(
                 "This Account Identifier does not appear to be the right length (must be 60 characters long).",
-                ephemeral=True
+                ephemeral=True,
             )
 
         await ctx.respond("Identification initiated, please wait...", ephemeral=True)
@@ -94,9 +95,11 @@ class IdentifyCog(commands.Cog):
         discord_user_ids = {u_link.discord_user_id_as_int for u_link in user_links}
         if discord_user_ids and member.id not in discord_user_ids:
             orig_discord_ids = ", ".join([f"<@{id_}>" for id_ in discord_user_ids])
-            error_desc = (f"The HTB account {json_htb_user_id} attempted to be identified by user <@{member.id}>, "
-                          f"but is tied to another Discord account.\n"
-                          f"Originally linked to Discord UID {orig_discord_ids}.")
+            error_desc = (
+                f"The HTB account {json_htb_user_id} attempted to be identified by user <@{member.id}>, "
+                f"but is tied to another Discord account.\n"
+                f"Originally linked to Discord UID {orig_discord_ids}."
+            )
             embed = discord.Embed(title="Identification error", description=error_desc, color=0xFF2429)
             await self.bot.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
 
@@ -118,9 +121,11 @@ class IdentifyCog(commands.Cog):
 
         user_htb_ids = {u_link.htb_user_id_as_int for u_link in user_links}
         if user_htb_ids and json_htb_user_id not in user_htb_ids:
-            error_desc = (f"User {member.mention} ({member.id}) tried to identify with a new HTB account.\n"
-                          f"Original HTB UIDs: {', '.join([str(i) for i in user_htb_ids])}, new HTB UID: "
-                          f"{json_htb_user_id}.")
+            error_desc = (
+                f"User {member.mention} ({member.id}) tried to identify with a new HTB account.\n"
+                f"Original HTB UIDs: {', '.join([str(i) for i in user_htb_ids])}, new HTB UID: "
+                f"{json_htb_user_id}."
+            )
             embed = discord.Embed(title="Identification error", description=error_desc, color=0xFF2429)
             await self.bot.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
 

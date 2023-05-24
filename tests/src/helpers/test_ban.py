@@ -1,5 +1,5 @@
 from unittest import mock
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from discord import Forbidden, HTTPException

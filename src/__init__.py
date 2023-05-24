@@ -27,7 +27,11 @@ os.makedirs(log_dir, exist_ok=True)
 
 # File handler rotates logs every 5 MB.
 file_handler = logging.handlers.RotatingFileHandler(
-    log_file, maxBytes=5 * (2 ** 20), backupCount=10, encoding="utf-8", )
+    log_file,
+    maxBytes=5 * (2 ** 20),
+    backupCount=10,
+    encoding="utf-8",
+)
 file_handler.setLevel(logging.DEBUG)
 
 # Console handler prints to terminal.
@@ -42,9 +46,7 @@ datefmt = "%H:%M:%S"
 try:
     from colorlog import ColoredFormatter
 
-    console_handler.setFormatter(
-        ColoredFormatter(fmt=f"%(log_color)s{fmt}", datefmt=datefmt)
-    )
+    console_handler.setFormatter(ColoredFormatter(fmt=f"%(log_color)s{fmt}", datefmt=datefmt))
 except ModuleNotFoundError:
     pass
 
@@ -60,9 +62,7 @@ logging.getLogger("discord.gateway").setLevel(logging.ERROR)
 logging.getLogger("asyncio").setLevel(logging.ERROR)
 
 # Setup new logging configuration.
-logging.basicConfig(
-    format=fmt, datefmt=datefmt, level=logging.DEBUG, handlers=[console_handler, file_handler]
-)
+logging.basicConfig(format=fmt, datefmt=datefmt, level=logging.DEBUG, handlers=[console_handler, file_handler])
 
 if settings.SENTRY_DSN and not settings.DEBUG:
     sentry_sdk.init(
@@ -85,7 +85,7 @@ async def on_request_end(session, context, params: TraceRequestEndParams) -> Non
     # Format and send logging message.
     protocol = f"HTTP/{resp.version.major}.{resp.version.minor}"
     message = f'"{resp.method} - {protocol}" {resp.url} <{resp.status}>'
-    logging.getLogger('aiohttp.client').debug(message)
+    logging.getLogger("aiohttp.client").debug(message)
 
 
 # Configure aiohttp logging.

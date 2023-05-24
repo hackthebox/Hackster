@@ -27,10 +27,7 @@ class PingCog(commands.Cog):
         """Ping the bot to see its latency, uptime and version."""
         difference = relativedelta(arrow.utcnow() - start_time)
         uptime: str = start_time.shift(
-            seconds=-difference.seconds,
-            minutes=-difference.minutes,
-            hours=-difference.hours,
-            days=-difference.days
+            seconds=-difference.seconds, minutes=-difference.minutes, hours=-difference.hours, days=-difference.days
         ).humanize()
 
         latency = round(self.bot.latency * 1000)
@@ -38,7 +35,7 @@ class PingCog(commands.Cog):
         embed = Embed(
             colour=color_level(latency),
             description=f"• Gateway Latency: **{latency}ms**\n• Start time: **{uptime}**\n• Version: **"
-                        f"{settings.VERSION}**"
+            f"{settings.VERSION}**",
         )
 
         return await ctx.respond(embed=embed)

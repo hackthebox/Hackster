@@ -22,6 +22,7 @@ class Ban(Base):
         unbanned (bool): Whether the user has been unbanned or not, cannot be null, default is False.
         timestamp (datetime): The timestamp when the ban was issued, cannot be null.
     """
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(BIGINT(18))
     reason: Mapped[str] = mapped_column(TEXT, nullable=False)

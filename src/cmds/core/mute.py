@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from discord import ApplicationContext, Interaction, WebhookMessage, slash_command, Member
+from discord import ApplicationContext, Interaction, Member, WebhookMessage, slash_command
 from discord.errors import Forbidden
 from discord.ext import commands
 from discord.ext.commands import has_any_role
@@ -21,10 +21,7 @@ class MuteCog(commands.Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
 
-    @slash_command(
-        guild_ids=settings.guild_ids,
-        description="Mute a person (adds the Muted role to person)."
-    )
+    @slash_command(guild_ids=settings.guild_ids, description="Mute a person (adds the Muted role to person).")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def mute(
         self, ctx: ApplicationContext, user: Member, duration: str, reason: str
@@ -68,9 +65,7 @@ class MuteCog(commands.Cog):
 
         return await ctx.respond(f"{member.mention} ({member.id}) has been muted for {duration}.")
 
-    @slash_command(
-        guild_ids=settings.guild_ids, description="Unmute the user removing the Muted role."
-    )
+    @slash_command(guild_ids=settings.guild_ids, description="Unmute the user removing the Muted role.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def unmute(self, ctx: ApplicationContext, user: Member) -> Interaction | WebhookMessage:
         """Unmute the user removing the Muted role."""

@@ -19,7 +19,7 @@ class ChannelCog(commands.Cog):
 
     @slash_command(
         guild_ids=settings.guild_ids,
-        description="Add slow-mode to the channel. Specifying a value of 0 removes the slow-mode again."
+        description="Add slow-mode to the channel. Specifying a value of 0 removes the slow-mode again.",
     )
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def slowmode(
@@ -52,7 +52,8 @@ class ChannelCog(commands.Cog):
     @slash_command(guild_ids=settings.guild_ids)
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
     async def cleanup(
-        self, ctx: ApplicationContext,
+        self,
+        ctx: ApplicationContext,
         count: Option(int, "How many messages to delete", required=True, default=5),
     ) -> Interaction | WebhookMessage:
         """Removes the past X messages!"""

@@ -4,12 +4,27 @@ import socket
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
 from discord import (
-    ApplicationContext, Cog, DiscordException, Embed, HTTPException, Forbidden, NotFound, Member,
-    User, Guild
+    ApplicationContext,
+    Cog,
+    DiscordException,
+    Embed,
+    Forbidden,
+    Guild,
+    HTTPException,
+    Member,
+    NotFound,
+    User,
 )
+from discord.ext.commands import Bot as DiscordBot
 from discord.ext.commands import (
-    Bot as DiscordBot, CommandNotFound, CommandOnCooldown, DefaultHelpCommand,
-    MissingAnyRole, MissingPermissions, MissingRequiredArgument, NoPrivateMessage, UserInputError
+    CommandNotFound,
+    CommandOnCooldown,
+    DefaultHelpCommand,
+    MissingAnyRole,
+    MissingPermissions,
+    MissingRequiredArgument,
+    NoPrivateMessage,
+    UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
 
@@ -69,8 +84,10 @@ class Bot(DiscordBot):
         if isinstance(error, CommandNotFound):
             return
         if isinstance(error, MissingRequiredArgument):
-            message = f"Parameter '{error.param.name}' is required, but missing. Type `{ctx.clean_prefix}help " \
-                      f"{ctx.invoked_with}` for help."
+            message = (
+                f"Parameter '{error.param.name}' is required, but missing. Type `{ctx.clean_prefix}help "
+                f"{ctx.invoked_with}` for help."
+            )
         elif isinstance(error, MissingPermissions):
             message = "You are missing the required permissions to run this command."
         elif isinstance(error, MissingAnyRole):
@@ -82,14 +99,14 @@ class Bot(DiscordBot):
         elif isinstance(error, CommandOnCooldown):
             message = f"You are on cooldown. Try again in {error.retry_after:.2f}s"
         elif isinstance(error, NoResultFound):
-            message = f"The requested object could not be found."
+            message = "The requested object could not be found."
 
         errored_commands.labels(ctx.command.name).inc()
 
         if message is None:
             raise error
         else:
-            logger.debug(f"A user caused an error which was handled.", exc_info=error)
+            logger.debug("A user caused an error which was handled.", exc_info=error)
             await ctx.respond(message, delete_after=15, ephemeral=True)
 
     async def on_application_command_completion(self, ctx: ApplicationContext) -> None:
@@ -112,8 +129,7 @@ class Bot(DiscordBot):
 
         if not devlog:
             logger.debug(
-                f"Fetching the devlog channel as it wasn't found in the cache "
-                f"(ID: {settings.channels.DEVLOG})"
+                f"Fetching the devlog channel as it wasn't found in the cache " f"(ID: {settings.channels.DEVLOG})"
             )
             try:
                 devlog = await self.fetch_channel(settings.channels.DEVLOG)

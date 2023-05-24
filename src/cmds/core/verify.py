@@ -20,7 +20,7 @@ class VerifyCog(commands.Cog):
 
     @slash_command(
         guild_ids=settings.guild_ids,
-        description="Receive instructions in a DM on how to identify yourself with your HTB account."
+        description="Receive instructions in a DM on how to identify yourself with your HTB account.",
     )
     @cooldown(1, 60, commands.BucketType.user)
     async def verify(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
@@ -32,7 +32,9 @@ class VerifyCog(commands.Cog):
         embed_step1.add_field(
             name="Step 1: Log in at Hack The Box",
             value="Log in to your Hack The Box account at <https://www.hackthebox.com/> and navigate to the settings "
-                  "page.", inline=False, )
+            "page.",
+            inline=False,
+        )
         embed_step1.set_image(
             url="https://media.discordapp.net/attachments/724587782755844098/839871275627315250/unknown.png"
         )
@@ -42,7 +44,9 @@ class VerifyCog(commands.Cog):
         embed_step2.add_field(
             name="Step 2: Locate the Account Identifier",
             value='In the settings tab, look for a field called "Account Identifier". Next, click the green button to '
-                  "copy your secret identifier.", inline=False, )
+            "copy your secret identifier.",
+            inline=False,
+        )
         embed_step2.set_image(
             url="https://media.discordapp.net/attachments/724587782755844098/839871332963188766/unknown.png"
         )
@@ -52,7 +56,8 @@ class VerifyCog(commands.Cog):
         embed_step3.add_field(
             name="Step 3: Identification",
             value="Now type `/identify IDENTIFIER_HERE` in the bot-commands channel.\n\nYour roles will then be "
-                  "automatically applied.", inline=False
+            "automatically applied.",
+            inline=False,
         )
         embed_step3.set_image(
             url="https://media.discordapp.net/attachments/709907130102317093/904744444539076618/unknown.png"
