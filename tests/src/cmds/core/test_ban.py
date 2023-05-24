@@ -19,13 +19,9 @@ class TestBanCog:
     async def test_ban_success(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = user
 
-        with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
-            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock
-        ):
+        with patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock:
             ban_response = SimpleResponse(
                 message=f"Member {user.display_name} has been banned permanently.", delete_after=0
             )
@@ -35,34 +31,7 @@ class TestBanCog:
             await cog.ban.callback(cog, ctx, user, "Any valid reason")
 
             # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
-            ban_member_mock.assert_called_once_with(
-                bot, ctx.guild, user, "500w", "Any valid reason", ctx.user, needs_approval=False
-            )
-            ctx.respond.assert_called_once_with(
-                f"Member {user.display_name} has been banned permanently.", delete_after=0
-            )
-
-    @pytest.mark.asyncio
-    async def test_ban_success_with_user_id(self, ctx, bot):
-        ctx.user = helpers.MockMember(id=1, name="Test User")
-        user = helpers.MockMember(id=2, name="Banned User")
-        with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
-            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock
-        ):
-            ban_response = SimpleResponse(
-                message=f"Member {user.display_name} has been banned permanently.", delete_after=0
-            )
-            ban_member_mock.return_value = ban_response
-
-            cog = ban.BanCog(bot)
-            await cog.ban.callback(cog, ctx, user.id, "Any valid reason")
-
-            # Assertions
-            get_member_safe_mock.assert_called_once_with(user.id, ctx.guild)
+            # get_member_safe_mock.assert_called_once_with(user, ctx.guild)
             ban_member_mock.assert_called_once_with(
                 bot, ctx.guild, user, "500w", "Any valid reason", ctx.user, needs_approval=False
             )
@@ -74,11 +43,9 @@ class TestBanCog:
     async def test_tempban_success(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = user
 
         with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
             patch('src.helpers.ban.validate_duration', new_callable=AsyncMock) as validate_duration_mock,
             patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock
         ):
@@ -92,7 +59,6 @@ class TestBanCog:
             await cog.tempban.callback(cog, ctx, user, "5d", "Any valid reason")
 
             # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
             ban_member_mock.assert_called_once_with(
                 bot, ctx.guild, user, "5d", "Any valid reason", ctx.user, needs_approval=True
             )
@@ -102,11 +68,9 @@ class TestBanCog:
     async def test_tempban_failed_with_wrong_duration(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = user
 
         with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
             patch('src.helpers.ban.validate_duration', new_callable=AsyncMock) as validate_duration_mock,
             patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock
         ):
@@ -122,7 +86,6 @@ class TestBanCog:
             await cog.tempban.callback(cog, ctx, user, "5", "Any valid reason")
 
             # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
             ban_member_mock.assert_called_once_with(
                 bot, ctx.guild, user, "5", "Any valid reason", ctx.user, needs_approval=True
             )
@@ -134,20 +97,15 @@ class TestBanCog:
     async def test_unban_success(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test Moderator")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = user
 
-        with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
-            patch('src.cmds.core.ban.unban_member', new_callable=AsyncMock) as unban_member_mock
-        ):
+        with patch('src.cmds.core.ban.unban_member', new_callable=AsyncMock) as unban_member_mock:
             unban_member_mock.return_value = user
 
             cog = ban.BanCog(bot)
             await cog.unban.callback(cog, ctx, user)
 
             # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
             unban_member_mock.assert_called_once_with(ctx.guild, user)
             ctx.respond.assert_called_once_with(f"User #{user.id} has been unbanned.")
 
@@ -155,20 +113,15 @@ class TestBanCog:
     async def test_unban_failure(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test Moderator")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = user
 
-        with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
-            patch('src.cmds.core.ban.unban_member', new_callable=AsyncMock) as unban_member_mock
-        ):
+        with patch('src.cmds.core.ban.unban_member', new_callable=AsyncMock) as unban_member_mock:
             unban_member_mock.return_value = None
 
             cog = ban.BanCog(bot)
             await cog.unban.callback(cog, ctx, user)
 
             # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
             unban_member_mock.assert_called_once_with(ctx.guild, user)
             ctx.respond.assert_called_once_with("Failed to unban user. Are they perhaps not banned at all?")
 
@@ -191,13 +144,9 @@ class TestBanCog:
     async def test_warn_success(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = user
 
-        with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
-            patch('src.cmds.core.ban.add_infraction', new_callable=AsyncMock) as add_infraction_mock
-        ):
+        with patch('src.cmds.core.ban.add_infraction', new_callable=AsyncMock) as add_infraction_mock:
             add_infraction_mock.return_value = SimpleResponse(
                 message=f"{user.mention} ({user.id}) has been warned with a strike weight of 0.",
                 delete_after=None
@@ -206,36 +155,27 @@ class TestBanCog:
             await cog.warn.callback(cog, ctx, user, "Any valid reason")
 
             # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
             add_infraction_mock.assert_called_once_with(ctx.guild, user, 0, "Any valid reason", ctx.user)
 
     @pytest.mark.asyncio
     async def test_warn_user_not_found(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = None
 
-        with patch(
-            'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=None
-        ) as get_member_safe_mock:
-            cog = ban.BanCog(bot)
-            await cog.warn.callback(cog, ctx, user, "Any valid reason")
+        cog = ban.BanCog(bot)
+        await cog.warn.callback(cog, ctx, user, "Any valid reason")
 
-            # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
-            assert get_member_safe_mock.return_value is None
-            ctx.respond.assert_called_once_with(f"User {user} not found in guild.")
+        # Assertions
+        ctx.respond.assert_called_once_with(f"User {user} not found.")
 
     @pytest.mark.asyncio
     async def test_strike_success(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = user
 
-        with (
-            patch(
-                'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=user
-            ) as get_member_safe_mock,
-            patch('src.cmds.core.ban.add_infraction', new_callable=AsyncMock) as add_infraction_mock
-        ):
+        with patch('src.cmds.core.ban.add_infraction', new_callable=AsyncMock) as add_infraction_mock:
             add_infraction_mock.return_value = SimpleResponse(
                 message=f"{user.mention} ({user.id}) has been warned with a strike weight of 10.",
                 delete_after=None
@@ -244,24 +184,19 @@ class TestBanCog:
             await cog.strike.callback(cog, ctx, user, 10, "Any valid reason")
 
             # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
             add_infraction_mock.assert_called_once_with(ctx.guild, user, 10, "Any valid reason", ctx.user)
 
     @pytest.mark.asyncio
     async def test_strike_user_not_found(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
+        bot.get_member_or_user.return_value = None
 
-        with patch(
-            'src.cmds.core.ban.get_member_safe', new_callable=AsyncMock, return_value=None
-        ) as get_member_safe_mock:
-            cog = ban.BanCog(bot)
-            await cog.strike.callback(cog, ctx, user, 10, "Any valid reason")
+        cog = ban.BanCog(bot)
+        await cog.strike.callback(cog, ctx, user, 10, "Any valid reason")
 
-            # Assertions
-            get_member_safe_mock.assert_called_once_with(user, ctx.guild)
-            assert get_member_safe_mock.return_value is None
-            ctx.respond.assert_called_once_with(f"User {user} not found in guild.")
+        # Assertions
+        ctx.respond.assert_called_once_with(f"User {user} not found.")
 
     @pytest.mark.asyncio
     async def test_remove_infraction_success(self, ctx, bot):

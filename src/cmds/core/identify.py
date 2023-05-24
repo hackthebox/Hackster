@@ -11,7 +11,6 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import HtbDiscordLink
 from src.database.session import AsyncSessionLocal
-from src.helpers.getters import get_member_safe
 from src.helpers.verification import get_user_details, process_identification
 
 logger = logging.getLogger(__name__)
@@ -45,9 +44,8 @@ class IdentifyCog(commands.Cog):
 
         json_htb_user_id = htb_user_details["user_id"]
 
-        guild = ctx.guild
         author = ctx.user
-        member = await get_member_safe(author, guild)
+        member = await self.bot.get_or_fetch_user(author.id)
         if not member:
             return await ctx.respond(f"Error getting guild member with id: {author.id}.")
 

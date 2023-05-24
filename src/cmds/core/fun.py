@@ -1,14 +1,10 @@
-import json
 import logging
-import os
-import random
 
 from discord import ApplicationContext, Interaction, Option, WebhookMessage
 from discord.ext.commands import BucketType, Cog, cooldown, has_any_role, slash_command
 
 from src.bot import Bot
 from src.core import settings
-from src.helpers.getters import get_member_safe
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +35,6 @@ class Fun(Cog):
         goggle = goggle.replace("<", "")
         goggle = goggle.replace(">", "")
         return await ctx.respond(f"https://lmgtfy.com?q={goggle}")
-
 
     @slash_command(guild_ids=settings.guild_ids, name="start-here", default_permission=True)
     @cooldown(1, 60, BucketType.user)

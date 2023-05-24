@@ -10,7 +10,6 @@ from discord.ext.commands import GuildNotFound, MemberNotFound
 from src.bot import Bot
 from src.core import settings
 from src.helpers.ban import ban_member
-from src.helpers.getters import get_member_safe
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +86,7 @@ async def process_identification(
     # This will only work if the user and the bot share only one guild.
     elif isinstance(user, User) and len(user.mutual_guilds) == 1:
         guild = user.mutual_guilds[0]
-        member = await get_member_safe(user.id, guild)
+        member = await bot.get_member_or_user(guild, user.id)
         if not member:
             raise MemberNotFound(str(user.id))
     else:

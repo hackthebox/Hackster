@@ -1,8 +1,8 @@
 import logging
 
 import arrow
-import discord
 from discord import ApplicationContext, Interaction, SlashCommandGroup, WebhookMessage
+from discord.abc import User
 from discord.ext import commands
 from discord.ext.commands import has_any_role
 
@@ -10,7 +10,6 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import UserNote
 from src.database.session import AsyncSessionLocal
-from src.helpers.getters import get_member_safe
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +24,9 @@ class NoteCog(commands.Cog):
 
     @note.command(description="Add a note to the users history records. Only intended for staff convenience.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
-    async def add(self, ctx: ApplicationContext, user: discord.Member, note: str) -> Interaction | WebhookMessage:
+    async def add(self, ctx: ApplicationContext, user: User, note: str) -> Interaction | WebhookMessage:
         """Add a note to the users history records. Only intended for staff convenience."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
 
         if len(note) == 0:
             return await ctx.respond("The note is empty. Try again...")

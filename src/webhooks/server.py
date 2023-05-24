@@ -54,5 +54,5 @@ async def webhook_handler(body: WebhookBody, authorization: Union[str, None] = H
 
 app.mount("/metrics", metrics_app)
 
-config = Config(app, host="0.0.0.0", port=1337)
+config = Config(app, host="0.0.0.0", port=settings.WEBHOOK_PORT)
 server = Server(config)

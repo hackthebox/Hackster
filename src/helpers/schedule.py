@@ -6,7 +6,7 @@ from typing import Coroutine
 logger = logging.getLogger(__name__)
 
 
-async def schedule(task: Coroutine, run_at: datetime) -> Coroutine:
+async def schedule(task: Coroutine, run_at: datetime) -> None:
     """
     Schedule an "Awaitable" for future execution, i.e. an async function.
 
@@ -14,7 +14,8 @@ async def schedule(task: Coroutine, run_at: datetime) -> Coroutine:
     await schedule(foo(1, 2), at=(dt.datetime.now() + dt.timedelta(seconds=421337)))
     """
     now = datetime.now()
-    if run_at < now:
+    delay = int((run_at - now).total_seconds())
+    if delay < 0:
         logger.debug(
             "Target execution is in the past. Setting sleep timer to 0.",
             extra={
@@ -22,16 +23,17 @@ async def schedule(task: Coroutine, run_at: datetime) -> Coroutine:
                 "current_time": repr(now),
             },
         )
-        seconds = 0
-    else:
-        seconds = int((run_at - now).total_seconds())
-        logger.debug(
-            f"Task {task.__name__} will run after {seconds} seconds.",
-            extra={
-                "target_exec": repr(run_at),
-                "current_time": repr(now),
-            },
-        )
+        await task
+        return
 
-    await asyncio.sleep(seconds)
-    return await task
+    logger.debug(
+        f"Task {task.__name__} will run after {delay} seconds.",
+        extra={
+            "target_exec": repr(run_at),
+            "current_time": repr(now),
+        },
+    )
+
+    await asyncio.sleep(delay)
+    await task
+    return

@@ -2,9 +2,8 @@ import os
 from logging.config import fileConfig
 
 import dotenv
-from sqlalchemy import create_engine
-
 from alembic import context
+from sqlalchemy import create_engine
 
 dotenv.load_dotenv()
 

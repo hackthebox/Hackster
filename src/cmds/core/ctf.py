@@ -12,7 +12,6 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import Ctf
 from src.database.session import AsyncSessionLocal
-from src.helpers.getters import get_member_safe
 
 CTF_RULES = """
 Do not attack the backend infrastructure of the CTF.
@@ -174,6 +173,7 @@ class CtfCog(commands.Cog):
     ) -> Interaction | WebhookMessage:
         """Join CTF channels."""
         # try:
+        ctx.defer()
         ctf_name = ctf_name.lower()
         async with AsyncSessionLocal() as session:
             stmt = select(Ctf).filter(Ctf.name == ctf_name)
@@ -186,9 +186,8 @@ class CtfCog(commands.Cog):
 
         if ctf_pass == ctf.password:
             # Passwords matched - add roles
-            guild = ctx.guild
-            member = await get_member_safe(ctx.user.id, guild)
-            await member.add_roles(guild.get_role(ctf.participant_role_id))
+            member = await self.bot.get_member_or_user(ctx.guild, ctx.user.id)
+            await member.add_roles(ctx.guild.get_role(ctf.participant_role_id))
             return await ctx.respond(f"You've been added to {ctf.name}", ephemeral=True)
         else:
             logger.debug(

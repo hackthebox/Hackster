@@ -13,7 +13,6 @@ from src.database.models import Ban, Infraction
 from src.database.session import AsyncSessionLocal
 from src.helpers.ban import add_infraction, ban_member, unban_member
 from src.helpers.duration import validate_duration
-from src.helpers.getters import get_member_safe
 from src.helpers.schedule import schedule
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,9 @@ class BanCog(commands.Cog):
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
     async def ban(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
         """Ban a user from the server permanently."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
+        if not member:
+            return await ctx.respond(f"User {user} not found.")
         response = await ban_member(self.bot, ctx.guild, member, "500w", reason, ctx.user, needs_approval=False)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
@@ -44,7 +45,9 @@ class BanCog(commands.Cog):
         self, ctx: ApplicationContext, user: discord.Member, duration: str, reason: str
     ) -> Interaction | WebhookMessage:
         """Ban a user from the server temporarily."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
+        if not member:
+            return await ctx.respond(f"User {user} not found.")
         response = await ban_member(self.bot, ctx.guild, member, duration, reason, ctx.user, needs_approval=True)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
@@ -55,7 +58,9 @@ class BanCog(commands.Cog):
     )
     async def unban(self, ctx: ApplicationContext, user: discord.Member) -> Interaction | WebhookMessage:
         """Unbans a user from the server."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
+        if not member:
+            return await ctx.respond(f"User {user} not found.")
         user = await unban_member(ctx.guild, member)
         if user is None:
             return await ctx.respond("Failed to unban user. Are they perhaps not banned at all?")
@@ -92,9 +97,9 @@ class BanCog(commands.Cog):
             result = await session.scalars(stmt)
             ban: Ban = result.first()
 
-        member = await get_member_safe(ban.user_id, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, ban.user_id)
         if not member:
-            return await ctx.respond(f"User {ban.user_id} not found in guild.")
+            return await ctx.respond(f"User {ban.user_id} not found.")
 
         self.bot.loop.create_task(
             schedule(unban_member(ctx.guild, member), run_at=datetime.fromtimestamp(ban.unban_time))
@@ -127,7 +132,7 @@ class BanCog(commands.Cog):
             await session.commit()
 
         new_unban_at = datetime.fromtimestamp(dur)
-        member = await get_member_safe(ban.user_id, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, ban.user_id)
         if not member:
             return await ctx.respond(f"User {ban.user_id} not found in guild.")
 
@@ -144,9 +149,9 @@ class BanCog(commands.Cog):
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def warn(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
         """Warns a user of an action. Adds no weight but DMs the user about the warning and the reason why."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
-            return await ctx.respond(f"User {user} not found in guild.")
+            return await ctx.respond(f"User {user} not found.")
         response = await add_infraction(ctx.guild, member, 0, reason, ctx.user)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
@@ -159,9 +164,9 @@ class BanCog(commands.Cog):
         self, ctx: ApplicationContext, user: discord.Member, weight: int, reason: str
     ) -> Interaction | WebhookMessage:
         """Strike the user with the selected weight. DMs the user about the strike and the reason why."""
-        member = await get_member_safe(user, ctx.guild)
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
-            return await ctx.respond(f"User {user} not found in guild.")
+            return await ctx.respond(f"User {user} not found.")
         response = await add_infraction(ctx.guild, member, weight, reason, ctx.user)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 

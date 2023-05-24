@@ -4,7 +4,7 @@ from typing import Callable, List, Sequence
 
 import arrow
 import discord
-from discord import ApplicationContext, Embed, Interaction, NotFound, WebhookMessage, slash_command
+from discord import ApplicationContext, Embed, Interaction, WebhookMessage, slash_command
 from discord.ext import commands
 from discord.ext.commands import has_any_role
 from sqlalchemy import select
@@ -13,7 +13,6 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import Infraction, UserNote
 from src.database.session import AsyncSessionLocal
-from src.helpers.getters import get_member_safe
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +34,13 @@ class HistoryCog(commands.Cog):
     async def history(self, ctx: ApplicationContext, user: discord.Member) -> Interaction | WebhookMessage:
         """Print the infraction history and basic details about the Discord user."""
         left = False
-        member = await get_member_safe(user, ctx.guild)
-        # If member is None it means the user is not in the guild, so try to get the user from discord.
-        if member is None:
-            try:
-                member = await self.bot.fetch_user(user.id)
-            except NotFound:
-                return await ctx.respond(
-                    "Error: cannot get history - user was deleted from Discord entirely.", delete_after=15
-                )
+        member = await self.bot.get_member_or_user(ctx.guild, user.id)
+        if not member:
+            return await ctx.respond(
+                f"Error: cannot get history - user {user} was deleted from Discord entirely.", delete_after=15
+            )
 
-            left = True
-
+        left = True
         today_date = arrow.utcnow().date()
 
         async with AsyncSessionLocal() as session:
