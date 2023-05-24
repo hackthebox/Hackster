@@ -29,4 +29,4 @@ class Ban(Base):
     unban_time: Mapped[int] = mapped_column(BIGINT(11, unsigned=True))
     approved: Mapped[bool] = mapped_column(Boolean, nullable=False)
     unbanned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    timestamp: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False, default=datetime.now)
