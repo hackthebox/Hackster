@@ -31,10 +31,7 @@ class UserCog(commands.Cog):
         with open(os.path.join(settings.ROOT, "resources", "unisex_baby_names.txt"), "r") as f:
             return f.read().splitlines()
 
-    @slash_command(
-        guild_ids=settings.guild_ids,
-        description="Changes the nickname of a user to ChangeMe."
-    )
+    @slash_command(guild_ids=settings.guild_ids, description="Changes the nickname of a user to ChangeMe.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def bad_name(self, ctx: ApplicationContext, user: Member) -> Interaction | WebhookMessage:
         """Changes the nickname of a user to ChangeMe."""
@@ -62,9 +59,7 @@ class UserCog(commands.Cog):
 
         return await ctx.respond(f"{member.name}'s name has been updated to {new_name}")
 
-    @slash_command(
-        guild_ids=settings.guild_ids, description="Kick a user from the server."
-    )
+    @slash_command(guild_ids=settings.guild_ids, description="Kick a user from the server.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def kick(self, ctx: ApplicationContext, user: Member, reason: str) -> Interaction | WebhookMessage:
         """Kick a user from the server."""
@@ -84,7 +79,9 @@ class UserCog(commands.Cog):
         try:
             await member.send(f"You have been kicked from {ctx.guild.name} for the following reason:\n>>> {reason}\n")
         except Forbidden as ex:
-            await ctx.respond("Could not DM member due to privacy settings, however will still attempt to kick them...")
+            await ctx.respond(
+                "Could not DM member due to privacy settings, however will still attempt to kick them..."
+            )
             logger.warning(f"HTTPException when trying to unban user with ID {user.id}: {ex}")
         except HTTPException as ex:
             logger.warning(f"HTTPException when trying to unban user with ID {user.id}: {ex}")
@@ -112,7 +109,8 @@ class UserCog(commands.Cog):
     )
     @cooldown(1, 10, commands.BucketType.user)
     async def join(
-        self, ctx: ApplicationContext,
+        self,
+        ctx: ApplicationContext,
         role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
     ) -> Interaction | WebhookMessage:
         """Join a vanity role if such is specified, otherwise list the vanity roles available to join."""
@@ -134,13 +132,12 @@ class UserCog(commands.Cog):
             await ctx.user.add_roles(guild_role)
             return await ctx.respond(f"Welcome to {guild_role.name}!", ephemeral=True)
 
-    @slash_command(
-        guild_ids=settings.guild_ids, description="Removes the vanity role from your user."
-    )
+    @slash_command(guild_ids=settings.guild_ids, description="Removes the vanity role from your user.")
     @cooldown(1, 10, commands.BucketType.user)
     async def leave(
-        self, ctx: ApplicationContext,
-        role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys())
+        self,
+        ctx: ApplicationContext,
+        role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
     ) -> Interaction | WebhookMessage:
         """Removes the vanity role from your user."""
         role_id, exc = self._match_role(role_name)
@@ -164,9 +161,8 @@ class UserCog(commands.Cog):
             return await ctx.respond(f"User {user} not found.")
 
         async with AsyncSessionLocal() as session:
-            stmt = (
-                select(HtbDiscordLink)
-                .filter(or_(HtbDiscordLink.discord_user_id == member.id, HtbDiscordLink.htb_user_id == member.id))
+            stmt = select(HtbDiscordLink).filter(
+                or_(HtbDiscordLink.discord_user_id == member.id, HtbDiscordLink.htb_user_id == member.id)
             )
             result = await session.scalars(stmt)
             htb_discord_links = result.all()
@@ -182,50 +178,62 @@ class UserCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="Show the associated HTB user.")
     @has_any_role(
-        *settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"),
-        *settings.role_groups.get("ALL_HTB_STAFF")
+        *settings.role_groups.get("ALL_ADMINS"),
+        *settings.role_groups.get("ALL_MODS"),
+        *settings.role_groups.get("ALL_HTB_STAFF"),
     )
-    async def whois(self, ctx: ApplicationContext, user: User | Member) -> Interaction | WebhookMessage:
+    async def whois(
+        self, ctx: ApplicationContext, user: Option(User | Member, required=False), htb_id: Option(int, required=False)
+    ) -> Interaction | WebhookMessage:
         """Given a Discord user ID, show the associated HTB user ID and vise versa."""
-        member = await self.bot.get_member_or_user(ctx.guild, user.id)
+        if not (bool(user) ^ bool(htb_id)):
+            return await ctx.respond("Either user or htb_id must be provided, but not both or none of them.")
 
-        if member is None:
-            logger.debug(f"Could not find user by id: {user.id}")
-            return await ctx.respond("Error: Cannot retrieve user.")
+        if user:
+            member = await self.bot.get_member_or_user(ctx.guild, user.id)
 
-        async with AsyncSessionLocal() as session:
-            stmt = (
-                select(HtbDiscordLink)
-                .filter(or_(HtbDiscordLink.discord_user_id == member.id, HtbDiscordLink.htb_user_id == member.id))
-                .limit(1)
-            )
-            result = await session.scalars(stmt)
-            htb_discord_link: HtbDiscordLink = result.first()
+            if member is None:
+                logger.debug(f"Could not find user by id: {user.id}")
+                return await ctx.respond("Error: Cannot retrieve user.")
+
+            async with AsyncSessionLocal() as session:
+                stmt = select(HtbDiscordLink).filter(HtbDiscordLink.discord_user_id == member.id).limit(1)
+                result = await session.scalars(stmt)
+                htb_discord_link: HtbDiscordLink = result.first()
+        elif htb_id:
+            async with AsyncSessionLocal() as session:
+                stmt = select(HtbDiscordLink).filter(HtbDiscordLink.htb_user_id == htb_id).limit(1)
+                result = await session.scalars(stmt)
+                htb_discord_link: HtbDiscordLink = result.first()
 
         if not htb_discord_link:
             return await ctx.respond(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
 
-        fetched_user = await self.bot.fetch_user(htb_discord_link.discord_user_id_as_int)
-        assert fetched_user.id == member.id
+        fetched_user = await self.bot.get_member_or_user(ctx.guild, htb_discord_link.discord_user_id_as_int)
+        if user:
+            assert fetched_user.id == member.id
 
         embed = discord.Embed(title=" ", color=0xB98700)
-        if member.avatar is not None:
-            embed.set_author(name=member, icon_url=member.avatar)
-            embed.set_thumbnail(url=member.avatar)
+        if fetched_user.avatar is not None:
+            embed.set_author(name=fetched_user, icon_url=fetched_user.avatar)
+            embed.set_thumbnail(url=fetched_user.avatar)
         else:
-            embed.set_author(name=member)
+            embed.set_author(name=fetched_user)
         embed.add_field(name="Username:", value=fetched_user.name, inline=True)
         embed.add_field(name="Discord ID:", value=str(fetched_user.id), inline=True)
         embed.add_field(
             name="HTB Profile:",
-            value=f"<https://www.hackthebox.com/home/users/profile/{htb_discord_link.htb_user_id}>", inline=False, )
-        embed.set_footer(text=f"More info: /history {fetched_user.id}")
+            value=f"<https://www.hackthebox.com/home/users/profile/{htb_discord_link.htb_user_id}>",
+            inline=False,
+        )
+        embed.set_footer(text=f"More info: /history user:{fetched_user.id}")
         return await ctx.respond(embed=embed)
 
     @slash_command(guild_ids=settings.guild_ids, name="user-stats")
     @has_any_role(
-        *settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"),
-        *settings.role_groups.get("ALL_HTB_STAFF")
+        *settings.role_groups.get("ALL_ADMINS"),
+        *settings.role_groups.get("ALL_MODS"),
+        *settings.role_groups.get("ALL_HTB_STAFF"),
     )
     async def user_stats(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
         """See total user count!"""
