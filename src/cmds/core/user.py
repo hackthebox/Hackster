@@ -182,35 +182,43 @@ class UserCog(commands.Cog):
         *settings.role_groups.get("ALL_MODS"),
         *settings.role_groups.get("ALL_HTB_STAFF"),
     )
-    async def whois(self, ctx: ApplicationContext, user: User | Member) -> Interaction | WebhookMessage:
+    async def whois(
+        self, ctx: ApplicationContext, user: Option(User | Member, required=False), htb_id: Option(int, required=False)
+    ) -> Interaction | WebhookMessage:
         """Given a Discord user ID, show the associated HTB user ID and vise versa."""
-        member = await self.bot.get_member_or_user(ctx.guild, user.id)
+        if not (bool(user) ^ bool(htb_id)):
+            return await ctx.respond("Either user or htb_id must be provided, but not both or none of them.")
 
-        if member is None:
-            logger.debug(f"Could not find user by id: {user.id}")
-            return await ctx.respond("Error: Cannot retrieve user.")
+        if user:
+            member = await self.bot.get_member_or_user(ctx.guild, user.id)
 
-        async with AsyncSessionLocal() as session:
-            stmt = (
-                select(HtbDiscordLink)
-                .filter(or_(HtbDiscordLink.discord_user_id == member.id, HtbDiscordLink.htb_user_id == member.id))
-                .limit(1)
-            )
-            result = await session.scalars(stmt)
-            htb_discord_link: HtbDiscordLink = result.first()
+            if member is None:
+                logger.debug(f"Could not find user by id: {user.id}")
+                return await ctx.respond("Error: Cannot retrieve user.")
+
+            async with AsyncSessionLocal() as session:
+                stmt = select(HtbDiscordLink).filter(HtbDiscordLink.discord_user_id == member.id).limit(1)
+                result = await session.scalars(stmt)
+                htb_discord_link: HtbDiscordLink = result.first()
+        elif htb_id:
+            async with AsyncSessionLocal() as session:
+                stmt = select(HtbDiscordLink).filter(HtbDiscordLink.htb_user_id == htb_id).limit(1)
+                result = await session.scalars(stmt)
+                htb_discord_link: HtbDiscordLink = result.first()
 
         if not htb_discord_link:
             return await ctx.respond(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
 
-        fetched_user = await self.bot.fetch_user(htb_discord_link.discord_user_id_as_int)
-        assert fetched_user.id == member.id
+        fetched_user = await self.bot.get_member_or_user(ctx.guild, htb_discord_link.discord_user_id_as_int)
+        if user:
+            assert fetched_user.id == member.id
 
         embed = discord.Embed(title=" ", color=0xB98700)
-        if member.avatar is not None:
-            embed.set_author(name=member, icon_url=member.avatar)
-            embed.set_thumbnail(url=member.avatar)
+        if fetched_user.avatar is not None:
+            embed.set_author(name=fetched_user, icon_url=fetched_user.avatar)
+            embed.set_thumbnail(url=fetched_user.avatar)
         else:
-            embed.set_author(name=member)
+            embed.set_author(name=fetched_user)
         embed.add_field(name="Username:", value=fetched_user.name, inline=True)
         embed.add_field(name="Discord ID:", value=str(fetched_user.id), inline=True)
         embed.add_field(
@@ -218,7 +226,7 @@ class UserCog(commands.Cog):
             value=f"<https://www.hackthebox.com/home/users/profile/{htb_discord_link.htb_user_id}>",
             inline=False,
         )
-        embed.set_footer(text=f"More info: /history {fetched_user.id}")
+        embed.set_footer(text=f"More info: /history user:{fetched_user.id}")
         return await ctx.respond(embed=embed)
 
     @slash_command(guild_ids=settings.guild_ids, name="user-stats")
