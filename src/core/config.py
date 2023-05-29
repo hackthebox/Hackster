@@ -136,7 +136,7 @@ class Roles(BaseSettings):
     BUDDY_GANG: int
     RED_TEAM: int
     BLUE_TEAM: int
-
+    ROLE_APT: int
     @validator("*", pre=True, each_item=True)
     def check_length(cls, value: str | int) -> str | int:
         value_str = str(value)

@@ -176,6 +176,45 @@ class UserCog(commands.Cog):
 
         return await ctx.respond(f"All tokens related to Discord or HTB ID '{member.id}' have been deleted.")
 
+    @slash_command(
+        guild_ids=settings.guild_ids,
+        description="Check your eligiblity for APT, and join if able"
+    )
+    @cooldown(1, 10, commands.BucketType.user)
+    async def designate_apt(
+        self, ctx: ApplicationContext,
+    ) -> Interaction | WebhookMessage:
+        user = ctx.author
+
+        # Fetch the Users Current Infractions
+        today_date = arrow.utcnow().date()
+        async with AsyncSessionLocal() as session:
+            stmt = select(Infraction).filter(Infraction.user_id == user.id)
+            result = await session.scalars(stmt)
+            infractions: Sequence[Infraction] = result.all()
+
+        expired_infractions = sum(1 for inf in infractions if (inf.date - today_date).days < -14)
+        active_infractions = infractions - expired_infractions
+        if active_infractions >= 1:
+            return await ctx.respond("We're sorry, however you have recieved an infraction within the last 14 days. Please try again 14 days after your last warning", ephemeral=True)
+        # Ensure the user joined the server 90 days ago
+        joined_at = ctx.author.joined_at
+        days_ago_joined = (joined_at - today_date)
+        if days_ago_joined >= -90:
+            return await ctx.respond("We're sorry, however you joined the server within the last 90 days. Please try again 90 days after you joined the server.")
+        # Ensure the user has atleast 1000 messages
+        async with AsyncSessionLocal() as session:
+            stmt = select(MessageCount).filter(MessageCount.user_id == user.id)
+            result = await session.scalars(stmt)
+            messages: Sequence[MessageCount] = result.all()
+        if messages <= 1000:
+            return await ctx.respond("We're sorry, however you have not sent 1000 messages in this server since this feature has been rolled out.")
+        # Add the APT role to the user
+        role_id = ROLE_APT
+        guild_role = ctx.guild.get_role(role_id)
+        await ctx.user.add_roles(guild_role)
+        await ctx.respond("You have now been designated an APT")
+
     @slash_command(guild_ids=settings.guild_ids, description="Show the associated HTB user.")
     @has_any_role(
         *settings.role_groups.get("ALL_ADMINS"),
