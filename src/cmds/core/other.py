@@ -6,6 +6,9 @@ from discord.ext import commands
 from src.bot import Bot
 from src.core import settings
 
+from github import Github
+from src.helpers.github_init import repo
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +42,16 @@ class OtherCog(commands.Cog):
         await channel.send(embed=embed)
         return await ctx.respond("Thanks for the reporting the spoiler.", ephemeral=True, delete_after=15)
 
+    @slash_command(guild_ids=settings.guild_ids, description="Report an issue!")
+    async def bug(self, ctx: ApplicationContext, name: str, bug: str):
+        label = repo.get_label("Bug")
+        title = f"[Bug] {name}"
+        repo.create_issue(title=title, body=bug, labels=[label], assignee="0xemma")
+    @slash_command(guild_ids=settings.guild_ids, description="Report an issue!")
+    async def bug(self, ctx: ApplicationContext, name: str, bug: str):
+        label = repo.get_label("Enhancement")
+        title = f"[Feature] {name}"
+        repo.create_issue(title=title, body=bug, labels=[label], assignee="0xemma")
 
 def setup(bot: Bot) -> None:
     """Load the `ChannelManageCog` cog."""

@@ -158,7 +158,7 @@ class Global(BaseSettings):
     database: Database = None
     channels: Channels = None
     roles: Roles = None
-
+    GH_ACCESS: str
     HTB_API_KEY: str
 
     # Collections are defined using lowercase
