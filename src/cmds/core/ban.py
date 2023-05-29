@@ -32,6 +32,8 @@ class BanCog(commands.Cog):
         if not member:
             return await ctx.respond(f"User {user} not found.")
         response = await ban_member(self.bot, ctx.guild, member, "500w", reason, ctx.user, needs_approval=False)
+        infraction_reason = f"{ctx.user.name} was banned on {datetime.now()} for {reason} forever.}"
+        await add_infraction(ctx.guild, member, 0, infraction_reason, ctx.user)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
     @slash_command(
@@ -49,6 +51,8 @@ class BanCog(commands.Cog):
         if not member:
             return await ctx.respond(f"User {user} not found.")
         response = await ban_member(self.bot, ctx.guild, member, duration, reason, ctx.user, needs_approval=True)
+        infraction_reason = f"{ctx.user.name} was banned on {datetime.now()} for {reason} for {duration}"
+        await add_infraction(ctx.guild, member, 0, infraction_reason, ctx.user)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
     @slash_command(guild_ids=settings.guild_ids, description="Unbans a user from the server.")
