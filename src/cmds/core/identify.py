@@ -72,7 +72,7 @@ class IdentifyCog(commands.Cog):
                 f"Related HTB UID: {most_recent_rec.htb_user_id}"
             )
             embed = discord.Embed(title="Identification error", description=error_desc, color=0xFF2429)
-            await self.bot.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
+            await self.bot.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
 
             return await ctx.respond(
                 "Identification error: please contact an online Moderator or Administrator for help.", ephemeral=True
@@ -98,7 +98,7 @@ class IdentifyCog(commands.Cog):
                           f"but is tied to another Discord account.\n"
                           f"Originally linked to Discord UID {orig_discord_ids}.")
             embed = discord.Embed(title="Identification error", description=error_desc, color=0xFF2429)
-            await self.bot.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
+            await self.bot.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
 
             return await ctx.respond(
                 "Identification error: please contact an online Moderator or Administrator for help.", ephemeral=True
@@ -122,7 +122,7 @@ class IdentifyCog(commands.Cog):
                           f"Original HTB UIDs: {', '.join([str(i) for i in user_htb_ids])}, new HTB UID: "
                           f"{json_htb_user_id}.")
             embed = discord.Embed(title="Identification error", description=error_desc, color=0xFF2429)
-            await self.bot.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
+            await self.bot.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
 
             return await ctx.respond(
                 "Identification error: please contact an online Moderator or Administrator for help.", ephemeral=True

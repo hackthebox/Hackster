@@ -109,7 +109,7 @@ async def process_identification(
             description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
             color=0xFF2429, )
 
-        await guild.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
+        await guild.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
         return None
 
     to_remove = []
