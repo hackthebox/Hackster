@@ -48,7 +48,7 @@ class OtherCog(commands.Cog):
         title = f"[Bug] {name}"
         repo.create_issue(title=title, body=bug, labels=[label], assignee="0xemma")
     @slash_command(guild_ids=settings.guild_ids, description="Report an issue!")
-    async def bug(self, ctx: ApplicationContext, name: str, bug: str):
+    async def feature(self, ctx: ApplicationContext, name: str, bug: str):
         label = repo.get_label("Enhancement")
         title = f"[Feature] {name}"
         repo.create_issue(title=title, body=bug, labels=[label], assignee="0xemma")
