@@ -4,12 +4,27 @@ import socket
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
 from discord import (
-    ApplicationContext, Cog, DiscordException, Embed, HTTPException, Forbidden, NotFound, Member,
-    User, Guild
+    ApplicationContext,
+    Cog,
+    DiscordException,
+    Embed,
+    Forbidden,
+    Guild,
+    HTTPException,
+    Member,
+    NotFound,
+    User,
 )
+from discord.ext.commands import Bot as DiscordBot
 from discord.ext.commands import (
-    Bot as DiscordBot, CommandNotFound, CommandOnCooldown, DefaultHelpCommand,
-    MissingAnyRole, MissingPermissions, MissingRequiredArgument, NoPrivateMessage, UserInputError
+    CommandNotFound,
+    CommandOnCooldown,
+    DefaultHelpCommand,
+    MissingAnyRole,
+    MissingPermissions,
+    MissingRequiredArgument,
+    NoPrivateMessage,
+    UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
 
@@ -82,14 +97,14 @@ class Bot(DiscordBot):
         elif isinstance(error, CommandOnCooldown):
             message = f"You are on cooldown. Try again in {error.retry_after:.2f}s"
         elif isinstance(error, NoResultFound):
-            message = f"The requested object could not be found."
+            message = "The requested object could not be found."
 
         errored_commands.labels(ctx.command.name).inc()
 
         if message is None:
             raise error
         else:
-            logger.debug(f"A user caused an error which was handled.", exc_info=error)
+            logger.debug("A user caused an error which was handled.", exc_info=error)
             await ctx.respond(message, delete_after=15, ephemeral=True)
 
     async def on_application_command_completion(self, ctx: ApplicationContext) -> None:
