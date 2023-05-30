@@ -142,3 +142,6 @@ cython_debug/
 # Logs
 logs/
 .log
+
+# VS Code
+.vscode/
