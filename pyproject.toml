@@ -46,7 +46,6 @@ ipython = "^8.12.0"
 ipdb = "^0.13.13"
 aioresponses = "^0.7.4"
 pytest-mock = "^3.10.0"
-wily = "^1.24.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
