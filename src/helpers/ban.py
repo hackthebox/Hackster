@@ -95,7 +95,7 @@ async def ban_member(
     if banned:
         return banned
 
-    dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
+    dm_banned_member = await _dm_banned_member(guild, member, end_date, reason)
 
     if not needs_approval:
         message = await _generate_message_no_approval(dm_banned_member, member)
@@ -110,7 +110,7 @@ async def ban_member(
         logger.debug("Unbanned scheduled for ban", extra={"ban_id": ban_id, "unban_time": ban.unban_time})
         return SimpleResponse(message=message, delete_after=0)
     else:
-        member_info, message = await _generate_message_needs_approval(dm_banned_member, end_date, member)
+        member_info, message = await _generate_message_needs_approval(dm_banned_member, member, end_date)
 
         await _post_to_channel(author, ban_id, end_date, guild, member_info, reason)
         return SimpleResponse(message=message)
