@@ -60,7 +60,7 @@ class Channels(BaseSettings):
     BOT_COMMANDS: int
     SPOILER: int
     BOT_LOGS: int
-    @validator("DEVLOG", "SR_MOD", "BOT_LOGS", "BOT_COMMANDS", "SPOILER", "BOT_LOGS")
+    @validator("DEVLOG", "SR_MOD", "VERIFY_LOGS", "BOT_COMMANDS", "SPOILER", "BOT_LOGS")
     def check_ids_format(cls, v: list[int]) -> list[int]:
         """Validate discord ids format."""
         if not v:
