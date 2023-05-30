@@ -109,9 +109,9 @@ class UserCog(commands.Cog):
     )
     @cooldown(1, 10, commands.BucketType.user)
     async def join(
-        self,
-        ctx: ApplicationContext,
-        role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
+            self,
+            ctx: ApplicationContext,
+            role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
     ) -> Interaction | WebhookMessage:
         """Join a vanity role if such is specified, otherwise list the vanity roles available to join."""
         # No role or empty role name passed
@@ -135,9 +135,9 @@ class UserCog(commands.Cog):
     @slash_command(guild_ids=settings.guild_ids, description="Removes the vanity role from your user.")
     @cooldown(1, 10, commands.BucketType.user)
     async def leave(
-        self,
-        ctx: ApplicationContext,
-        role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
+            self,
+            ctx: ApplicationContext,
+            role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
     ) -> Interaction | WebhookMessage:
         """Removes the vanity role from your user."""
         role_id, exc = self._match_role(role_name)
@@ -183,7 +183,8 @@ class UserCog(commands.Cog):
         *settings.role_groups.get("ALL_HTB_STAFF"),
     )
     async def whois(
-        self, ctx: ApplicationContext, user: Option(User | Member, required=False), htb_id: Option(int, required=False)
+            self, ctx: ApplicationContext, user: Option(User | Member, required=False),
+            htb_id: Option(int, required=False)
     ) -> Interaction | WebhookMessage:
         """Given a Discord user ID, show the associated HTB user ID and vise versa."""
         if not (bool(user) ^ bool(htb_id)):
@@ -200,14 +201,18 @@ class UserCog(commands.Cog):
                 stmt = select(HtbDiscordLink).filter(HtbDiscordLink.discord_user_id == member.id).limit(1)
                 result = await session.scalars(stmt)
                 htb_discord_link: HtbDiscordLink = result.first()
+
+            if not htb_discord_link:
+                return await ctx.respond(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
+
         elif htb_id:
             async with AsyncSessionLocal() as session:
                 stmt = select(HtbDiscordLink).filter(HtbDiscordLink.htb_user_id == htb_id).limit(1)
                 result = await session.scalars(stmt)
                 htb_discord_link: HtbDiscordLink = result.first()
 
-        if not htb_discord_link:
-            return await ctx.respond(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
+            if not htb_discord_link:
+                return await ctx.respond(f"Could not find with HTB ID {htb_id} in the records.")
 
         fetched_user = await self.bot.get_member_or_user(ctx.guild, htb_discord_link.discord_user_id_as_int)
         if user:
