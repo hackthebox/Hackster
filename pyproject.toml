@@ -14,21 +14,20 @@ python = "^3.11"
 aiodns = "^3.0.0"
 arrow = "^1.2.3"
 py-cord = "^2.4.1"
-pydantic = { extras = ["dotenv"], version = "^1.10.7" }
-taskipy = "^1.10.4"
-sqlalchemy = { extras = ["asyncio"], version = "^2.0.9" }
+pydantic = { extras = ["dotenv"], version = "^1.10" }
+taskipy = "^1.11"
+sqlalchemy = { extras = ["asyncio"], version = "^2.0" }
 bcrypt = "^4.0.1"
 asyncmy = "^0.2.7"
 fastapi = "^0.95.1"
-sentry-sdk = { extras = ["sqlalchemy"], version = "^1.20.0" }
+sentry-sdk = { extras = ["sqlalchemy"], version = "^1.20" }
 uvicorn = "^0.21.1"
-alembic = "^1.10.3"
+alembic = "^1.11"
 pymysql = "^1.0.3"
-prometheus-client = "^0.16.0"
+prometheus-client = "^0.17"
 toml = "^0.10.2"
 
 [tool.poetry.group.dev.dependencies]
-colorlog = "^6.5.0"
 coverage = "^7.2"
 flake8 = "^6.0"
 flake8-annotations = "^3.0"
@@ -47,6 +46,7 @@ ipython = "^8.12.0"
 ipdb = "^0.13.13"
 aioresponses = "^0.7.4"
 pytest-mock = "^3.10.0"
+wily = "^1.24.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
