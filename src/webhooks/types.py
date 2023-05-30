@@ -4,6 +4,8 @@ from pydantic import BaseModel
 
 
 class WebhookEvent(Enum):
+    """Enumeration representing different webhook events."""
+
     ACCOUNT_LINKED = "AccountLinked"
     ACCOUNT_UNLINKED = "AccountUnlinked"
     CERTIFICATE_AWARDED = "CertificateAwarded"
@@ -15,6 +17,8 @@ class WebhookEvent(Enum):
 
 
 class Platform(Enum):
+    """Enumeration representing different platforms."""
+
     MAIN = "mp"
     ACADEMY = "academy"
     CTF = "ctf"
@@ -22,6 +26,8 @@ class Platform(Enum):
 
 
 class WebhookBody(BaseModel):
+    """Model representing the webhook body."""
+
     platform: Platform
     event: WebhookEvent
     data: dict
