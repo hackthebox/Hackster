@@ -10,6 +10,7 @@ from sqlalchemy.exc import NoResultFound
 
 from src.bot import Bot
 from src.core import settings
+from src.database import crud
 from src.database.models import Ban, Infraction, Mute
 from src.database.session import AsyncSessionLocal
 from src.helpers.checks import member_is_staff
@@ -34,13 +35,11 @@ async def _check_member(bot: Bot, guild: Guild, member: Member | User, author: M
 
 async def _get_ban_or_create(member: Member, ban: Ban, infraction: Infraction) -> tuple[int, bool]:
     async with AsyncSessionLocal() as session:
-        stmt = select(Ban).filter(Ban.user_id == member.id, Ban.unbanned.is_(False)).limit(1)
-        result = await session.scalars(stmt)
-        existing_ban = result.first()
-        if existing_ban:
-            return existing_ban.id, True
+        bans = crud.ban.read_for_user(session, user_id=member.id, filter_by={"unbanned": False}, order_by="id")
+        if bans > 0:
+            return bans[0].id, True
 
-        session.add(ban)
+        crud.ban.create(session, ban)
         session.add(infraction)
         await session.commit()
     ban_id: int = ban.id
@@ -148,8 +147,8 @@ async def ban_member(
         return SimpleResponse(message=message)
 
 
-async def _dm_banned_member(end_date, guild, member, reason) -> bool:
-    """Send a message to the member about the ban"""
+async def _dm_banned_member(end_date: str, guild: Guild, member: Member, reason: str) -> bool:
+    """Send a message to the member about the ban."""
     message = (f"You have been banned from {guild.name} until {end_date} (UTC). "
                f"To appeal the ban, please reach out to an Administrator.\n"
                f"Following is the reason given:\n>>> {reason}\n")
