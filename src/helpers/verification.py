@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional, Tuple
 
 import aiohttp
 import discord
-from discord import Forbidden, Member, Role, User
+from discord import Forbidden, Guild, Member, Role, User
 from discord.ext.commands import GuildNotFound, MemberNotFound
 
 from src.bot import Bot
@@ -32,8 +32,10 @@ async def get_user_details(account_identifier: str) -> Optional[Dict]:
     return response
 
 
-async def get_season_rank(htb_uid: int) -> str | None:
+async def get_season_rank(htb_uid: str | int) -> str | None:
     """Get season rank from HTB."""
+    if isinstance(htb_uid, str):
+        htb_uid = int(htb_uid)
     headers = {"Authorization": f"Bearer {settings.HTB_API_KEY}"}
     season_api_url = f"{settings.API_V4_URL}/season/end/0/{htb_uid}"
 
@@ -79,116 +81,36 @@ async def process_identification(
     htb_user_details: Dict[str, str], user: Optional[Member | User], bot: Bot
 ) -> Optional[List[Role]]:
     """Returns roles to assign if identification was successfully processed."""
+
+    # Retrieve necessary information from htb_user_details dictionary
     htb_uid = htb_user_details["user_id"]
-    if isinstance(user, Member):
-        member = user
-        guild = member.guild
-    # This will only work if the user and the bot share only one guild.
-    elif isinstance(user, User) and len(user.mutual_guilds) == 1:
-        guild = user.mutual_guilds[0]
-        member = await bot.get_member_or_user(guild, user.id)
-        if not member:
-            raise MemberNotFound(str(user.id))
-    else:
-        raise GuildNotFound(f"Could not identify member {user} in guild.")
-    season_rank = await get_season_rank(htb_uid)
+    htb_user_name = htb_user_details["user_name"]
+
+    guild, member = await _get_guild_and_member_info(bot, user)
+
+    # Check for ban and handle accordingly
     banned_details = await _check_for_ban(htb_uid)
-
-    if banned_details is not None and banned_details["banned"]:
-        # If user is banned, this field must be a string
-        # Strip date e.g. from "2022-01-31T11:00:00.000000Z"
-        banned_until: str = cast(str, banned_details["ends_at"])[:10]
-        banned_until_dt: datetime = datetime.strptime(banned_until, "%Y-%m-%d")
-        ban_duration: str = f"{(banned_until_dt - datetime.now()).days}d"
-        reason = "Banned on the HTB Platform. Please contact HTB Support to appeal."
-        logger.info(f"Discord user {member.name} ({member.id}) is platform banned. Banning from Discord...")
-        await ban_member(bot, guild, member, ban_duration, reason, None, needs_approval=False)
-
-        embed = discord.Embed(
-            title="Identification error",
-            description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
-            color=0xFF2429, )
-
-        await guild.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
+    if banned_details and banned_details["banned"]:
+        await _handle_ban(banned_details, bot, guild, member)
         return None
 
-    to_remove = []
+    # Remove unnecessary roles
+    to_remove = [
+        role for role in member.roles
+        if role.id in (settings.role_groups.get("ALL_RANKS") + settings.role_groups.get("ALL_POSITIONS"))
+    ]
 
-    for role in member.roles:
-        if role.id in settings.role_groups.get("ALL_RANKS") + settings.role_groups.get("ALL_POSITIONS"):
-            to_remove.append(guild.get_role(role.id))
+    to_assign = await _get_roles_to_assign(guild, htb_user_details)
 
-    to_assign = []
-    logger.debug(
-        "Getting role 'rank':", extra={
-            "role_id": settings.get_post_or_rank(htb_user_details["rank"]),
-            "role_obj": guild.get_role(settings.get_post_or_rank(htb_user_details["rank"])),
-            "htb_rank": htb_user_details["rank"],
-        }, )
-    if htb_user_details["rank"] not in ["Deleted", "Moderator", "Ambassador", "Admin", "Staff"]:
-        to_assign.append(guild.get_role(settings.get_post_or_rank(htb_user_details["rank"])))
-    if season_rank:
-        to_assign.append(guild.get_role(settings.get_season(season_rank)))
-    if htb_user_details["vip"]:
-        logger.debug(
-            'Getting role "VIP":', extra={"role_id": settings.roles.VIP, "role_obj": guild.get_role(settings.roles.VIP)}
-        )
-        to_assign.append(guild.get_role(settings.roles.VIP))
-    if htb_user_details["dedivip"]:
-        logger.debug(
-            'Getting role "VIP+":',
-            extra={"role_id": settings.roles.VIP_PLUS, "role_obj": guild.get_role(settings.roles.VIP_PLUS)}
-        )
-        to_assign.append(guild.get_role(settings.roles.VIP_PLUS))
-    if htb_user_details["hof_position"] != "unranked":
-        position = int(htb_user_details["hof_position"])
-        pos_top = None
-        if position == 1:
-            pos_top = "1"
-        elif position <= 5:
-            pos_top = "5"
-        elif position <= 10:
-            pos_top = "10"
-        elif position <= 25:
-            pos_top = "25"
-        elif position <= 50:
-            pos_top = "50"
-        elif position <= 100:
-            pos_top = "100"
-
-        if pos_top:
-            logger.debug(f"User is Hall of Fame rank {position}. Assigning role Top-{pos_top}...")
-            logger.debug(
-                'Getting role "HoF role":', extra={
-                    "role_id": settings.get_post_or_rank(pos_top),
-                    "role_obj": guild.get_role(settings.get_post_or_rank(pos_top)), "hof_val": pos_top,
-                }, )
-            to_assign.append(guild.get_role(settings.get_post_or_rank(pos_top)))
-        else:
-            logger.debug(f"User is position {position}. No Hall of Fame roles for them.")
-    if htb_user_details["machines"]:
-        logger.debug(
-            'Getting role "BOX_CREATOR":',
-            extra={"role_id": settings.roles.BOX_CREATOR, "role_obj": guild.get_role(settings.roles.BOX_CREATOR)}, )
-        to_assign.append(guild.get_role(settings.roles.BOX_CREATOR))
-    if htb_user_details["challenges"]:
-        logger.debug(
-            'Getting role "CHALLENGE_CREATOR":', extra={
-                "role_id": settings.roles.CHALLENGE_CREATOR,
-                "role_obj": guild.get_role(settings.roles.CHALLENGE_CREATOR),
-            }, )
-        to_assign.append(guild.get_role(settings.roles.CHALLENGE_CREATOR))
-
-    if member.nick != htb_user_details["user_name"]:
+    # Update member's nickname if necessary
+    if member.nick != htb_user_name:
         try:
-            await member.edit(nick=htb_user_details["user_name"])
+            await member.edit(nick=htb_user_name)
         except Forbidden as e:
-            logger.error(f"Exception whe trying to edit the nick-name of the user: {e}")
+            logger.error(f"Exception when trying to edit the nickname of the user: {e}")
 
-    logger.debug("All roles to_assign:", extra={"to_assign": to_assign})
-    # We don't need to remove any roles that are going to be assigned again
+    # Perform role assignment and removal
     to_remove = list(set(to_remove) - set(to_assign))
-    logger.debug("All roles to_remove:", extra={"to_remove": to_remove})
     if to_remove:
         await member.remove_roles(*to_remove, atomic=True)
     else:
@@ -199,3 +121,84 @@ async def process_identification(
         logger.debug("No roles need to be assigned")
 
     return to_assign
+
+
+async def _get_roles_to_assign(guild: Guild, htb_user_details: dict) -> List[Optional[Role]]:
+    htb_uid = htb_user_details["user_id"]
+    htb_rank = htb_user_details["rank"]
+    htb_vip = htb_user_details["vip"]
+    htb_dedivip = htb_user_details["dedivip"]
+    htb_hof_position = htb_user_details["hof_position"]
+    htb_machines = htb_user_details["machines"]
+    htb_challenges = htb_user_details["challenges"]
+
+    # Assign relevant roles based on HTB information
+    to_assign = []
+    if htb_rank not in ["Deleted", "Moderator", "Ambassador", "Admin", "Staff"]:
+        to_assign.append(guild.get_role(settings.get_post_or_rank(htb_rank)))
+    season_rank = await get_season_rank(htb_uid)
+    if season_rank:
+        to_assign.append(guild.get_role(settings.get_season(season_rank)))
+    if htb_vip:
+        to_assign.append(guild.get_role(settings.roles.VIP))
+    if htb_dedivip:
+        to_assign.append(guild.get_role(settings.roles.VIP_PLUS))
+    if htb_hof_position != "unranked":
+        pos_top = await _assign_hof_role(htb_hof_position)
+        to_assign.append(guild.get_role(settings.get_post_or_rank(pos_top)))
+    if htb_machines:
+        to_assign.append(guild.get_role(settings.roles.BOX_CREATOR))
+    if htb_challenges:
+        to_assign.append(guild.get_role(settings.roles.CHALLENGE_CREATOR))
+    return to_assign
+
+
+async def _get_guild_and_member_info(bot: Bot, user: User | Member) -> Tuple[Guild, Member]:
+    # Obtain the guild and member information
+    if isinstance(user, Member):
+        member = user
+        guild = member.guild
+    elif isinstance(user, User) and len(user.mutual_guilds) == 1:
+        guild = user.mutual_guilds[0]
+        member = await bot.get_member_or_user(guild, user.id)
+        if not member:
+            raise MemberNotFound(str(user.id))
+    else:
+        raise GuildNotFound(f"Could not identify member {user} in guild.")
+    return guild, member
+
+
+async def _assign_hof_role(htb_hof_position: str) -> str:
+    position = int(htb_hof_position)
+    if 1 <= position <= 100:
+        if position == 1:
+            pos_top = "1"
+        elif position <= 5:
+            pos_top = "5"
+        elif position <= 10:
+            pos_top = "10"
+        elif position <= 25:
+            pos_top = "25"
+        elif position <= 50:
+            pos_top = "50"
+        else:
+            pos_top = "100"
+        logger.debug(f"User is Hall of Fame rank {position}. Assigning role Top-{pos_top}...")
+        return pos_top
+    else:
+        logger.debug(f"User is position {position}. No Hall of Fame roles for them.")
+
+
+async def _handle_ban(banned_details, bot, guild, member):
+    banned_until = banned_details["ends_at"][:10]  # Extract date portion from the timestamp
+    banned_until_dt = datetime.strptime(banned_until, "%Y-%m-%d")
+    ban_duration = f"{(banned_until_dt - datetime.now()).days}d"
+    reason = "Banned on the HTB Platform. Please contact HTB Support to appeal."
+    logger.info(f"Discord user {member.name} ({member.id}) is platform banned. Banning from Discord...")
+    await ban_member(bot, guild, member, ban_duration, reason, None, needs_approval=False)
+    embed = discord.Embed(
+        title="Identification error",
+        description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
+        color=0xFF2429,
+    )
+    await guild.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
