@@ -204,14 +204,18 @@ class UserCog(commands.Cog):
                 stmt = select(HtbDiscordLink).filter(HtbDiscordLink.discord_user_id == member.id).limit(1)
                 result = await session.scalars(stmt)
                 htb_discord_link: HtbDiscordLink = result.first()
+
+            if not htb_discord_link:
+                return await ctx.respond(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
+
         elif htb_id:
             async with AsyncSessionLocal() as session:
                 stmt = select(HtbDiscordLink).filter(HtbDiscordLink.htb_user_id == htb_id).limit(1)
                 result = await session.scalars(stmt)
                 htb_discord_link: HtbDiscordLink = result.first()
 
-        if not htb_discord_link:
-            return await ctx.respond(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
+            if not htb_discord_link:
+                return await ctx.respond(f"Could not find with HTB ID {htb_id} in the records.")
 
         fetched_user = await self.bot.get_member_or_user(ctx.guild, htb_discord_link.discord_user_id_as_int)
         if user:
