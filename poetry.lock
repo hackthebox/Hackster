@@ -1211,6 +1211,24 @@ lingua = ["lingua"]
 testing = ["pytest"]
 
 [[package]]
+name = "mando"
+version = "0.7.1"
+description = "Create Python CLI apps with little to no effort at all!"
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "mando-0.7.1-py2.py3-none-any.whl", hash = "sha256:26ef1d70928b6057ee3ca12583d73c63e05c49de8972d620c278a7b206581a8a"},
+    {file = "mando-0.7.1.tar.gz", hash = "sha256:18baa999b4b613faefb00eac4efadcf14f510b59b924b66e08289aa1de8c3500"},
+]
+
+[package.dependencies]
+six = "*"
+
+[package.extras]
+restructuredtext = ["rst2ansi"]
+
+[[package]]
 name = "markupsafe"
 version = "2.1.2"
 description = "Safely add untrusted strings to HTML/XML markup."
@@ -1979,6 +1997,25 @@ files = [
 ]
 
 [[package]]
+name = "radon"
+version = "6.0.1"
+description = "Code Metrics in Python"
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "radon-6.0.1-py2.py3-none-any.whl", hash = "sha256:632cc032364a6f8bb1010a2f6a12d0f14bc7e5ede76585ef29dc0cecf4cd8859"},
+    {file = "radon-6.0.1.tar.gz", hash = "sha256:d1ac0053943a893878940fedc8b19ace70386fc9c9bf0a09229a44125ebf45b5"},
+]
+
+[package.dependencies]
+colorama = {version = ">=0.4.1", markers = "python_version > \"3.4\""}
+mando = ">=0.6,<0.8"
+
+[package.extras]
+toml = ["tomli (>=2.0.1)"]
+
+[[package]]
 name = "sentry-sdk"
 version = "1.24.0"
 description = "Python client for Sentry (https://sentry.io)"
@@ -2421,4 +2458,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "626d0278068b5625f5de53ba453f2802003618f3f30dc8b538939d1856b8cae8"
+content-hash = "24addd4e823a83e2f8b3e3d13226c1c8481ee32a97066417a4e94fe08fb3cb08"
