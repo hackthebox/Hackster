@@ -13,6 +13,7 @@ class TestOther:
     async def test_no_hints(self, bot, ctx):
         """Test the response of the `no_hints` command."""
         cog = other.OtherCog(bot)
+        ctx.bot = bot
 
         # Invoke the command.
         await cog.no_hints.callback(cog, ctx)

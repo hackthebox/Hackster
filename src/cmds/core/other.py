@@ -1,7 +1,6 @@
 import logging
 
-from discord import ApplicationContext, Embed, Interaction, Message, Option, WebhookMessage, slash_command
-from discord.abc import GuildChannel
+from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command
 from discord.ext import commands
 
 from src.bot import Bot
@@ -18,13 +17,10 @@ class OtherCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="A simple reply stating hints are not allowed.")
     async def no_hints(
-        self, ctx: ApplicationContext,
-        channel: Option(GuildChannel, "The guild channel to send the message to.", required=False) = None
+        self, ctx: ApplicationContext
     ) -> Message:
         """A simple reply stating hints are not allowed."""
-        if not channel:
-            channel = ctx.channel
-        return await channel.send(
+        return await ctx.channel.send(
             "No hints are allowed for the duration the event is going on. This is a competitive event with prizes. "
             "Once the event is over you are more then welcome to share solutions/write-ups/etc and try them in the "
             "After Party event."
