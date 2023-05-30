@@ -109,9 +109,9 @@ class UserCog(commands.Cog):
     )
     @cooldown(1, 10, commands.BucketType.user)
     async def join(
-            self,
-            ctx: ApplicationContext,
-            role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
+        self,
+        ctx: ApplicationContext,
+        role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
     ) -> Interaction | WebhookMessage:
         """Join a vanity role if such is specified, otherwise list the vanity roles available to join."""
         # No role or empty role name passed
@@ -135,9 +135,9 @@ class UserCog(commands.Cog):
     @slash_command(guild_ids=settings.guild_ids, description="Removes the vanity role from your user.")
     @cooldown(1, 10, commands.BucketType.user)
     async def leave(
-            self,
-            ctx: ApplicationContext,
-            role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
+        self,
+        ctx: ApplicationContext,
+        role_name: Option(str, "Choose the role!", choices=settings.roles_to_join.keys()),
     ) -> Interaction | WebhookMessage:
         """Removes the vanity role from your user."""
         role_id, exc = self._match_role(role_name)
@@ -183,8 +183,7 @@ class UserCog(commands.Cog):
         *settings.role_groups.get("ALL_HTB_STAFF"),
     )
     async def whois(
-            self, ctx: ApplicationContext, user: Option(User | Member, required=False),
-            htb_id: Option(int, required=False)
+        self, ctx: ApplicationContext, user: Option(User | Member, required=False), htb_id: Option(int, required=False)
     ) -> Interaction | WebhookMessage:
         """Given a Discord user ID, show the associated HTB user ID and vise versa."""
         if not (bool(user) ^ bool(htb_id)):
