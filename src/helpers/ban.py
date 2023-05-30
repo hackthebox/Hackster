@@ -2,6 +2,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from typing import Optional, Tuple
 
 import discord
 from discord import Forbidden, Guild, HTTPException, Member, NotFound, User
@@ -90,6 +91,55 @@ async def ban_member(
             delete_after=None
         )
 
+    banned = await _ban_from_guild(author, guild, member, reason)
+    if banned:
+        return banned
+
+    dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
+
+    if not needs_approval:
+        message = await _generate_message_no_approval(dm_banned_member, member)
+
+        logger.info(
+            "Member has been banned permanently.",
+            extra={"ban_requestor": author.name, "ban_receiver": member.id, "dm_banned_member": dm_banned_member}
+        )
+
+        unban_task = schedule(unban_member(guild, member), run_at=ban.unban_time)
+        asyncio.create_task(unban_task)
+        logger.debug("Unbanned scheduled for ban", extra={"ban_id": ban_id, "unban_time": ban.unban_time})
+        return SimpleResponse(message=message, delete_after=0)
+    else:
+        member_info, message = await _generate_message_needs_approval(dm_banned_member, end_date, member)
+
+        await _post_to_channel(author, ban_id, end_date, guild, member_info, reason)
+        return SimpleResponse(message=message)
+
+
+async def _generate_message_needs_approval(dm_banned_member: bool, member: Member, end_date: str) -> Tuple[str, str]:
+    member_info = (
+        f"{member.display_name} ({member.id})"
+        if member else
+        f"{member.id}"
+    )
+    message = f"{member_info} has been banned until {end_date} (UTC)."
+    if not dm_banned_member:
+        message += " Could not DM banned member due to permission error."
+    return member_info, message
+
+
+async def _generate_message_no_approval(dm_banned_member: bool, member: Member) -> str:
+    message = (
+        f"Member {member.display_name} has been banned permanently."
+        if member else
+        f"Member {member.id} has been banned permanently."
+    )
+    if not dm_banned_member:
+        message += " Could not DM banned member due to permission error."
+    return message
+
+
+async def _ban_from_guild(author: User | Member, guild: Guild, member: Member, reason: str) -> Optional[SimpleResponse]:
     # Try to actually ban the member from the guild
     try:
         await guild.ban(member, reason=reason, delete_message_days=0)
@@ -111,41 +161,10 @@ async def ban_member(
             )
         return
 
-    dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
 
-    if not needs_approval:
-        message = (
-            f"Member {member.display_name} has been banned permanently."
-            if member else
-            f"Member {member.id} has been banned permanently."
-        )
-        if not dm_banned_member:
-            message += " Could not DM banned member due to permission error."
-
-        logger.info(
-            "Member has been banned permanently.",
-            extra={"ban_requestor": author.name, "ban_receiver": member.id, "dm_banned_member": dm_banned_member}
-        )
-
-        unban_task = schedule(unban_member(guild, member), run_at=ban.unban_time)
-        asyncio.create_task(unban_task)
-        logger.debug("Unbanned scheduled for ban", extra={"ban_id": ban_id, "unban_time": ban.unban_time})
-        return SimpleResponse(message=message, delete_after=0)
-    else:
-        member_info = (
-            f"{member.display_name} ({member.id})"
-            if member else
-            f"{member.id}"
-        )
-        message = f"{member_info} has been banned until {end_date} (UTC)."
-        if not dm_banned_member:
-            message += " Could not DM banned member due to permission error."
-
-        await _post_to_channel(author, ban_id, end_date, guild, member_info, reason)
-        return SimpleResponse(message=message)
-
-
-async def _post_to_channel(author, ban_id, end_date, guild, member_info, reason):
+async def _post_to_channel(
+    author: Member, ban_id: int, end_date: str, guild: Guild, member_info: str, reason: str
+) -> None:
     embed = discord.Embed(
         title=f"Ban request #{ban_id}",
         description=f"{author.name} would like to ban {member_info} until {end_date} (UTC). Reason: {reason}",
@@ -157,8 +176,8 @@ async def _post_to_channel(author, ban_id, end_date, guild, member_info, reason)
     await guild.get_channel(settings.channels.SR_MOD).send(embed=embed)
 
 
-async def _dm_banned_member(end_date, guild, member, reason) -> bool:
-    """Send a message to the member about the ban"""
+async def _dm_banned_member(guild: Guild, member: Member, end_date: str, reason: str) -> bool:
+    """Send a message to the member about the ban."""
     message = (f"You have been banned from {guild.name} until {end_date} (UTC). "
                f"To appeal the ban, please reach out to an Administrator.\n"
                f"Following is the reason given:\n>>> {reason}\n")
