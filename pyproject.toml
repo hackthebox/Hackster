@@ -26,6 +26,7 @@ alembic = "^1.11"
 pymysql = "^1.0.3"
 prometheus-client = "^0.17"
 toml = "^0.10.2"
+colorlog = "^6.7.0"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.2"
