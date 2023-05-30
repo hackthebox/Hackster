@@ -81,8 +81,6 @@ async def process_identification(
     htb_user_details: Dict[str, str], user: Optional[Member | User], bot: Bot
 ) -> Optional[List[Role]]:
     """Returns roles to assign if identification was successfully processed."""
-
-    # Retrieve necessary information from htb_user_details dictionary
     htb_uid = htb_user_details["user_id"]
     htb_user_name = htb_user_details["user_name"]
 
@@ -189,7 +187,7 @@ async def _assign_hof_role(htb_hof_position: str) -> str:
         logger.debug(f"User is position {position}. No Hall of Fame roles for them.")
 
 
-async def _handle_ban(banned_details, bot, guild, member):
+async def _handle_ban(banned_details: dict, bot: Bot, guild: Guild, member: Member) -> None:
     banned_until = banned_details["ends_at"][:10]  # Extract date portion from the timestamp
     banned_until_dt = datetime.strptime(banned_until, "%Y-%m-%d")
     ban_duration = f"{(banned_until_dt - datetime.now()).days}d"
