@@ -1,5 +1,5 @@
 from unittest import mock
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from discord import Forbidden, HTTPException
@@ -60,7 +60,7 @@ class TestBanHelpers:
         member.send = AsyncMock()
         end_date = "2023-05-19"
         reason = "Violation of community guidelines"
-        result = await _dm_banned_member(end_date, guild, member, reason)
+        result = await _dm_banned_member(guild, member, end_date, reason)
         member.send.assert_awaited_once_with(
             f"You have been banned from {guild.name} until {end_date} (UTC). "
             f"To appeal the ban, please reach out to an Administrator.\n"
@@ -84,7 +84,7 @@ class TestBanHelpers:
         forbidden = Forbidden(response, message)
         member.send = AsyncMock(side_effect=forbidden)
         with pytest.warns(None):
-            result = await _dm_banned_member("2023-05-19", guild, member, "Violation of community guidelines")
+            result = await _dm_banned_member(guild, member, "2023-05-19", "Violation of community guidelines")
         assert result is False
 
     @pytest.mark.asyncio
@@ -103,7 +103,7 @@ class TestBanHelpers:
         http_exception = HTTPException(response, message)
         member.send = AsyncMock(side_effect=http_exception)
         with pytest.warns(None):
-            result = await _dm_banned_member("2023-05-19", guild, member, "Violation of community guidelines")
+            result = await _dm_banned_member(guild, member, "2023-05-19", "Violation of community guidelines")
         assert result is False
 
 
