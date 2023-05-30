@@ -2,6 +2,7 @@ import logging
 import os
 import random
 from typing import Tuple, Union
+from datetime import datetime
 
 import discord
 from discord import Interaction, Member, Option, User, WebhookMessage
@@ -16,6 +17,7 @@ from src.core import settings
 from src.database.models import HtbDiscordLink
 from src.database.session import AsyncSessionLocal
 from src.helpers.checks import member_is_staff
+from src.helpers.ban import add_infraction
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,8 @@ class UserCog(commands.Cog):
             )
 
         await ctx.guild.kick(user=member, reason=reason)
+        infraction_reason = f"{ctx.user.name} was kicked on {datetime.now()} for {reason}"
+        await add_infraction(ctx.guild, member, 0, infraction_reason, ctx.user)
         return await ctx.respond(f"{member.name} got the boot!")
 
     @staticmethod
