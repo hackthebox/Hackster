@@ -252,8 +252,8 @@ class UserCog(commands.Cog):
                     verified_members += 1
                     if "Academy User" in m.roles:
                         academy_users += 1
-                    if len(m.roles) == 1:
-                        academy_only_users += 1
+                        if len(m.roles) == 1:
+                            academy_only_users += 1
             else:
                 bots_count += 1
 
