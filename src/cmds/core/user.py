@@ -242,12 +242,18 @@ class UserCog(commands.Cog):
         members = 0
         bots_count = 0
         verified_members = 0
+        academy_users = 0
+        academy_only_users = 0
 
         for m in ctx.guild.members:
             if not m.bot:
                 members += 1
                 if len(m.roles) > 1:
                     verified_members += 1
+                    if "Academy User" in m.roles:
+                        academy_users += 1
+                    if len(m.roles) == 1:
+                        academy_only_users += 1
             else:
                 bots_count += 1
 
@@ -260,6 +266,8 @@ class UserCog(commands.Cog):
         embed.add_field(
             name="Verified Members", value=f"{verified_members} - {percent_verified}% verified", inline=False
         )
+        embed.add_field(name="Academy Users", value=f"{academy_users}", inline=False)
+        embed.add_field(name="Academy Only Users", value=f"{academy_only_users}", inline=False)
         embed.add_field(name="Bots", value=f"{bots_count}", inline=False)
         return await ctx.respond(embed=embed)
 
