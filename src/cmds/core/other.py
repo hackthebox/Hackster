@@ -25,7 +25,14 @@ class OtherCog(commands.Cog):
             "Once the event is over you are more then welcome to share solutions/write-ups/etc and try them in the "
             "After Party event."
         )
-
+    @slash_command(guild_ids=settings.guild_ids, description="A simple reply proving a link to the support desk article on how to get support")
+    async def support(
+        self, ctx: ApplicationContext
+    ) -> Message:
+        """A simple reply proving a link to the support desk article on how to get support"""
+        return await ctx.channel.send(
+            "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
+        )
     @slash_command(guild_ids=settings.guild_ids, description="Add the URL which has spoiler link.")
     async def spoiler(self, ctx: ApplicationContext, url: str) -> Interaction | WebhookMessage:
         """Add the URL which has spoiler link."""
