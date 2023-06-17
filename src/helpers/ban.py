@@ -86,6 +86,8 @@ async def ban_member(
             delete_after=None
         )
 
+    #DM member, before we ban, else we cannot dm since we do not share a guild
+    dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
     # Try to actually ban the member from the guild
     try:
         await guild.ban(member, reason=reason, delete_message_days=0)
@@ -105,8 +107,6 @@ async def ban_member(
                 delete_after=None
             )
         return
-
-    dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
 
     # If approval is required, send a message to the moderator channel about the ban
     if not needs_approval:
