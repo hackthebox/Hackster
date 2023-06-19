@@ -116,7 +116,7 @@ async def ban_member(
             message = f"Member {member.id} has been banned permanently."
 
         if not dm_banned_member:
-            message += " Could not DM banned member due to permission error."
+            message += "\n Could not DM banned member due to permission error."
 
         logger.info(
             "Member has been banned permanently.",
