@@ -145,7 +145,7 @@ async def ban_member(
         embed.add_field(name="Change duration:", value=f"/dispute {ban_id} <duration>", inline=True)
         embed.add_field(name="Deny and unban:", value=f"/deny {ban_id}", inline=True)
         await guild.get_channel(settings.channels.SR_MOD).send(embed=embed)
-        return SimpleResponse(message=message)
+        return SimpleResponse(message=message, ban_id=ban_id)
 
 
 async def _dm_banned_member(end_date, guild, member, reason) -> bool:

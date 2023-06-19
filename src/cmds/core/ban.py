@@ -24,6 +24,49 @@ class BanCog(commands.Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
 
+    class BanApprove(discord.ui.view):
+        def __init__(self, ban_id):
+            super().__init__(timeout=None)
+            self.ban_id = ban_id
+        @discord.ui.button(label="Approve", style=discord.ButtonStyle.primary)
+        async def approve_ban(self, interaction: discord.Interaction, button: discord.ui.Button):
+            async with AsyncSessionLocal() as session:
+                ban_to_update = await session.get(Ban, self.ban_id)
+                if not ban_to_update:
+                    message = "Cannot find record of ban request. Has this user already been unbanned?"
+
+                ban_to_update.approved = True
+                await session.commit()
+
+                stmt = select(Ban).filter(Ban.id == self.ban_id)
+                result = await session.scalars(stmt)
+                ban: Ban = result.first()
+
+            member = await self.bot.get_member_or_user(interaction.guild, ban.user_id)
+            if not member:
+                message = f"User {ban.user_id} not found."
+
+            self.bot.loop.create_task(
+                schedule(unban_member(interaction.guild, member), run_at=datetime.fromtimestamp(ban.unban_time))
+            )
+            if not message:
+                message = "Ban Approval Recorded."
+            await interaction.response.send_message(message, ephemeral=True)
+            self.disable_all_items()
+
+        @discord.ui.button(label="Deny", style=discord.ButtonStyle.red)
+        async def deny_ban(self, interaction: discord.Interaction, button: discord.ui.Button):
+            async with AsyncSessionLocal() as session:
+                ban = await session.get(Ban, self.ban_id)
+                if ban and ban.user_id:
+                    await session.delete(ban)
+                    await session.commit()
+                    message = "Ban request denied. The user has been unbanned."
+                else:
+                    message = "Cannot find record of ban request. Has this user already been unbanned?"
+            await interaction.response.send_message(message, ephemeral=True)
+            self.disable_all_items()
+
     @slash_command(guild_ids=settings.guild_ids, description="Ban a user from the server permanently.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
     async def ban(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
@@ -49,7 +92,7 @@ class BanCog(commands.Cog):
         if not member:
             return await ctx.respond(f"User {user} not found.")
         response = await ban_member(self.bot, ctx.guild, member, duration, reason, ctx.user, needs_approval=True)
-        return await ctx.respond(response.message, delete_after=response.delete_after)
+        return await ctx.respond(response.message, delete_after=response.delete_after, view=self.BanApprove(ban_id=response.ban_id))
 
     @slash_command(guild_ids=settings.guild_ids, description="Unbans a user from the server.")
     @has_any_role(

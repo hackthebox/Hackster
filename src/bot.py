@@ -16,7 +16,8 @@ from sqlalchemy.exc import NoResultFound
 from src import trace_config
 from src.core import constants, settings
 from src.metrics import completed_commands, errored_commands, received_commands
-
+from src.cmds.core.ban import BanCog
+from src.cmds.core.identify import IdentifyCog
 logger = logging.getLogger(__name__)
 
 
@@ -57,7 +58,8 @@ class Bot(DiscordBot):
             print("ScheduledTasks cog loaded!")
         except Exception as e:
             print(f"Failed to load ScheduledTasks cog: {e}")
-
+        bot.add_view(BanCog.BanApprove())
+        bot.add_view(IdentifyCog.VerifyError())
     async def on_application_command(self, ctx: ApplicationContext) -> None:
         """A global handler cog."""
         logger.debug(f"Command '{ctx.command}' received.")
