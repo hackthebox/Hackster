@@ -45,9 +45,7 @@ class ScheduledTasks(commands.Cog):
 
         for ban in bans:
             run_at = datetime.fromtimestamp(ban.unban_time)
-            logger.debug(
-                f"Got user_id: {ban.user_id} and unban timestamp: {run_at} from DB."
-            )
+            logger.debug(f"Got user_id: {ban.user_id} and unban timestamp: {run_at} from DB.")
 
             for guild_id in settings.guild_ids:
                 logger.debug(f"Running for guild: {guild_id}.")

@@ -39,9 +39,11 @@ class Database(BaseSettings):
     CHARSET: str = "utf8mb4"
 
     def assemble_db_connection(self) -> str:
-        connection_string = f"mariadb+asyncmy://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/" \
-                            f"{self.DATABASE}?charset=" \
-                            f"{self.CHARSET}"
+        connection_string = (
+            f"mariadb+asyncmy://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
+            f"{self.DATABASE}?charset="
+            f"{self.CHARSET}"
+        )
         return connection_string
 
     class Config:
@@ -194,9 +196,9 @@ class Global(BaseSettings):
     @classmethod
     def get_project_versions(cls, v: Optional[str], values: dict[str, Any]) -> str:
         def _get_from_pyproject():
-            with open('pyproject.toml', 'r') as f:
+            with open("pyproject.toml", "r") as f:
                 config = toml.load(f)
-                version = config.get('tool', {}).get('poetry', {}).get('version')
+                version = config.get("tool", {}).get("poetry", {}).get("version")
                 return version
 
         if not v:
@@ -218,12 +220,23 @@ class Global(BaseSettings):
 
     def get_post_or_rank(self, what: str) -> Optional[int]:
         return {
-            "1": self.roles.RANK_ONE, "5": self.roles.RANK_FIVE, "10": self.roles.RANK_TEN,
-            "25": self.roles.RANK_TWENTY_FIVE, "50": self.roles.RANK_FIFTY, "100": self.roles.RANK_HUNDRED,
-            "Omniscient": self.roles.OMNISCIENT, "Guru": self.roles.GURU, "Elite Hacker": self.roles.ELITE_HACKER,
-            "Pro Hacker": self.roles.PRO_HACKER, "Hacker": self.roles.HACKER, "Script Kiddie": self.roles.SCRIPT_KIDDIE,
-            "Noob": self.roles.NOOB, "vip": self.roles.VIP, "dedivip": self.roles.VIP_PLUS,
-            "Challenge Creator": self.roles.CHALLENGE_CREATOR, "Box Creator": self.roles.BOX_CREATOR,
+            "1": self.roles.RANK_ONE,
+            "5": self.roles.RANK_FIVE,
+            "10": self.roles.RANK_TEN,
+            "25": self.roles.RANK_TWENTY_FIVE,
+            "50": self.roles.RANK_FIFTY,
+            "100": self.roles.RANK_HUNDRED,
+            "Omniscient": self.roles.OMNISCIENT,
+            "Guru": self.roles.GURU,
+            "Elite Hacker": self.roles.ELITE_HACKER,
+            "Pro Hacker": self.roles.PRO_HACKER,
+            "Hacker": self.roles.HACKER,
+            "Script Kiddie": self.roles.SCRIPT_KIDDIE,
+            "Noob": self.roles.NOOB,
+            "vip": self.roles.VIP,
+            "dedivip": self.roles.VIP_PLUS,
+            "Challenge Creator": self.roles.CHALLENGE_CREATOR,
+            "Box Creator": self.roles.BOX_CREATOR,
         }.get(what)
 
     def get_season(self, what: str):
@@ -232,7 +245,7 @@ class Global(BaseSettings):
             "Platinum": self.roles.SEASON_PLATINUM,
             "Ruby": self.roles.SEASON_RUBY,
             "Silver": self.roles.SEASON_SILVER,
-            "Bronze": self.roles.SEASON_BRONZE
+            "Bronze": self.roles.SEASON_BRONZE,
         }.get(what)
 
     class Config:
@@ -255,28 +268,50 @@ def load_settings(env_file: str | None = None):
         "Noah Gang": (global_settings.roles.NOAH_GANG, "Get pinged when Fugl posts pictures of his cute bird"),
         "Buddy Gang": (global_settings.roles.BUDDY_GANG, "Get pinged when Legacyy posts pictures of his cute dog"),
         "Red Team": (
-            global_settings.roles.RED_TEAM, "Red team fans. Also gives access to the Red and Blue team channels"),
+            global_settings.roles.RED_TEAM,
+            "Red team fans. Also gives access to the Red and Blue team channels",
+        ),
         "Blue Team": (
-            global_settings.roles.BLUE_TEAM, "Blue team fans. Also gives access to the Red and Blue team channels"),
+            global_settings.roles.BLUE_TEAM,
+            "Blue team fans. Also gives access to the Red and Blue team channels",
+        ),
     }
 
     global_settings.role_groups = {
         "ALL_ADMINS": [global_settings.roles.ADMINISTRATOR, global_settings.roles.COMMUNITY_MANAGER],
         "ALL_SR_MODS": [global_settings.roles.SR_MODERATOR],
-        "ALL_MODS": [global_settings.roles.SR_MODERATOR, global_settings.roles.MODERATOR,
-                     global_settings.roles.JR_MODERATOR],
+        "ALL_MODS": [
+            global_settings.roles.SR_MODERATOR,
+            global_settings.roles.MODERATOR,
+            global_settings.roles.JR_MODERATOR,
+        ],
         "ALL_HTB_STAFF": [global_settings.roles.HTB_STAFF],
         "ALL_HTB_SUPPORT": [global_settings.roles.HTB_SUPPORT],
-        "ALL_RANKS": [global_settings.roles.OMNISCIENT, global_settings.roles.GURU, global_settings.roles.ELITE_HACKER,
-                      global_settings.roles.PRO_HACKER, global_settings.roles.HACKER,
-                      global_settings.roles.SCRIPT_KIDDIE, global_settings.roles.NOOB, global_settings.roles.VIP,
-                      global_settings.roles.VIP_PLUS, global_settings.roles.SEASON_HOLO,
-                      global_settings.roles.SEASON_PLATINUM, global_settings.roles.SEASON_RUBY,
-                      global_settings.roles.SEASON_SILVER, global_settings.roles.SEASON_BRONZE],
+        "ALL_RANKS": [
+            global_settings.roles.OMNISCIENT,
+            global_settings.roles.GURU,
+            global_settings.roles.ELITE_HACKER,
+            global_settings.roles.PRO_HACKER,
+            global_settings.roles.HACKER,
+            global_settings.roles.SCRIPT_KIDDIE,
+            global_settings.roles.NOOB,
+            global_settings.roles.VIP,
+            global_settings.roles.VIP_PLUS,
+            global_settings.roles.SEASON_HOLO,
+            global_settings.roles.SEASON_PLATINUM,
+            global_settings.roles.SEASON_RUBY,
+            global_settings.roles.SEASON_SILVER,
+            global_settings.roles.SEASON_BRONZE,
+        ],
         "ALL_CREATORS": [global_settings.roles.BOX_CREATOR, global_settings.roles.CHALLENGE_CREATOR],
-        "ALL_POSITIONS": [global_settings.roles.RANK_ONE, global_settings.roles.RANK_FIVE,
-                          global_settings.roles.RANK_TEN, global_settings.roles.RANK_TWENTY_FIVE,
-                          global_settings.roles.RANK_FIFTY, global_settings.roles.RANK_HUNDRED],
+        "ALL_POSITIONS": [
+            global_settings.roles.RANK_ONE,
+            global_settings.roles.RANK_FIVE,
+            global_settings.roles.RANK_TEN,
+            global_settings.roles.RANK_TWENTY_FIVE,
+            global_settings.roles.RANK_FIFTY,
+            global_settings.roles.RANK_HUNDRED,
+        ],
     }
 
     return global_settings

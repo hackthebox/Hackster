@@ -2,11 +2,12 @@ import calendar
 import logging
 import re
 import time
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
 
-def validate_duration(duration: str, baseline_ts: int = None) -> (int, str):
+def validate_duration(duration: str, baseline_ts: int = None) -> Tuple[int, str]:
     """Validate duration string and convert to seconds."""
     if duration.isnumeric():
         return 0, "Malformed duration. Please use duration units, (e.g. 12h, 14d, 5w)."

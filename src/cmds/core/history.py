@@ -28,8 +28,9 @@ class HistoryCog(commands.Cog):
         description="Print the infraction history and basic details about the Discord user.",
     )
     @has_any_role(
-        *settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"),
-        *settings.role_groups.get("ALL_HTB_STAFF")
+        *settings.role_groups.get("ALL_ADMINS"),
+        *settings.role_groups.get("ALL_MODS"),
+        *settings.role_groups.get("ALL_HTB_STAFF"),
     )
     async def history(self, ctx: ApplicationContext, user: discord.Member) -> Interaction | WebhookMessage:
         """Print the infraction history and basic details about the Discord user."""
@@ -81,13 +82,17 @@ class HistoryCog(commands.Cog):
             embed.set_thumbnail(url=member.avatar)
         self._embed_titles_of(
             embed,
-            entry_type="infractions", history_entries=infractions, today_date=today_date,
+            entry_type="infractions",
+            history_entries=infractions,
+            today_date=today_date,
             entry_handler=self._produce_inf_text,
         )
         self._embed_titles_of(
             embed,
-            entry_type="notes", history_entries=notes, today_date=today_date,
-            entry_handler=self._produce_note_text
+            entry_type="notes",
+            history_entries=notes,
+            today_date=today_date,
+            entry_handler=self._produce_note_text,
         )
 
         if len(embed) > 6000:
@@ -97,8 +102,11 @@ class HistoryCog(commands.Cog):
 
     @staticmethod
     def _embed_titles_of(
-        embed: Embed, entry_type: str, history_entries: Sequence[UserNote | Infraction], today_date: date,
-        entry_handler: Callable[[UserNote | Infraction, date], str]
+        embed: Embed,
+        entry_type: str,
+        history_entries: Sequence[UserNote | Infraction],
+        today_date: date,
+        entry_handler: Callable[[UserNote | Infraction, date], str],
     ) -> None:
         """
         Add formatted titles of a specific entry type to the given embed.

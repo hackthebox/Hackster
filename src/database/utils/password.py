@@ -61,10 +61,10 @@ class PasswordHash(Mutable):
         return self.hash[index]
 
     def __setitem__(self, index, value):
-        self.hash = self.hash[:index] + value + self.hash[index + 1:]
+        self.hash = self.hash[:index] + value + self.hash[index + 1 :]
 
     def __delitem__(self, index):
-        self.hash = self.hash[:index] + self.hash[index + 1:]
+        self.hash = self.hash[:index] + self.hash[index + 1 :]
 
     def insert(self, index, value) -> None:
         """

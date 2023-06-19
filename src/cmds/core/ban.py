@@ -34,12 +34,11 @@ class BanCog(commands.Cog):
         response = await ban_member(self.bot, ctx.guild, member, "500w", reason, ctx.user, needs_approval=False)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
-    @slash_command(
-        guild_ids=settings.guild_ids, description="Ban a user from the server temporarily."
-    )
+    @slash_command(guild_ids=settings.guild_ids, description="Ban a user from the server temporarily.")
     @has_any_role(
-        *settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"),
-        *settings.role_groups.get("ALL_HTB_STAFF")
+        *settings.role_groups.get("ALL_ADMINS"),
+        *settings.role_groups.get("ALL_MODS"),
+        *settings.role_groups.get("ALL_HTB_STAFF"),
     )
     async def tempban(
         self, ctx: ApplicationContext, user: discord.Member, duration: str, reason: str
@@ -53,8 +52,9 @@ class BanCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="Unbans a user from the server.")
     @has_any_role(
-        *settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"),
-        *settings.role_groups.get("ALL_HTB_SUPPORT")
+        *settings.role_groups.get("ALL_ADMINS"),
+        *settings.role_groups.get("ALL_MODS"),
+        *settings.role_groups.get("ALL_HTB_SUPPORT"),
     )
     async def unban(self, ctx: ApplicationContext, user: discord.Member) -> Interaction | WebhookMessage:
         """Unbans a user from the server."""
@@ -144,7 +144,7 @@ class BanCog(commands.Cog):
 
     @slash_command(
         guild_ids=settings.guild_ids,
-        description="Warns a user of an action. Adds no weight but DMs the user about the warning and the reason why."
+        description="Warns a user of an action. Adds no weight but DMs the user about the warning and the reason why.",
     )
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def warn(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
@@ -157,7 +157,7 @@ class BanCog(commands.Cog):
 
     @slash_command(
         guild_ids=settings.guild_ids,
-        description="Strike the user with the selected weight. DMs the user about the strike and the reason why."
+        description="Strike the user with the selected weight. DMs the user about the strike and the reason why.",
     )
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def strike(
@@ -172,7 +172,8 @@ class BanCog(commands.Cog):
 
     @slash_command(
         guild_ids=settings.guild_ids,
-        description="Remove a warning or a strike from a user by providing the infraction ID to remove.", )
+        description="Remove a warning or a strike from a user by providing the infraction ID to remove.",
+    )
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
     async def remove_infraction(self, ctx: ApplicationContext, infraction_id: int) -> Interaction | WebhookMessage:
         """Remove a warning or a strike from a user by providing the infraction ID to remove."""

@@ -56,7 +56,9 @@ class MessageHandler(commands.Cog):
         try:
             await self.process_reverification(ctx.author)
         except VerificationError as exc:
-            logger.debug(f"HTB Discord link for user {ctx.author.name} with ID {ctx.author.id} not found", exc_info=exc)
+            logger.debug(
+                f"HTB Discord link for user {ctx.author.name} with ID {ctx.author.id} not found", exc_info=exc
+            )
 
     @commands.Cog.listener()
     @commands.cooldown(1, 3600, commands.BucketType.user)

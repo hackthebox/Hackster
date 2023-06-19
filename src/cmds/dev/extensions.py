@@ -40,7 +40,7 @@ class Extensions(commands.Cog):
         extensions = {
             "load": EXTENSIONS - set(self.bot.extensions),
             "unload": set(self.bot.extensions) - UNLOAD_BLACKLIST,
-            "reload": EXTENSIONS
+            "reload": EXTENSIONS,
         }
 
         results = []
@@ -55,17 +55,12 @@ class Extensions(commands.Cog):
         return results
 
     extensions = SlashCommandGroup(
-        "exts", "Load, unload and reload a bot's extension.",
-        guild_ids=settings.dev_guild_ids
+        "exts", "Load, unload and reload a bot's extension.", guild_ids=settings.dev_guild_ids
     )
 
     @extensions.command()
     async def load(
-        self, ctx: ApplicationContext,
-        extension: Option(
-            str, "Choose an extension.",
-            autocomplete=get_extensions
-        )
+        self, ctx: ApplicationContext, extension: Option(str, "Choose an extension.", autocomplete=get_extensions)
     ) -> Interaction | WebhookMessage:
         """Load an extension given its name."""
         msg, error = await self.manage(Action.LOAD, extension)
@@ -73,11 +68,7 @@ class Extensions(commands.Cog):
 
     @extensions.command()
     async def unload(
-        self, ctx: ApplicationContext,
-        extension: Option(
-            str, "Choose an extension.",
-            autocomplete=get_extensions
-        )
+        self, ctx: ApplicationContext, extension: Option(str, "Choose an extension.", autocomplete=get_extensions)
     ) -> Interaction | WebhookMessage:
         """Unload an extension given its name."""
         msg, error = await self.manage(Action.UNLOAD, extension)
@@ -85,11 +76,7 @@ class Extensions(commands.Cog):
 
     @extensions.command()
     async def reload(
-        self, ctx: ApplicationContext,
-        extension: Option(
-            str, "Choose an extension.",
-            autocomplete=get_extensions
-        )
+        self, ctx: ApplicationContext, extension: Option(str, "Choose an extension.", autocomplete=get_extensions)
     ) -> Interaction | WebhookMessage:
         """Reload an extension given its name."""
         msg, error = await self.manage(Action.RELOAD, extension)

@@ -29,11 +29,11 @@ class LinePaginator(Paginator):
 
     def __init__(
         self,
-        prefix: str = '```',
-        suffix: str = '```',
+        prefix: str = "```",
+        suffix: str = "```",
         max_size: int = 2000,
         max_lines: Optional[int] = None,
-        linesep: str = "\n"
+        linesep: str = "\n",
     ):
         """
         Overrides the Paginator.__init__ from inside discord.ext.commands.
@@ -42,12 +42,7 @@ class LinePaginator(Paginator):
         `max_size` and `max_lines` denote the maximum amount of codepoints and lines
         allowed per page.
         """
-        super().__init__(
-            prefix,
-            suffix,
-            max_size - len(suffix),
-            linesep
-        )
+        super().__init__(prefix, suffix, max_size - len(suffix), linesep)
 
         self.max_lines = max_lines
         self._current_page = [prefix]
@@ -85,12 +80,20 @@ class LinePaginator(Paginator):
 
     @classmethod
     async def paginate(
-        cls, lines: list[str], ctx: ApplicationContext, embed: Embed,
-        prefix: str = "", suffix: str = "", max_lines: Optional[int] = None,
-        max_size: int = constants.pagination.max_size, empty: bool = True,
-        restrict_to_user: User = None, timeout: int = constants.pagination.timeout,
-        footer_text: str = None, url: str = None,
-        exception_on_empty_embed: bool = False
+        cls,
+        lines: list[str],
+        ctx: ApplicationContext,
+        embed: Embed,
+        prefix: str = "",
+        suffix: str = "",
+        max_lines: Optional[int] = None,
+        max_size: int = constants.pagination.max_size,
+        empty: bool = True,
+        restrict_to_user: User = None,
+        timeout: int = constants.pagination.timeout,
+        footer_text: str = None,
+        url: str = None,
+        exception_on_empty_embed: bool = False,
     ) -> None:
         """
         Use a paginator and set of reactions to provide pagination over a set of lines.
@@ -116,7 +119,7 @@ class LinePaginator(Paginator):
                     reaction_.message.id == message.id,  # Reaction is on this message.
                     reaction_.emoji in PAGINATION_EMOJIS,  # Reaction is one of the pagination emotes.
                     user_.id != ctx.bot.user.id,  # Reaction was not made by the Bot.
-                    no_restrictions  # There were no restrictions.
+                    no_restrictions,  # There were no restrictions.
                 )
             )
 
@@ -266,10 +269,17 @@ class ImagePaginator(Paginator):
 
     @classmethod
     async def paginate(
-        cls, pages: list[tuple[str, str]], ctx: ApplicationContext, embed: Embed,
-        prefix: str = "", suffix: str = "", restrict_to_user: User = None,
-        timeout: int = constants.pagination.timeout, footer_text: str = None, url: str = None,
-        exception_on_empty_embed: bool = False
+        cls,
+        pages: list[tuple[str, str]],
+        ctx: ApplicationContext,
+        embed: Embed,
+        prefix: str = "",
+        suffix: str = "",
+        restrict_to_user: User = None,
+        timeout: int = constants.pagination.timeout,
+        footer_text: str = None,
+        url: str = None,
+        exception_on_empty_embed: bool = False,
     ) -> None:
         """
         Use a paginator and set of reactions to provide pagination over a set of title/image pairs.
@@ -295,7 +305,7 @@ class ImagePaginator(Paginator):
                     reaction_.message.id == message.id,  # Reaction is on this message.
                     reaction_.emoji in PAGINATION_EMOJIS,  # Reaction is one of the pagination emotes.
                     user_.id != ctx.bot.user.id,  # Reaction was not made by the Bot.
-                    no_restrictions  # There were no restrictions.
+                    no_restrictions,  # There were no restrictions.
                 )
             )
 

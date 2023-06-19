@@ -16,6 +16,7 @@ class HtbDiscordLink(Base):
         discord_user_id (BIGINT): The Discord user ID (18 digits) associated with the HTB user.
         htb_user_id (BIGINT): The Hack The Box user ID associated with the Discord user.
     """
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     account_identifier: Mapped[str] = mapped_column(VARCHAR(255))
     discord_user_id: Mapped[int] = mapped_column(BIGINT(18))

@@ -2,7 +2,7 @@ import hmac
 import logging
 from typing import Any, Dict, Union
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, Header, HTTPException
 from uvicorn import Config, Server
 
 from src.bot import bot
