@@ -26,7 +26,7 @@ class OtherCog(commands.Cog):
             "After Party event."
         )
     @slash_command(guild_ids=settings.guild_ids, description="A simple reply proving a link to the support desk article on how to get support")
-    @cooldown(1, 60, commands.BucketType.user)
+    @commands.cooldown(1, 60, commands.BucketType.user)
     async def support(
         self, ctx: ApplicationContext
     ) -> Message:
