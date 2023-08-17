@@ -235,6 +235,7 @@ class UserCog(commands.Cog):
         *settings.role_groups.get("ALL_MODS"),
         *settings.role_groups.get("ALL_HTB_STAFF"),
     )
+    @cooldown(1, 60, commands.BucketType.guild)
     async def user_stats(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
         """See total user count!"""
         logger.debug(f"{ctx.user.display_name} requested user stats, sending to {ctx.channel.name}")
