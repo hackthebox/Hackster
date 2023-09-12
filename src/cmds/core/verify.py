@@ -9,7 +9,6 @@ from discord.ext.commands import cooldown
 from src.bot import Bot
 from src.core import settings
 from src.helpers.verification import process_certification
-from src.confi
 logger = logging.getLogger(__name__)
 
 
