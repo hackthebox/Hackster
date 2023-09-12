@@ -74,6 +74,27 @@ async def _check_for_ban(uid: str) -> Optional[Dict]:
 
     return ban_details
 
+async def process_certification(certid: str, name: str):
+    cert_api_url = f"{settings.API_V4_URL}certificate/lookup"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(cert_api_url, headers=headers) as r:
+            if r.status == 200:
+                response = await r.json()
+            elif r.status == 404:
+                return False
+            else:
+                logger.error(f"Non-OK HTTP status code returned from identifier lookup: {r.status}.")
+                response = None
+
+    certRawName = response['certificates']['name']
+    if certRawName == "HTB Certified Bug Bounty Hunter":
+        cert = "CBBH"
+    elif certRawName == "HTB Certified Penetration Tester":
+        cert = "CPTS"
+    else:
+        cert = False
+    return cert
+
 
 async def process_identification(
     htb_user_details: Dict[str, str], user: Optional[Member | User], bot: Bot

@@ -137,6 +137,7 @@ class Roles(BaseSettings):
     RED_TEAM: int
     BLUE_TEAM: int
 
+
     @validator("*", pre=True, each_item=True)
     def check_length(cls, value: str | int) -> str | int:
         value_str = str(value)
@@ -233,6 +234,12 @@ class Global(BaseSettings):
             "Ruby": self.roles.SEASON_RUBY,
             "Silver": self.roles.SEASON_SILVER,
             "Bronze": self.roles.SEASON_BRONZE
+        }.get(what)
+
+    def get_cert(self, what: str):
+        return {
+            "CPTS": self.roles.ACADEMY_CPTS,
+            "CBBH": self.roles.ACADEMY_CBBH
         }.get(what)
 
     class Config:
