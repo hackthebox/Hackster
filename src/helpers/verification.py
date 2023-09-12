@@ -76,8 +76,9 @@ async def _check_for_ban(uid: str) -> Optional[Dict]:
 
 async def process_certification(certid: str, name: str):
     cert_api_url = f"{settings.API_V4_URL}certificate/lookup"
+    params = {'id': certid, 'name': name}
     async with aiohttp.ClientSession() as session:
-        async with session.get(cert_api_url, headers=headers) as r:
+        async with session.get(cert_api_url, params=params) as r:
             if r.status == 200:
                 response = await r.json()
             elif r.status == 404:
