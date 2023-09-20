@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from discord import Bot
+from discord import Bot, Embed
 from discord.abc import GuildChannel
 from discord.errors import Forbidden
 from fastapi import HTTPException
@@ -29,10 +29,16 @@ async def handler(body: WebhookBody, bot: Bot) -> dict:
     Raises:
         HTTPException: If an error occurs while processing the webhook event.
     """
-    if body.event != WebhookEvent.PROLAB_RESET:
-        raise ValueError(f"Event {body.event} not implemented")
+    allowed_events = [WebhookEvent.PROLAB_RESET, WebhookEvent.PROLAB_MACHINE_RESET]
+    if body.event not in allowed_events:
+        logger.debug("Invalid webhook event: %s", body.event)
+        raise HTTPException(status_code=400, detail="Invalid webhook event")
 
     prolab_name_data: str = body.data.get("prolabName")
+    prolab_machine: Optional[str] = None
+
+    if body.event == WebhookEvent.PROLAB_MACHINE_RESET:
+        prolab_machine = body.data.get("prolabMachine")
 
     if not prolab_name_data:
         logger.debug("Missing required data in webhook body: %s", body.data)
@@ -77,14 +83,19 @@ async def handler(body: WebhookBody, bot: Bot) -> dict:
         )
 
     prolab_name = prolab_name.upper()
-    prolab_region = prolab_region.upper()
-    content = (
-        f"The Pro Lab **{prolab_name}** has started to reset in the **{prolab_region} {prolab_vpn_id}** server."
-    )
-    logger.debug("Sending '%s' to channel %s", content, prolab_channel.name)
+    prolab_vpn_server = prolab_region.upper() + " " + prolab_vpn_id
+    prolab_machine = prolab_machine.upper() if prolab_machine else None
 
+    embed = Embed(title="", color=0xB98700)
+    embed.add_field(name="Pro Lab", value=prolab_name, inline=False)
+    if prolab_machine and body.event == WebhookEvent.PROLAB_MACHINE_RESET:
+        embed.add_field(name="Machine", value=prolab_machine, inline=False)
+    embed.add_field(name="VPN Server", value=prolab_vpn_server, inline=False)
+    embed.set_footer(text="The reset takes a few minutes to complete. Please be patient.")
+
+    logger.debug("Sending message to channel %s", prolab_channel.name)
     try:
-        await prolab_channel.send(content=content)
+        await prolab_channel.send(embed=embed, content="A Pro Lab reset has been initiated.")
     except Forbidden as forbidden:
         raise HTTPException(
             status_code=500, detail="Missing permissions to send message"

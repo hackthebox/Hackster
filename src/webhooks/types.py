@@ -13,6 +13,7 @@ class WebhookEvent(Enum):
     CONTENT_RELEASED = "ContentReleased"
     NAME_CHANGE = "NameChange"
     PROLAB_RESET = "ProlabReset"
+    PROLAB_MACHINE_RESET = "ProlabMachineReset"
 
 
 class Platform(Enum):
