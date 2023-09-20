@@ -79,7 +79,7 @@ async def handler(body: WebhookBody, bot: Bot) -> dict:
     prolab_name = prolab_name.upper()
     prolab_region = prolab_region.upper()
     content = (
-        f"**{prolab_name}** has started to reset in **{prolab_region} {prolab_vpn_id}**"
+        f"The Pro Lab **{prolab_name}** has started to reset in the **{prolab_region} {prolab_vpn_id}** server."
     )
     logger.debug("Sending '%s' to channel %s", content, prolab_channel.name)
 
