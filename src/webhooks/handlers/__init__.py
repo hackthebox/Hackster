@@ -1,9 +1,13 @@
 from discord import Bot
 
 from src.webhooks.handlers.academy import handler as academy_handler
+from src.webhooks.handlers.midna import handler as midna_handler
 from src.webhooks.types import Platform, WebhookBody
 
-handlers = {Platform.ACADEMY: academy_handler}
+handlers = {
+    Platform.ACADEMY: academy_handler,
+    Platform.MIDNA: midna_handler
+}
 
 
 def can_handle(platform: Platform) -> bool:

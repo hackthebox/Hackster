@@ -12,6 +12,7 @@ class WebhookEvent(Enum):
     SUBSCRIPTION_CHANGE = "SubscriptionChange"
     CONTENT_RELEASED = "ContentReleased"
     NAME_CHANGE = "NameChange"
+    PROLAB_RESET = "ProlabReset"
 
 
 class Platform(Enum):
@@ -19,6 +20,7 @@ class Platform(Enum):
     ACADEMY = "academy"
     CTF = "ctf"
     ENTERPRISE = "enterprise"
+    MIDNA = "midna"
 
 
 class WebhookBody(BaseModel):
