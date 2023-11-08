@@ -34,8 +34,9 @@ class VerifyCog(commands.Cog):
         if cert:
             toAdd = settings.get_cert(cert)
             ctx.author.add_roles(toAdd)
+            ctx.respond(f"Added {cert}!")
         else:
-            ctx.reply("Unable to find certification with provided details")
+            ctx.respond("Unable to find certification with provided details")
     @slash_command(
         guild_ids=settings.guild_ids,
         description="Receive instructions in a DM on how to identify yourself with your HTB account."
