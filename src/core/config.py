@@ -112,11 +112,7 @@ class Roles(BaseSettings):
 
     # Positions
     RANK_ONE: int
-    RANK_FIVE: int
     RANK_TEN: int
-    RANK_TWENTY_FIVE: int
-    RANK_FIFTY: int
-    RANK_HUNDRED: int
 
     # Season Tiers:
     SEASON_HOLO: int
