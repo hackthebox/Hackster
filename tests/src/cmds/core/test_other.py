@@ -18,13 +18,30 @@ class TestOther:
         # Invoke the command.
         await cog.no_hints.callback(cog, ctx)
 
-        args, kwargs = ctx.channel.send.call_args
+        args, kwargs = ctx.respond.call_args
         content = args[0]
 
-        # Command should respond with an embed.
+        # Command should respond with a string.
         assert isinstance(content, str)
 
         assert content.startswith("No hints are allowed")
+
+    @pytest.mark.asyncio
+    async def test_support(self, bot, ctx):
+        """Test the response of the `support` command."""
+        cog = other.OtherCog(bot)
+        ctx.bot = bot
+
+        # Invoke the command.
+        await cog.support.callback(cog, ctx)
+
+        args, kwargs = ctx.respond.call_args
+        content = args[0]
+
+        # Command should respond with a string.
+        assert isinstance(content, str)
+
+        assert content.startswith("https://help.hackthebox.com")
 
     @pytest.mark.asyncio
     async def test_spoiler_without_url(self, bot, ctx):
