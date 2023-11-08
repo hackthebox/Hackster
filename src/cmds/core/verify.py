@@ -8,7 +8,7 @@ from discord.ext.commands import cooldown
 
 from src.bot import Bot
 from src.core import settings
-
+from src.helpers.verification import process_certification
 logger = logging.getLogger(__name__)
 
 
@@ -18,6 +18,24 @@ class VerifyCog(commands.Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
 
+    @slash_command(
+        guild_ids=settings.guild_ids,
+        description="Verify your HTB Certifications!"
+    )
+    @cooldown(1, 60, commands.BucketType.user)
+    async def verifycertification(self, ctx: ApplicationContext, certid: str, fullname: str) -> Interaction | WebhookMessage:
+        if not certid or not fullname:
+            ctx.reply("You must supply a cert id!")
+            return
+        if not certid.startswith("HTBCERT-"):
+            ctx.reply("CertID must start with HTBCERT-")
+            return
+        cert = process_certification(certid, fullname)
+        if cert:
+            toAdd = settings.get_cert(cert)
+            ctx.author.add_roles(toAdd)
+        else:
+            ctx.reply("Unable to find certification with provided details")
     @slash_command(
         guild_ids=settings.guild_ids,
         description="Receive instructions in a DM on how to identify yourself with your HTB account."
