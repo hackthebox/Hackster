@@ -247,8 +247,7 @@ class Global(BaseSettings):
     def get_cert(self, what: str):
         return {
             "CPTS": self.roles.ACADEMY_CPTS,
-            "CBBH": self.roles.ACADEMY_CBBH,
-            "CDSA": self.roles.ACADEMY_CDSA
+            "CBBH": self.roles.ACADEMY_CBBH
         }.get(what)
 
     class Config:
