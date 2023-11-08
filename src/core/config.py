@@ -248,6 +248,7 @@ class Global(BaseSettings):
         return {
             "CPTS": self.roles.ACADEMY_CPTS,
             "CBBH": self.roles.ACADEMY_CBBH
+            "CDSA": self.roles.ACADEMY_CDSA
         }.get(what)
 
     class Config:
