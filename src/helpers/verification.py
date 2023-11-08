@@ -92,7 +92,7 @@ async def process_certification(certid: str, name: str):
         cert = "CBBH"
     elif certRawName == "HTB Certified Penetration Tester":
         cert = "CPTS"
-    elif certRawName == "HTB Certified Defensive Security Analyst"
+    elif certRawName == "HTB Certified Defensive Security Analyst":
         cert = "CDSA"
     else:
         cert = False
