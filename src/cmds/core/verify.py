@@ -25,10 +25,10 @@ class VerifyCog(commands.Cog):
     @cooldown(1, 60, commands.BucketType.user)
     async def verifycertification(self, ctx: ApplicationContext, certid: str, fullname: str) -> Interaction | WebhookMessage:
         if not certid or not fullname:
-            ctx.reply("You must supply a cert id!")
+            ctx.respond("You must supply a cert id!")
             return
         if not certid.startswith("HTBCERT-"):
-            ctx.reply("CertID must start with HTBCERT-")
+            ctx.respond("CertID must start with HTBCERT-")
             return
         cert = process_certification(certid, fullname)
         if cert:
