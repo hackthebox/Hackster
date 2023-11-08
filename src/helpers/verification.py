@@ -145,17 +145,8 @@ async def process_identification(
         pos_top = None
         if position == 1:
             pos_top = "1"
-        elif position <= 5:
-            pos_top = "5"
         elif position <= 10:
             pos_top = "10"
-        elif position <= 25:
-            pos_top = "25"
-        elif position <= 50:
-            pos_top = "50"
-        elif position <= 100:
-            pos_top = "100"
-
         if pos_top:
             logger.debug(f"User is Hall of Fame rank {position}. Assigning role Top-{pos_top}...")
             logger.debug(
