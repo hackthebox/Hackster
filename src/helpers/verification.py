@@ -86,8 +86,10 @@ async def process_certification(certid: str, name: str):
             else:
                 logger.error(f"Non-OK HTTP status code returned from identifier lookup: {r.status}.")
                 response = None
-
-    certRawName = response['certificates']['name']
+    try:
+        certRawName = response["certificates"][0]["name"]
+    except IndexError:
+        return False
     if certRawName == "HTB Certified Bug Bounty Hunter":
         cert = "CBBH"
     elif certRawName == "HTB Certified Penetration Tester":
