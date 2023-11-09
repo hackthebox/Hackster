@@ -25,18 +25,18 @@ class VerifyCog(commands.Cog):
     @cooldown(1, 60, commands.BucketType.user)
     async def verifycertification(self, ctx: ApplicationContext, certid: str, fullname: str) -> Interaction | WebhookMessage:
         if not certid or not fullname:
-            ctx.respond("You must supply a cert id!")
+            await ctx.respond("You must supply a cert id!", ephemeral=True)
             return
         if not certid.startswith("HTBCERT-"):
-            ctx.respond("CertID must start with HTBCERT-")
+            await ctx.respond("CertID must start with HTBCERT-", ephemeral=True)
             return
         cert = process_certification(certid, fullname)
         if cert:
             toAdd = settings.get_cert(cert)
-            ctx.author.add_roles(toAdd)
-            ctx.respond(f"Added {cert}!")
+            await ctx.author.add_roles(toAdd)
+            await ctx.respond(f"Added {cert}!", ephemeral=True)
         else:
-            ctx.respond("Unable to find certification with provided details")
+            await ctx.respond("Unable to find certification with provided details", ephemeral=True)
     @slash_command(
         guild_ids=settings.guild_ids,
         description="Receive instructions in a DM on how to identify yourself with your HTB account."
