@@ -129,7 +129,7 @@ class Roles(BaseSettings):
     ACADEMY_USER: int
     ACADEMY_CBBH: int
     ACADEMY_CPTS: int
-
+    ACADEMY_CDSA: int
     # Joinable roles
     UNICTF2022: int
     BIZCTF2022: int
