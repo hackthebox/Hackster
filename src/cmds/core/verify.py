@@ -30,7 +30,7 @@ class VerifyCog(commands.Cog):
         if not certid.startswith("HTBCERT-"):
             await ctx.respond("CertID must start with HTBCERT-", ephemeral=True)
             return
-        cert = process_certification(certid, fullname)
+        cert = await process_certification(certid, fullname)
         if cert:
             toAdd = settings.get_cert(cert)
             await ctx.author.add_roles(toAdd)
