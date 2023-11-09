@@ -33,6 +33,7 @@ class VerifyCog(commands.Cog):
         cert = await process_certification(certid, fullname)
         if cert:
             toAdd = settings.get_cert(cert)
+            ctx.guild.get_role(toAdd)
             await ctx.author.add_roles(toAdd)
             await ctx.respond(f"Added {cert}!", ephemeral=True)
         else:
