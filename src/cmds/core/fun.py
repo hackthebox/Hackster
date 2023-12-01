@@ -34,7 +34,7 @@ class Fun(Cog):
         goggle = goggle.replace("&", "")
         goggle = goggle.replace("<", "")
         goggle = goggle.replace(">", "")
-        return await ctx.respond(f"https://lmgtfy.com?q={goggle}")
+        return await ctx.respond(f"https://letmegooglethat.com/?q={goggle}")
 
     @slash_command(guild_ids=settings.guild_ids, name="start-here", default_permission=True)
     @cooldown(1, 60, BucketType.user)
