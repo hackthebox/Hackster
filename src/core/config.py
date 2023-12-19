@@ -176,7 +176,7 @@ class Global(BaseSettings):
     LOG_LEVEL: str | int = "INFO"
     DEBUG: bool = False
 
-    HTB_URL: str = "https://www.hackthebox.com"
+    HTB_URL: str = "https://labs.hackthebox.com"
     API_URL: str = f"{HTB_URL}/api"
     API_V4_URL: str = f"{API_URL}/v4"
     HTB_API_SECRET: str | None = None
