@@ -36,7 +36,7 @@ class CtfCog(commands.Cog):
     ctf = SlashCommandGroup("ctf", "Manage CTF channels and let people joint them.", guild_ids=settings.guild_ids)
 
     @ctf.command(description="Create CTF channels")
-    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
+    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"), *settings.role_groups.get("ALL_HTB_STAFF"))
     async def create(
         self,
         ctx: ApplicationContext,
@@ -123,7 +123,7 @@ class CtfCog(commands.Cog):
             return await ctx.respond(f"CTF {ctf_name} has been created.")
 
     @ctf.command(description="Delete CTF channels")
-    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
+    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"), *settings.role_groups.get("ALL_HTB_STAFF"))
     async def delete(
         self, ctx: ApplicationContext, ctf_name: Option(str, "The name of the event to join")
     ) -> Interaction | WebhookMessage:
