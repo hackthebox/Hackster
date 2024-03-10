@@ -19,7 +19,7 @@ class FeedbackModal(ui.Modal):
         self.add_item(discord.ui.InputText(label="Feedback", style=discord.InputTextStyle.long))
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.send_message("Thank you, your feedback has been recorded.")
-        slack = Slack(url="https://hooks.slack.com/services/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")
+        slack = Slack(url=settings.slack_webhook)
 
         slack.post(text="New Feedback", attachments = [{
             "title": self.children[0].value,
