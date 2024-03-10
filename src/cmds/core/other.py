@@ -21,7 +21,7 @@ class FeedbackModal(ui.Modal):
         await interaction.response.send_message("Thank you, your feedback has been recorded.")
         slack = Slack(url="https://hooks.slack.com/services/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")
 
-        slack.post(text="A New Requests has been asked for", attachments = [{
+        slack.post(text="New Feedback", attachments = [{
             "title": self.children[0].value,
             "text": value=self.children[1].value
         }])
