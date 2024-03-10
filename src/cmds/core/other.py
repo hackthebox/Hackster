@@ -1,13 +1,30 @@
 import logging
 
-from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command
+from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command, ui
 from discord.ext import commands
 
 from src.bot import Bot
 from src.core import settings
 
+from slack_webhook import Slack
+
 logger = logging.getLogger(__name__)
 
+
+class FeedbackModal(ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="Title"))
+        self.add_item(discord.ui.InputText(label="Feedback", style=discord.InputTextStyle.long))
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Thank you, your feedback has been recorded.")
+        slack = Slack(url="https://hooks.slack.com/services/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")
+
+        slack.post(text="A New Requests has been asked for", attachments = [{
+            "title": self.children[0].value,
+            "text": value=self.children[1].value
+        }])
 
 class OtherCog(commands.Cog):
     """Ban related commands."""
@@ -46,7 +63,15 @@ class OtherCog(commands.Cog):
         channel = self.bot.get_channel(settings.channels.SPOILER)
         await channel.send(embed=embed)
         return await ctx.respond("Thanks for the reporting the spoiler.", ephemeral=True, delete_after=15)
+    
+    @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB!")
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def feedback(self, ctx: ApplicationContext) -> Message:
+        """ Provide Feedback to HTB  """
+        modal = FeedbackModal(title="Feedback) # Send the Modal defined above in Feedback Modal, which handles the callback
+        await ctx.send_modal(modal)
 
+    
 
 def setup(bot: Bot) -> None:
     """Load the `ChannelManageCog` cog."""

@@ -185,6 +185,8 @@ class Global(BaseSettings):
     WEBHOOK_PORT: int = 1337
     WEBHOOK_TOKEN: str = ""
 
+    SLACK_WEBHOOK: str = ""
+
     ROOT: Path = None
 
     VERSION: str | None = None
