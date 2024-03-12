@@ -130,6 +130,7 @@ class Roles(BaseSettings):
     ACADEMY_CBBH: int
     ACADEMY_CPTS: int
     ACADEMY_CDSA: int
+    ACADEMY_CWEE: int
     # Joinable roles
     UNICTF2022: int
     BIZCTF2022: int
@@ -248,7 +249,8 @@ class Global(BaseSettings):
         return {
             "CPTS": self.roles.ACADEMY_CPTS,
             "CBBH": self.roles.ACADEMY_CBBH,
-            "CDSA": self.roles.ACADEMY_CDSA
+            "CDSA": self.roles.ACADEMY_CDSA,
+            "CWEE": self.roles.ACADEMY_CWEE
         }.get(what)
 
     class Config:
