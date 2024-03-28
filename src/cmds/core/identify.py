@@ -5,7 +5,7 @@ import discord
 from discord import ApplicationContext, Interaction, WebhookMessage, slash_command
 from discord.ext import commands
 from discord.ext.commands import cooldown
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from src.bot import Bot
 from src.core import settings
@@ -22,6 +22,37 @@ class IdentifyCog(commands.Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
 
+    class VerifyError(discord.ui.view):
+        def __init__(self, user_id):
+            super().__init__(timeout=None)
+            self.user_id = user_id
+
+        @discord.ui.button(label="Remove Token", style=discord.ButtonStyle.primary)
+        async def remove_Token(self, interaction: discord.Interaction, button: discord.ui.Button):
+            member = await self.bot.get_member_or_user(interaction.guild, self.user_id)
+
+            if not member:
+                await interaction.response.send_message("Member not found.", ephemeral=True)
+                self.disable_all_items()
+                return
+
+            async with AsyncSessionLocal() as session:
+                stmt = select(HtbDiscordLink).filter(
+                    or_(HtbDiscordLink.discord_user_id == member.id, HtbDiscordLink.htb_user_id == member.id)
+                )
+                result = await session.scalars(stmt)
+                htb_discord_links = result.all()
+
+                if not htb_discord_links:
+                    await interaction.response.send_message(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
+                    self.disable_all_items()
+                    return
+                for link in htb_discord_links:
+                    await session.delete(link)
+                await session.commit()
+
+            await interaction.response.send_message(f"All tokens related to Discord or HTB ID '{member.id}' have been deleted.")
+            self.disable_all_items()
     @slash_command(
         guild_ids=settings.guild_ids,
         description="Identify yourself on the HTB Discord server by linking your HTB account ID to your Discord user "
