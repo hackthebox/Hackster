@@ -56,8 +56,9 @@ class MuteCog(commands.Cog):
         if isinstance(member, Member):
             role = ctx.guild.get_role(settings.roles.MUTED)
             await member.add_roles(role)
-        self.bot.loop.create_task(schedule(unmute_member(ctx.guild, member), run_at=datetime.fromtimestamp(dur)))
-
+        timestamp=datetime.fromtimestamp(dur)
+        self.bot.loop.create_task(schedule(unmute_member(ctx.guild, member), run_at=timestamp))
+        await member.timeout(timestamp, reason=reason if reason else "Time to shush, innit?")
         try:
             await member.send(f"You have been muted for {duration}. Reason:\n>>> {reason}")
         except Forbidden:

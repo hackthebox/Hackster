@@ -74,6 +74,34 @@ async def _check_for_ban(uid: str) -> Optional[Dict]:
 
     return ban_details
 
+async def process_certification(certid: str, name: str):
+    cert_api_url = f"{settings.API_V4_URL}/certificate/lookup"
+    params = {'id': certid, 'name': name}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(cert_api_url, params=params) as r:
+            if r.status == 200:
+                response = await r.json()
+            elif r.status == 404:
+                return False
+            else:
+                logger.error(f"Non-OK HTTP status code returned from identifier lookup: {r.status}.")
+                response = None
+    try:
+        certRawName = response["certificates"][0]["name"]
+    except IndexError:
+        return False
+    if certRawName == "HTB Certified Bug Bounty Hunter":
+        cert = "CBBH"
+    elif certRawName == "HTB Certified Penetration Testing Specialist":
+        cert = "CPTS"
+    elif certRawName == "HTB Certified Defensive Security Analyst":
+        cert = "CDSA"
+    elif certRawName == "HTB Certified Web Exploitation Expert":
+        cert = "CWEE"
+    else:
+        cert = False
+    return cert
+
 
 async def process_identification(
     htb_user_details: Dict[str, str], user: Optional[Member | User], bot: Bot
@@ -109,7 +137,7 @@ async def process_identification(
             description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
             color=0xFF2429, )
 
-        await guild.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
+        await guild.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
         return None
 
     to_remove = []
@@ -145,17 +173,8 @@ async def process_identification(
         pos_top = None
         if position == 1:
             pos_top = "1"
-        elif position <= 5:
-            pos_top = "5"
         elif position <= 10:
             pos_top = "10"
-        elif position <= 25:
-            pos_top = "25"
-        elif position <= 50:
-            pos_top = "50"
-        elif position <= 100:
-            pos_top = "100"
-
         if pos_top:
             logger.debug(f"User is Hall of Fame rank {position}. Assigning role Top-{pos_top}...")
             logger.debug(

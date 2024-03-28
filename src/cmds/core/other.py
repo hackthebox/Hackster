@@ -23,12 +23,20 @@ class OtherCog(commands.Cog):
         self, ctx: ApplicationContext
     ) -> Message:
         """A simple reply stating hints are not allowed."""
-        return await ctx.channel.send(
+        return await ctx.respond(
             "No hints are allowed for the duration the event is going on. This is a competitive event with prizes. "
             "Once the event is over you are more then welcome to share solutions/write-ups/etc and try them in the "
             "After Party event."
         )
-
+    @slash_command(guild_ids=settings.guild_ids, description="A simple reply proving a link to the support desk article on how to get support")
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def support(
+        self, ctx: ApplicationContext
+    ) -> Message:
+        """A simple reply proving a link to the support desk article on how to get support"""
+        return await ctx.respond(
+            "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
+        )
     @slash_command(guild_ids=settings.guild_ids, description="Add the URL which has spoiler link.")
     async def spoiler(self, ctx: ApplicationContext, url: str) -> Interaction | WebhookMessage:
         """Add the URL which has spoiler link."""
