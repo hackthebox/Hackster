@@ -19,7 +19,7 @@ taskipy = "^1.10.4"
 sqlalchemy = { extras = ["asyncio"], version = "^2.0.9" }
 bcrypt = "^4.0.1"
 asyncmy = "^0.2.7"
-fastapi = "^0.95.1"
+fastapi = "^0.109.1"
 sentry-sdk = { extras = ["sqlalchemy"], version = "^1.20.0" }
 uvicorn = "^0.21.1"
 alembic = "^1.10.3"
