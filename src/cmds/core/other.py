@@ -6,7 +6,7 @@ from discord.ext import commands
 from src.bot import Bot
 from src.core import settings
 
-from slack_webhook import Slack
+from slack_sdk.webhook import WebhookClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +18,25 @@ class FeedbackModal(ui.Modal):
         self.add_item(discord.ui.InputText(label="Title"))
         self.add_item(discord.ui.InputText(label="Feedback", style=discord.InputTextStyle.long))
     async def callback(self, interaction: discord.Interaction):
-        
-        await interaction.response.send_message("Thank you, your feedback has been recorded.")
-        slack = Slack(url=settings.slack_webhook)
 
-        slack.post(text="New Feedback", attachments = [{
-            "title": self.children[0].value,
-            "text": value=self.children[1].value
-        }])
+        await interaction.response.send_message("Thank you, your feedback has been recorded.")
+
+        webhook = WebhookClient(settings.slack_webhook)
+        
+        response = webhook.send(
+        text=f"{self.children[0].value} - {self.children[1].value}",
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"{self.children[0].value}:\n {self.children[0].value}"
+                    }
+                }
+            ]
+        )
+        assert response.status_code == 200
+        assert response.body == "ok"`
 
 class OtherCog(commands.Cog):
     """Ban related commands."""
