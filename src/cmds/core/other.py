@@ -1,6 +1,7 @@
 import logging
 
-from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command, ui
+from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command, InputTextStyle
+from discord.ui import InputText, Modal
 from discord.ext import commands
 
 from src.bot import Bot
@@ -11,12 +12,12 @@ from slack_sdk.webhook import WebhookClient
 logger = logging.getLogger(__name__)
 
 
-class FeedbackModal(ui.Modal):
+class FeedbackModal(Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.add_item(discord.ui.InputText(label="Title"))
-        self.add_item(discord.ui.InputText(label="Feedback", style=discord.InputTextStyle.long))
+        self.add_item(InputText(label="Title"))
+        self.add_item(InputText(label="Feedback", style=discord.InputTextStyle.long))
     async def callback(self, interaction: discord.Interaction):
 
         await interaction.response.send_message("Thank you, your feedback has been recorded.")
