@@ -26,6 +26,7 @@ alembic = "^1.10.3"
 pymysql = "^1.0.3"
 prometheus-client = "^0.16.0"
 toml = "^0.10.2"
+slack-sdk = "^3.27.1"
 
 [tool.poetry.group.dev.dependencies]
 colorlog = "^6.5.0"

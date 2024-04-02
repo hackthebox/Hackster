@@ -1,13 +1,43 @@
 import logging
 
-from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command
+from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command, InputTextStyle
+from discord.ui import InputText, Modal
 from discord.ext import commands
 
 from src.bot import Bot
 from src.core import settings
 
+from slack_sdk.webhook import WebhookClient
+
 logger = logging.getLogger(__name__)
 
+
+class FeedbackModal(Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(InputText(label="Title"))
+        self.add_item(InputText(label="Feedback", style=discord.InputTextStyle.long))
+    async def callback(self, interaction: discord.Interaction):
+
+        await interaction.response.send_message("Thank you, your feedback has been recorded.")
+
+        webhook = WebhookClient(settings.slack_webhook)
+        
+        response = webhook.send(
+        text=f"{self.children[0].value} - {self.children[1].value}",
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"{self.children[0].value}:\n {self.children[0].value}"
+                    }
+                }
+            ]
+        )
+        assert response.status_code == 200
+        assert response.body == "ok"`
 
 class OtherCog(commands.Cog):
     """Ban related commands."""
@@ -46,7 +76,15 @@ class OtherCog(commands.Cog):
         channel = self.bot.get_channel(settings.channels.SPOILER)
         await channel.send(embed=embed)
         return await ctx.respond("Thanks for the reporting the spoiler.", ephemeral=True, delete_after=15)
+    
+    @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB!")
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def feedback(self, ctx: ApplicationContext) -> Message:
+        """ Provide Feedback to HTB  """
+        modal = FeedbackModal(title="Feedback") # Send the Modal defined above in Feedback Modal, which handles the callback
+        await ctx.send_modal(modal)
 
+    
 
 def setup(bot: Bot) -> None:
     """Load the `ChannelManageCog` cog."""
