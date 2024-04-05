@@ -1,6 +1,7 @@
 import logging
 
-from discord import ApplicationContext, Embed, InputTextStyle, Interaction, Message, WebhookMessage, slash_command
+import discord
+from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command
 from discord.ext import commands
 from discord.ui import InputText, Modal
 from slack_sdk.webhook import WebhookClient
