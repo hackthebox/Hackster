@@ -12,11 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3.5.0
+        uses: actions/checkout@v4
 
       - id: setup-python
         name: Set up Python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
@@ -31,7 +31,7 @@ jobs:
       # Only when the context is exactly the same, we will restore the cache.
       - name: Load cached venv
         id: restore-poetry-dependencies
-        uses: actions/cache/restore@v3.3.1
+        uses: actions/cache/restore@v4
         with:
           path: .venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
@@ -43,7 +43,7 @@ jobs:
       - id: cache-poetry-dependencies
         name: Cache venv
         if: steps.restore-poetry-dependencies.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v3.3.1
+        uses: actions/cache/save@v4
         with:
           path: .venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
@@ -54,4 +54,4 @@ jobs:
           poetry run task coverage xml
 
       - name: Upload coverage reports to CodeCov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
