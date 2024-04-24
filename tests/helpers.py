@@ -456,7 +456,21 @@ class MockContext(CustomMockMixin, mock.MagicMock):
         self.respond = mock.AsyncMock()
 
 
-attachment_instance = discord.Attachment(data=mock.MagicMock(id=1), state=mock.MagicMock())
+dummy_attachment = {
+    "id": 123456789012345678,  # Snowflake, typically a large integer
+    "filename": "example_image.png",
+    "size": 1024,  # Size in bytes
+    "url": "http://example.com/example_image.png",
+    "proxy_url": "http://example.com/proxy_example_image.png",
+    "height": 600,  # Optional, int or None
+    "width": 800,  # Optional, int or None
+    "content_type": "image/png",  # Optional, string
+    "spoiler": False,  # Optional, boolean
+    "duration_secs": None,  # Optional, float or None
+    "waveform": None,  # Optional, string or None
+    "flags": 0  # Optional, int
+}
+attachment_instance = discord.Attachment(data=dummy_attachment, state=mock.MagicMock())
 
 
 class MockAttachment(CustomMockMixin, mock.MagicMock):
