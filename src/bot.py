@@ -151,7 +151,9 @@ class Bot(DiscordBot):
             return await guild.fetch_member(id_)
         except Forbidden as exc:
             logger.warning(f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc)
-        except (NotFound, HTTPException) as exc:
+        except NotFound as exc:
+            logger.warning(f"Could not find guild member with id: {id_}", exc_info=exc)
+        except HTTPException as exc:
             logger.error(f"Discord error while fetching guild member with id: {id_}", exc_info=exc)
             try:
                 return await self.get_or_fetch_user(id_)
