@@ -20,18 +20,27 @@ class FeedbackModal(Modal):
         self.add_item(InputText(label="Feedback", style=discord.InputTextStyle.long))
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Thank you, your feedback has been recorded.")
+        
+        await interaction.response.send_message("Thank you, your feedback has been recorded.", ephemeral=True)
 
-        webhook = WebhookClient(settings.SLACK_WEBHOOK)
+        webhook = WebhookClient(settings.SLACK_WEBHOOK) # Establish Slack Webhook
+        
+        if interaction.user: # Protects against some weird edge-cases
+            title = f"{self.children[0].value} - {interaction.user.name}"
+        else:
+            title = f"{self.children[0].value}"
+        
+        message_body = self.children[1].value
+        message_body = message_body.replace("@", "[at]") # Slack has no way to disallow @(@everyone calls), so we strip it out and replace it with a safe version
 
         response = webhook.send(
-            text=f"{self.children[0].value} - {self.children[1].value}",
+            text=f"{title} - {message_body}",
             blocks=[
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"{self.children[0].value}:\n {self.children[1].value}"
+                        "text": f"{title}:\n {message_body}"
                     }
                 }
             ]
