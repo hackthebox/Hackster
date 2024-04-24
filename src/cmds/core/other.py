@@ -31,7 +31,7 @@ class FeedbackModal(Modal):
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"{self.children[0].value}:\n {self.children[0].value}"
+                        "text": f"{self.children[0].value}:\n {self.children[1].value}"
                     }
                 }
             ]
