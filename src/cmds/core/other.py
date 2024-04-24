@@ -20,11 +20,10 @@ class FeedbackModal(Modal):
         self.add_item(InputText(label="Feedback", style=discord.InputTextStyle.long))
 
     async def callback(self, interaction: discord.Interaction):
-
         await interaction.response.send_message("Thank you, your feedback has been recorded.")
 
-        webhook = WebhookClient(settings.slack_webhook)
-        
+        webhook = WebhookClient(settings.SLACK_WEBHOOK)
+
         response = webhook.send(
             text=f"{self.children[0].value} - {self.children[1].value}",
             blocks=[
@@ -40,6 +39,7 @@ class FeedbackModal(Modal):
         assert response.status_code == 200
         assert response.body == "ok"
 
+
 class OtherCog(commands.Cog):
     """Ban related commands."""
 
@@ -48,7 +48,7 @@ class OtherCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="A simple reply stating hints are not allowed.")
     async def no_hints(
-        self, ctx: ApplicationContext
+            self, ctx: ApplicationContext
     ) -> Message:
         """A simple reply stating hints are not allowed."""
         return await ctx.respond(
@@ -57,10 +57,11 @@ class OtherCog(commands.Cog):
             "After Party event."
         )
 
-    @slash_command(guild_ids=settings.guild_ids, description="A simple reply proving a link to the support desk article on how to get support")
+    @slash_command(guild_ids=settings.guild_ids,
+                   description="A simple reply proving a link to the support desk article on how to get support")
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def support(
-        self, ctx: ApplicationContext
+            self, ctx: ApplicationContext
     ) -> Message:
         """A simple reply proving a link to the support desk article on how to get support"""
         return await ctx.respond(
@@ -82,10 +83,11 @@ class OtherCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB!")
     @commands.cooldown(1, 60, commands.BucketType.user)
-    async def feedback(self, ctx: ApplicationContext) -> Message:
+    async def feedback(self, ctx: ApplicationContext) -> Interaction:
         """ Provide Feedback to HTB  """
-        modal = FeedbackModal(title="Feedback") # Send the Modal defined above in Feedback Modal, which handles the callback
-        await ctx.send_modal(modal)
+        modal = FeedbackModal(
+            title="Feedback")  # Send the Modal defined above in Feedback Modal, which handles the callback
+        return await ctx.send_modal(modal)
 
 
 def setup(bot: Bot) -> None:
