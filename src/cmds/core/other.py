@@ -85,8 +85,8 @@ class OtherCog(commands.Cog):
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def feedback(self, ctx: ApplicationContext) -> Interaction:
         """ Provide Feedback to HTB  """
-        modal = FeedbackModal(
-            title="Feedback")  # Send the Modal defined above in Feedback Modal, which handles the callback
+        # Send the Modal defined above in Feedback Modal, which handles the callback
+        modal = FeedbackModal(title="Feedback")
         return await ctx.send_modal(modal)
 
 
