@@ -32,10 +32,9 @@ class FeedbackModal(Modal):
         
 
         message_body = self.children[1].value
-
-        title = title.replace("@", "[at]") # Slack has no way to disallow @(@everyone calls), so we strip it out and replace it with a safe version
+        # Slack has no way to disallow @(@everyone calls), so we strip it out and replace it with a safe version
+        title = title.replace("@", "[at]") 
         message_body = message_body.replace("@", "[at]") 
-
         response = webhook.send(
             text=f"{title} - {message_body}",
             blocks=[
