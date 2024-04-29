@@ -156,7 +156,7 @@ class UserCog(commands.Cog):
         guild_ids=settings.guild_ids,
         description="Remove all records of identification the user has made from the database.",
     )
-    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"), *settings.role_groups.get("ALL_HTB_STAFF")),
+    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"), *settings.role_groups.get("ALL_HTB_STAFF"))
     async def remove_user_token(self, ctx: ApplicationContext, user: Member) -> Interaction | WebhookMessage:
         """Remove all records of identification the user has made from the database."""
 
