@@ -156,29 +156,28 @@ class UserCog(commands.Cog):
         guild_ids=settings.guild_ids,
         description="Remove all records of identification the user has made from the database.",
     )
-    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
+    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"), *settings.role_groups.get("ALL_HTB_STAFF")),
     async def remove_user_token(self, ctx: ApplicationContext, user: Member) -> Interaction | WebhookMessage:
         """Remove all records of identification the user has made from the database."""
-        member = await self.bot.get_member_or_user(ctx.guild, user.id)
 
-        if not member:
+        if not user:
             return await ctx.respond(f"User {user} not found.")
 
         async with AsyncSessionLocal() as session:
             stmt = select(HtbDiscordLink).filter(
-                or_(HtbDiscordLink.discord_user_id == member.id, HtbDiscordLink.htb_user_id == member.id)
+                or_(HtbDiscordLink.discord_user_id == user.id, HtbDiscordLink.htb_user_id == user.id)
             )
             result = await session.scalars(stmt)
             htb_discord_links = result.all()
 
             if not htb_discord_links:
-                return await ctx.respond(f"Could not find '{member.id}' as a Discord or HTB ID in the records.")
+                return await ctx.respond(f"Could not find '{user.id}' as a Discord or HTB ID in the records.")
 
             for link in htb_discord_links:
                 await session.delete(link)
             await session.commit()
 
-        return await ctx.respond(f"All tokens related to Discord or HTB ID '{member.id}' have been deleted.")
+        return await ctx.respond(f"All tokens related to Discord or HTB ID '{user.id}' have been deleted.")
 
     @slash_command(guild_ids=settings.guild_ids, description="Show the associated HTB user.")
     @has_any_role(
