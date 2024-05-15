@@ -65,7 +65,8 @@ class Bot(DiscordBot):
         embed = Embed(title="Command Log")
         embed.add_field(name="Command", value=ctx.command, inline=True)
         embed.add_field(name="Caller", value=ctx.author.name, inline=True)
-        embed.add_field(name="Channel", value=ctx.channel.name, inline=True)
+        if not isinstance(ctx.channel, discord.DMChannel):
+            embed.add_field(name="Channel", value=ctx.channel.name, inline=True)
         await ctx.guild.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
 
     async def on_application_command_error(self, ctx: ApplicationContext, error: DiscordException) -> None:
