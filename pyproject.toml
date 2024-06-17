@@ -24,7 +24,7 @@ fastapi = "^0.109.1"
 sentry-sdk = { extras = ["sqlalchemy"], version = "^1.45.0" }
 uvicorn = "^0.21.1"
 alembic = "^1.10.3"
-pymysql = "^1.0.3"
+pymysql = "^1.1.1"
 prometheus-client = "^0.16.0"
 toml = "^0.10.2"
 slack-sdk = "^3.27.1"
