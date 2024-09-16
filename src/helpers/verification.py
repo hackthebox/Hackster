@@ -35,7 +35,7 @@ async def get_user_details(account_identifier: str) -> Optional[Dict]:
 async def get_season_rank(htb_uid: int) -> str | None:
     """Get season rank from HTB."""
     headers = {"Authorization": f"Bearer {settings.HTB_API_KEY}"}
-    season_api_url = f"{settings.API_V4_URL}/season/end/0/{htb_uid}"
+    season_api_url = f"{settings.API_V4_URL}/season/end/6/{htb_uid}"
 
     async with aiohttp.ClientSession() as session:
         async with session.get(season_api_url, headers=headers) as r:
