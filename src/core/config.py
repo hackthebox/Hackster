@@ -88,7 +88,6 @@ class AcademyCertificates(BaseSettings):
     CERTIFIED_WEB_EXPLOITATION_EXPERT = 5
 
 
-
 class Roles(BaseSettings):
     """The roles settings."""
 
@@ -142,7 +141,6 @@ class Roles(BaseSettings):
     RED_TEAM: int
     BLUE_TEAM: int
 
-
     @validator("*", pre=True, each_item=True)
     def check_length(cls, value: str | int) -> str | int:
         value_str = str(value)
@@ -194,6 +192,8 @@ class Global(BaseSettings):
     ROOT: Path = None
 
     VERSION: str | None = None
+
+    SEASON_ID: int = 0
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -257,7 +257,7 @@ class Global(BaseSettings):
             "CPTS": self.roles.ACADEMY_CPTS,
             "CBBH": self.roles.ACADEMY_CBBH,
             "CDSA": self.roles.ACADEMY_CDSA,
-            "CWEE": self.roles.ACADEMY_CWEE
+            "CWEE": self.roles.ACADEMY_CWEE,
         }.get(what)
 
     class Config:
