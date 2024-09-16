@@ -48,6 +48,8 @@ async def get_season_rank(htb_uid: int) -> str | None:
                 logger.error(f"Non-OK HTTP status code returned from identifier lookup: {r.status}.")
                 response = None
 
+    if response = None:
+        return None
     if not response["data"]:
         rank = None
     else:
