@@ -231,7 +231,7 @@ class UserCog(commands.Cog):
         embed.add_field(name="Discord ID:", value=str(fetched_user.id), inline=True)
         embed.add_field(
             name="HTB Profile:",
-            value=f"<https://www.hackthebox.com/home/users/profile/{htb_discord_link.htb_user_id}>",
+            value=f"<https://app.hackthebox.com/users/{htb_discord_link.htb_user_id}>",
             inline=False,
         )
         embed.set_footer(text=f"More info: /history user:{fetched_user.id}")
