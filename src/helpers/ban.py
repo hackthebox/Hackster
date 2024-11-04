@@ -136,10 +136,10 @@ async def ban_member(
         if not dm_banned_member:
             message += " Could not DM banned member due to permission error."
 
-        member_name = f"{member.name} ({member.id})"
+        member_name = f"{member.display_name} ({member.name})"
         embed = discord.Embed(
             title=f"Ban request #{ban_id}",
-            description=f"{author.name} would like to ban {member_name} until {end_date} (UTC). Reason: {reason}", )
+            description=f"{author.display_name} ({author.name}) would like to ban {member_name} until {end_date} (UTC). Reason: {reason}", )
         embed.set_thumbnail(url=f"{settings.HTB_URL}/images/logo600.png")
         embed.add_field(name="Approve duration:", value=f"/approve {ban_id}", inline=True)
         embed.add_field(name="Change duration:", value=f"/dispute {ban_id} <duration>", inline=True)
