@@ -14,7 +14,7 @@ from src.helpers.schedule import schedule
 
 
 class BanDecisionView(View):
-    """View for making a decision on a ban duration."""
+    """View for making it easier to make a decision on a ban duration. It has buttons for approving, denying, and disputing the ban duration."""
 
     def __init__(self, ban_id: int, bot: Bot, guild: Guild, member: Member | User, end_date: str, reason: str):
         super().__init__(timeout=None)
