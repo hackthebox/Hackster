@@ -16,6 +16,7 @@ from src.helpers.checks import member_is_staff
 from src.helpers.duration import validate_duration
 from src.helpers.responses import SimpleResponse
 from src.helpers.schedule import schedule
+from src.views.bandecisionview import BanDecisionView
 
 logger = logging.getLogger(__name__)
 
@@ -141,10 +142,8 @@ async def ban_member(
             title=f"Ban request #{ban_id}",
             description=f"{author.name} would like to ban {member_name} until {end_date} (UTC). Reason: {reason}", )
         embed.set_thumbnail(url=f"{settings.HTB_URL}/images/logo600.png")
-        embed.add_field(name="Approve duration:", value=f"/approve {ban_id}", inline=True)
-        embed.add_field(name="Change duration:", value=f"/dispute {ban_id} <duration>", inline=True)
-        embed.add_field(name="Deny and unban:", value=f"/deny {ban_id}", inline=True)
-        await guild.get_channel(settings.channels.SR_MOD).send(embed=embed)
+        view = BanDecisionView(ban_id, bot, guild, member, end_date, reason)
+        await guild.get_channel(settings.channels.SR_MOD).send(embed=embed, view=view)
         return SimpleResponse(message=message)
 
 
