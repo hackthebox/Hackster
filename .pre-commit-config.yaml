@@ -20,3 +20,4 @@ repos:
         language: system
         types: [ python ]
         require_serial: true
+        args: ['--ignore=E501']

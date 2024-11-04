@@ -87,7 +87,7 @@ async def ban_member(
             delete_after=None
         )
 
-    #DM member, before we ban, else we cannot dm since we do not share a guild
+    # DM member, before we ban, else we cannot dm since we do not share a guild
     dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
     # Try to actually ban the member from the guild
     try:
@@ -147,8 +147,8 @@ async def ban_member(
         return SimpleResponse(message=message)
 
 
-async def _dm_banned_member(end_date, guild, member, reason) -> bool:
-    """Send a message to the member about the ban"""
+async def _dm_banned_member(end_date: str, guild: Guild, member: Member, reason: str) -> bool:
+    """Send a message to the member about the ban."""
     message = (f"You have been banned from {guild.name} until {end_date} (UTC). "
                f"To appeal the ban, please reach out to an Administrator.\n"
                f"Following is the reason given:\n>>> {reason}\n")
