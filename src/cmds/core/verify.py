@@ -65,7 +65,7 @@ class VerifyCog(commands.Cog):
         embed_step2.add_field(
             name="Step 2: Locate the Account Identifier",
             value='Click on your profile name, then select **My Profile**. '
-                  'In the Profile Settings tab, find the field labeled **Account Identifier**. (<https://app.hackthebox.com/profile/settings>)'
+                  'In the Profile Settings tab, find the field labeled **Account Identifier**. (<https://app.hackthebox.com/profile/settings>) '
                   "Click the green button to copy your secret identifier.", inline=False, )
         embed_step2.set_image(
             url="https://media.discordapp.net/attachments/724587782755844098/839871332963188766/unknown.png"
