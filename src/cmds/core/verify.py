@@ -53,8 +53,9 @@ class VerifyCog(commands.Cog):
         embed_step1 = discord.Embed(color=0x9ACC14)
         embed_step1.add_field(
             name="Step 1: Log in at Hack The Box",
-            value="Go to the Hack The Box website at <https://www.hackthebox.com/> and navigate to Login > HTB Labs. Log in to your HTB account."
-                  "page.", inline=False, )
+            value="Go to the Hack The Box website at <https://www.hackthebox.com/>"
+                  " and navigate to **Login > HTB Labs**. Log in to your HTB Account."
+                  , inline=False, )
         embed_step1.set_image(
             url="https://media.discordapp.net/attachments/724587782755844098/839871275627315250/unknown.png"
         )
@@ -63,9 +64,9 @@ class VerifyCog(commands.Cog):
         embed_step2 = discord.Embed(color=0x9ACC14)
         embed_step2.add_field(
             name="Step 2: Locate the Account Identifier",
-            value='Click on your profile name followed by *My Profile*. (<https://app.hackthebox.com/profile/settings>) '
-                  'Go to the Profile Settings tab, look for a field called "Account Identifier". '
-                  "Next, click the green button to copy your secret identifier.", inline=False, )
+            value='Click on your profile name, then select **My Profile**. '
+                  'In the Profile Settings tab, find the field labeled **Account Identifier**. '
+                  "Click the green button to copy your secret identifier.", inline=False, )
         embed_step2.set_image(
             url="https://media.discordapp.net/attachments/724587782755844098/839871332963188766/unknown.png"
         )
@@ -74,8 +75,8 @@ class VerifyCog(commands.Cog):
         embed_step3 = discord.Embed(color=0x9ACC14)
         embed_step3.add_field(
             name="Step 3: Identification",
-            value="Now type `/identify IDENTIFIER_HERE` in the bot-commands channel.\n\nYour roles will then be "
-                  "automatically applied.", inline=False
+            value="Now type `/identify IDENTIFIER_HERE` in the bot-commands channel.\n\nYour roles will be "
+                  "applied automatically.", inline=False
         )
         embed_step3.set_image(
             url="https://media.discordapp.net/attachments/709907130102317093/904744444539076618/unknown.png"
