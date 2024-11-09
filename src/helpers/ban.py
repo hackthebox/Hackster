@@ -238,6 +238,7 @@ async def unmute_member(guild: Guild, member: Member) -> Member:
         # No longer on the server - cleanup, but don't attempt to remove a role
         logger.info(f"Remove mute from {member.name}:{member.id}.")
         await member.remove_roles(role)
+        await member.remove_timeout()
 
     async with AsyncSessionLocal() as session:
         stmt = select(Mute).filter(Mute.user_id == member.id)
