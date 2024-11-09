@@ -9,6 +9,7 @@ from discord.ext.commands import cooldown
 from src.bot import Bot
 from src.core import settings
 from src.helpers.verification import process_certification
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +25,7 @@ class VerifyCog(commands.Cog):
     )
     @cooldown(1, 60, commands.BucketType.user)
     async def verifycertification(self, ctx: ApplicationContext, certid: str, fullname: str) -> Interaction | WebhookMessage:
+        """Verify users their HTB Certification."""
         if not certid or not fullname:
             await ctx.respond("You must supply a cert id!", ephemeral=True)
             return
@@ -37,6 +39,7 @@ class VerifyCog(commands.Cog):
             await ctx.respond(f"Added {cert}!", ephemeral=True)
         else:
             await ctx.respond("Unable to find certification with provided details", ephemeral=True)
+
     @slash_command(
         guild_ids=settings.guild_ids,
         description="Receive instructions in a DM on how to identify yourself with your HTB account."
@@ -50,8 +53,9 @@ class VerifyCog(commands.Cog):
         embed_step1 = discord.Embed(color=0x9ACC14)
         embed_step1.add_field(
             name="Step 1: Log in at Hack The Box",
-            value="Log in to your Hack The Box account at <https://www.hackthebox.com/> and navigate to the settings "
-                  "page.", inline=False, )
+            value="Go to the Hack The Box website at <https://www.hackthebox.com/>"
+                  " and navigate to **Login > HTB Labs**. Log in to your HTB Account."
+                  , inline=False, )
         embed_step1.set_image(
             url="https://media.discordapp.net/attachments/724587782755844098/839871275627315250/unknown.png"
         )
@@ -60,8 +64,9 @@ class VerifyCog(commands.Cog):
         embed_step2 = discord.Embed(color=0x9ACC14)
         embed_step2.add_field(
             name="Step 2: Locate the Account Identifier",
-            value='In the settings tab, look for a field called "Account Identifier". Next, click the green button to '
-                  "copy your secret identifier.", inline=False, )
+            value='Click on your profile name, then select **My Profile**. '
+                  'In the Profile Settings tab, find the field labeled **Account Identifier**. (<https://app.hackthebox.com/profile/settings>) '
+                  "Click the green button to copy your secret identifier.", inline=False, )
         embed_step2.set_image(
             url="https://media.discordapp.net/attachments/724587782755844098/839871332963188766/unknown.png"
         )
@@ -70,8 +75,8 @@ class VerifyCog(commands.Cog):
         embed_step3 = discord.Embed(color=0x9ACC14)
         embed_step3.add_field(
             name="Step 3: Identification",
-            value="Now type `/identify IDENTIFIER_HERE` in the bot-commands channel.\n\nYour roles will then be "
-                  "automatically applied.", inline=False
+            value="Now type `/identify IDENTIFIER_HERE` in the bot-commands channel.\n\nYour roles will be "
+                  "applied automatically.", inline=False
         )
         embed_step3.set_image(
             url="https://media.discordapp.net/attachments/709907130102317093/904744444539076618/unknown.png"
