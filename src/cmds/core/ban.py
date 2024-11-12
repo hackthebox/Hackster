@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 
+import arrow
 import discord
 from discord import ApplicationContext, Interaction, WebhookMessage, slash_command
 from discord.ext import commands
@@ -9,7 +10,7 @@ from sqlalchemy import select
 
 from src.bot import Bot
 from src.core import settings
-from src.database.models import Ban, Infraction
+from src.database.models import Ban, Infraction, UserNote
 from src.database.session import AsyncSessionLocal
 from src.helpers.ban import add_infraction, ban_member, unban_member
 from src.helpers.duration import validate_duration
@@ -26,11 +27,14 @@ class BanCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="Ban a user from the server permanently.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
-    async def ban(self, ctx: ApplicationContext, user: discord.Member, reason: str) -> Interaction | WebhookMessage:
+    async def ban(
+            self, ctx: ApplicationContext, user: discord.Member, reason: str, evidence: str = None
+    ) -> Interaction | WebhookMessage:
         """Ban a user from the server permanently."""
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
             return await ctx.respond(f"User {user} not found.")
+        await self.add_evidence_note(member.id, reason, evidence, ctx.user.id)
         response = await ban_member(self.bot, ctx.guild, member, "500w", reason, ctx.user, needs_approval=False)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
@@ -42,12 +46,13 @@ class BanCog(commands.Cog):
         *settings.role_groups.get("ALL_HTB_STAFF")
     )
     async def tempban(
-        self, ctx: ApplicationContext, user: discord.Member, duration: str, reason: str
+        self, ctx: ApplicationContext, user: discord.Member, duration: str, reason: str, evidence: str = None
     ) -> Interaction | WebhookMessage:
         """Ban a user from the server temporarily."""
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
             return await ctx.respond(f"User {user} not found.")
+        await self.add_evidence_note(member.id, reason, evidence, ctx.user.id)
         response = await ban_member(self.bot, ctx.guild, member, duration, reason, ctx.user, needs_approval=True)
         return await ctx.respond(response.message, delete_after=response.delete_after)
 
@@ -184,6 +189,19 @@ class BanCog(commands.Cog):
                 return await ctx.respond(f"Infraction record #{infraction_id} has been deleted.")
             else:
                 return await ctx.respond(f"Infraction record #{infraction_id} has not been found.")
+
+    async def add_evidence_note(
+            self, user_id: int, reason: str, evidence: str, moderator_id: int
+    ) -> None:
+        """Add a note with evidence to the user's history records."""
+        if not evidence:
+            evidence = "none provided"
+        note = f"Reason for ban: {reason} (Evidence: {evidence})"
+        today = arrow.utcnow().format("YYYY-MM-DD")
+        user_note = UserNote(user_id=user_id, note=note, date=today, moderator_id=moderator_id)
+        async with AsyncSessionLocal() as session:
+            session.add(user_note)
+            await session.commit()
 
 
 def setup(bot: Bot) -> None:

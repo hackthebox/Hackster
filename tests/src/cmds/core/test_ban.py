@@ -21,17 +21,18 @@ class TestBanCog:
         user = helpers.MockMember(id=2, name="Banned User")
         bot.get_member_or_user.return_value = user
 
-        with patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock:
+        with patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock, \
+             patch('src.cmds.core.ban.BanCog.add_evidence_note', new_callable=AsyncMock) as add_evidence_note_mock:
             ban_response = SimpleResponse(
                 message=f"Member {user.display_name} has been banned permanently.", delete_after=0
             )
             ban_member_mock.return_value = ban_response
 
             cog = ban.BanCog(bot)
-            await cog.ban.callback(cog, ctx, user, "Any valid reason")
+            await cog.ban.callback(cog, ctx, user, "Any valid reason", "Some evidence")
 
             # Assertions
-            # get_member_safe_mock.assert_called_once_with(user, ctx.guild)
+            add_evidence_note_mock.assert_called_once_with(user.id, "Any valid reason", "Some evidence", ctx.user.id)
             ban_member_mock.assert_called_once_with(
                 bot, ctx.guild, user, "500w", "Any valid reason", ctx.user, needs_approval=False
             )
@@ -45,24 +46,26 @@ class TestBanCog:
         user = helpers.MockMember(id=2, name="Banned User")
         bot.get_member_or_user.return_value = user
 
-        with (
-            patch('src.helpers.ban.validate_duration', new_callable=AsyncMock) as validate_duration_mock,
-            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock
-        ):
+        with patch('src.helpers.ban.validate_duration', new_callable=AsyncMock) as validate_duration_mock, \
+             patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock, \
+             patch('src.cmds.core.ban.BanCog.add_evidence_note', new_callable=AsyncMock) as add_evidence_note_mock:
             validate_duration_mock.return_value = (calendar.timegm(time.gmtime()) + parse_duration_str("5d"), "")
             ban_response = SimpleResponse(
-                message=f"Member {user.display_name} has been banned permanently.", delete_after=0
+                message=f"Member {user.display_name} has been banned temporarily.", delete_after=0
             )
             ban_member_mock.return_value = ban_response
 
             cog = ban.BanCog(bot)
-            await cog.tempban.callback(cog, ctx, user, "5d", "Any valid reason")
+            await cog.tempban.callback(cog, ctx, user, "5d", "Any valid reason", "Some evidence")
 
             # Assertions
+            add_evidence_note_mock.assert_called_once_with(user.id, "Any valid reason", "Some evidence", ctx.user.id)
             ban_member_mock.assert_called_once_with(
                 bot, ctx.guild, user, "5d", "Any valid reason", ctx.user, needs_approval=True
             )
-            ctx.respond.assert_called_once()
+            ctx.respond.assert_called_once_with(
+                f"Member {user.display_name} has been banned temporarily.", delete_after=0
+            )
 
     @pytest.mark.asyncio
     async def test_tempban_failed_with_wrong_duration(self, ctx, bot):
