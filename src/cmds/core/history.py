@@ -33,14 +33,12 @@ class HistoryCog(commands.Cog):
     )
     async def history(self, ctx: ApplicationContext, user: discord.Member) -> Interaction | WebhookMessage:
         """Print the infraction history and basic details about the Discord user."""
-        left = False
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
             return await ctx.respond(
                 f"Error: cannot get history - user {user} was deleted from Discord entirely.", delete_after=15
             )
 
-        left = True
         today_date = arrow.utcnow().date()
 
         async with AsyncSessionLocal() as session:
@@ -54,10 +52,10 @@ class HistoryCog(commands.Cog):
 
         expired_infractions = sum(1 for inf in infractions if (inf.date - today_date).days < -90)
 
-        if left:
-            join_date = "Left"
-        else:
+        if isinstance(member, discord.Member):
             join_date = member.joined_at.date()
+        else:
+            join_date = "Left"
 
         creation_date = member.created_at.date()
         strike_value = 0
