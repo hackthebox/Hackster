@@ -40,7 +40,7 @@ class HistoryCog(commands.Cog):
                 f"Error: cannot get history - user {user} was deleted from Discord entirely.", delete_after=15
             )
 
-        left = True
+        left = not isinstance(member, discord.Member)
         today_date = arrow.utcnow().date()
 
         async with AsyncSessionLocal() as session:
