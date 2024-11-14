@@ -1,7 +1,8 @@
 import logging
 
 import discord
-from discord import ApplicationContext, Interaction, Message, WebhookMessage, slash_command
+import requests
+from discord import ApplicationContext, Interaction, Message, slash_command
 from discord.ext import commands
 from discord.ui import InputText, Modal
 from slack_sdk.webhook import WebhookClient
@@ -25,7 +26,7 @@ class FeedbackModal(Modal):
         """Handle the modal submission by sending feedback to Slack."""
         await interaction.response.send_message("Thank you, your feedback has been recorded.", ephemeral=True)
 
-        webhook = WebhookClient(settings.SLACK_WEBHOOK)
+        webhook = WebhookClient(settings.SLACK_FEEDBACK_WEBHOOK)
 
         if interaction.user:
             title = f"{self.children[0].value} - {interaction.user.name}"
@@ -52,6 +53,37 @@ class FeedbackModal(Modal):
         assert response.body == "ok"
 
 
+class SpoilerModal(Modal):
+    """Modal for reporting a spoiler."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize the Spoiler Modal with input fields."""
+        super().__init__(*args, **kwargs)
+        self.add_item(InputText(label="URL", placeholder="Enter the spoiler URL", style=discord.InputTextStyle.long))
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        """Handle the modal submission by sending the spoiler report to JIRA."""
+        await interaction.response.send_message("Thank you, the spoiler has been reported.", ephemeral=True)
+
+        user_name = interaction.user.display_name
+        url = self.children[0].value
+
+        webhook_url = settings.JIRA_SPOILER_WEBHOOK
+
+        payload = {
+            "user": user_name,
+            "url": url,
+        }
+
+        try:
+            response = requests.post(webhook_url, json=payload)
+
+            if response.status_code != 200:
+                logger.error(f"Failed to send to JIRA: {response.status_code} - {response.text}")
+        except Exception as e:
+            logger.error(f"Error sending to JIRA: {e}")
+
+
 class OtherCog(commands.Cog):
     """Other commands related to the bot."""
 
@@ -72,43 +104,10 @@ class OtherCog(commands.Cog):
         return await ctx.respond("https://help.hackthebox.com/en/articles/5986762-contacting-htb-support")
 
     @slash_command(guild_ids=settings.guild_ids, description="Add a URL which contains a spoiler.")
-    async def spoiler(self, ctx: ApplicationContext, url: str) -> Interaction | WebhookMessage:
-        """Add a URL that contains a spoiler."""
-        if not url:
-            return await ctx.respond("Please provide the spoiler URL.")
-
-        user_name = ctx.user.display_name
-
-        webhook = WebhookClient(settings.SLACK_LEAKS_WEBHOOK)
-
-        try:
-            response = webhook.send(
-                blocks=[
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "plain_text",
-                            "text": f"{user_name} has submitted a Spoiler Report",
-                            "emoji": True
-                        }
-                    },
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "plain_text",
-                            "text": f"Reported URL: {url}",
-                            "emoji": True
-                        }
-                    }
-                ]
-            )
-
-            if response.status_code != 200:
-                print(f"Failed to send to Slack: {response.status_code} - {response.body}")
-        except Exception as e:
-            print(f"Error sending to Slack: {e}")
-
-        return await ctx.respond("Thanks for reporting the spoiler.", ephemeral=True, delete_after=15)
+    async def spoiler(self, ctx: ApplicationContext) -> Interaction:
+        """Report a URL that contains a spoiler."""
+        modal = SpoilerModal(title="Report Spoiler")
+        return await ctx.send_modal(modal)
 
     @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB.")
     @commands.cooldown(1, 60, commands.BucketType.user)
