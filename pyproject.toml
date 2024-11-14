@@ -28,6 +28,7 @@ pymysql = "^1.1.1"
 prometheus-client = "^0.16.0"
 toml = "^0.10.2"
 slack-sdk = "^3.27.1"
+requests = "^2.32.3"
 
 [tool.poetry.group.dev.dependencies]
 colorlog = "^6.5.0"
