@@ -1,7 +1,7 @@
 import logging
 
+import aiohttp
 import discord
-import requests
 from discord import ApplicationContext, Interaction, Message, slash_command
 from discord.ext import commands
 from discord.ui import InputText, Modal
@@ -75,13 +75,13 @@ class SpoilerModal(Modal):
             "url": url,
         }
 
-        try:
-            response = requests.post(webhook_url, json=payload)
-
-            if response.status_code != 200:
-                logger.error(f"Failed to send to JIRA: {response.status_code} - {response.text}")
-        except Exception as e:
-            logger.error(f"Error sending to JIRA: {e}")
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(webhook_url, json=payload) as response:
+                    if response.status != 200:
+                        logger.error(f"Failed to send to JIRA: {response.status} - {await response.text()}")
+            except Exception as e:
+                logger.error(f"Error sending to JIRA: {e}")
 
 
 class OtherCog(commands.Cog):
