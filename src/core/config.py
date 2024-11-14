@@ -187,7 +187,8 @@ class Global(BaseSettings):
     WEBHOOK_PORT: int = 1337
     WEBHOOK_TOKEN: str = ""
 
-    SLACK_WEBHOOK: str = ""
+    SLACK_FEEDBACK_WEBHOOK: str = ""
+    JIRA_SPOILER_WEBHOOK: str = ""
 
     ROOT: Path = None
 
