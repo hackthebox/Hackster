@@ -1,8 +1,8 @@
 import logging
 import os
 import random
-from typing import Tuple, Union
 from datetime import datetime
+from typing import Tuple, Union
 
 import discord
 from discord import Interaction, Member, Option, User, WebhookMessage
@@ -16,8 +16,8 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import HtbDiscordLink
 from src.database.session import AsyncSessionLocal
+from src.helpers.ban import add_evidence_note, add_infraction
 from src.helpers.checks import member_is_staff
-from src.helpers.ban import add_infraction
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,8 @@ class UserCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="Kick a user from the server.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
-    async def kick(self, ctx: ApplicationContext, user: Member, reason: str) -> Interaction | WebhookMessage:
+    async def kick(self, ctx: ApplicationContext, user: Member, reason: str, evidence: str = None) \
+            -> Interaction | WebhookMessage:
         """Kick a user from the server."""
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
@@ -77,6 +78,8 @@ class UserCog(commands.Cog):
 
         if len(reason) == 0:
             reason = "No reason given..."
+
+        await add_evidence_note(member.id, "kick", reason, evidence, ctx.user.id)
 
         try:
             await member.send(f"You have been kicked from {ctx.guild.name} for the following reason:\n>>> {reason}\n")
