@@ -3,6 +3,7 @@ import asyncio
 import logging
 from datetime import datetime
 
+import arrow
 import discord
 from discord import Forbidden, Guild, HTTPException, Member, NotFound, User
 from sqlalchemy import select
@@ -10,7 +11,7 @@ from sqlalchemy.exc import NoResultFound
 
 from src.bot import Bot
 from src.core import settings
-from src.database.models import Ban, Infraction, Mute
+from src.database.models import Ban, Infraction, Mute, UserNote
 from src.database.session import AsyncSessionLocal
 from src.helpers.checks import member_is_staff
 from src.helpers.duration import validate_duration
@@ -63,7 +64,9 @@ async def ban_member(
 
     # Validate duration
     dur, dur_exc = validate_duration(duration)
-    # Check if duration is valid, negative values are generally not allowed, so they should be caught here
+    # Check if duration is valid,
+    # negative values are generally not allowed,
+    # so they should be caught here
     if dur <= 0:
         return SimpleResponse(message=dur_exc, delete_after=15)
     else:
@@ -140,7 +143,8 @@ async def ban_member(
         member_name = f"{member.display_name} ({member.name})"
         embed = discord.Embed(
             title=f"Ban request #{ban_id}",
-            description=f"{author.display_name} ({author.name}) would like to ban {member_name} until {end_date} (UTC). Reason: {reason}", )
+            description=f"{author.display_name} ({author.name}) "
+                        f"would like to ban {member_name} until {end_date} (UTC). Reason: {reason}", )
         embed.set_thumbnail(url=f"{settings.HTB_URL}/images/logo600.png")
         view = BanDecisionView(ban_id, bot, guild, member, end_date, reason)
         await guild.get_channel(settings.channels.SR_MOD).send(embed=embed, view=view)
@@ -281,3 +285,17 @@ async def add_infraction(
         logger.warning(f"HTTPException when trying to add infraction for user with ID {member.id}", exc_info=ex)
 
     return SimpleResponse(message=message, delete_after=None)
+
+
+async def add_evidence_note(
+        user_id: int, action: str, reason: str, evidence: str, moderator_id: int
+) -> None:
+    """Add a note with evidence to the user's history records."""
+    if not evidence:
+        evidence = "none provided"
+    note = f"Reason for {action}: {reason} (Evidence: {evidence})"
+    today = arrow.utcnow().format("YYYY-MM-DD")
+    user_note = UserNote(user_id=user_id, note=note, date=today, moderator_id=moderator_id)
+    async with AsyncSessionLocal() as session:
+        session.add(user_note)
+        await session.commit()
