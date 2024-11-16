@@ -27,13 +27,8 @@ class BanDecisionView(View):
 
     # Disable all buttons and update the message to reflect the decision
 
-    async def disable_buttons_and_update_message(self, interaction: Interaction, decision: str) -> None:
-        """Disable all buttons and update the message to reflect the decision."""
-        # Disable all buttons
-        for item in self.children:
-            if isinstance(item, Button):
-                item.disabled = True
-
+    async def update_message(self, interaction: Interaction, decision: str) -> None:
+        """Update the message to reflect the decision. Decision can always be overturned."""
         # Edit the original message to reflect the decision and who made it
         admin_name = interaction.user.display_name
         decision_message = f"{admin_name} has made a decision: **{decision}** for {self.member.display_name}."
@@ -56,7 +51,7 @@ class BanDecisionView(View):
             f"Ban duration for {self.member.display_name} has been approved by {interaction.user.display_name}."
         )
         # Disable buttons and update message after approval
-        await self.disable_buttons_and_update_message(interaction, "Approved Duration")
+        await self.update_message(interaction, "Approved Duration")
 
     @discord.ui.button(label="Deny and unban", style=discord.ButtonStyle.danger, custom_id="deny_button")
     async def deny_button(self, button: Button, interaction: Interaction) -> None:
@@ -70,7 +65,7 @@ class BanDecisionView(View):
             f"Ban for {self.member.display_name} has been denied by {interaction.user.display_name} and the member has been unbanned."
         )
         # Disable buttons and update message after denial
-        await self.disable_buttons_and_update_message(interaction, "Denied and Unbanned")
+        await self.update_message(interaction, "Denied and Unbanned")
 
     @discord.ui.button(label="Dispute", style=discord.ButtonStyle.primary, custom_id="dispute_button")
     async def dispute_button(self, button: Button, interaction: Interaction) -> None:
@@ -139,4 +134,4 @@ class DisputeModal(Modal):
         )
 
         # Disable buttons and update message on the parent view after dispute
-        await self.parent_view.disable_buttons_and_update_message(interaction, "Disputed Duration")
+        await self.parent_view.update_message(interaction, "Disputed Duration")
