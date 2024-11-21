@@ -68,7 +68,6 @@ class TestBanCog:
             )
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Skipping test temporarily until figuring out what's going wrong.")
     async def test_tempban_failed_with_wrong_duration(self, ctx, bot):
         ctx.user = helpers.MockMember(id=1, name="Test User")
         user = helpers.MockMember(id=2, name="Banned User")
@@ -110,8 +109,8 @@ class TestBanCog:
             await cog.unban.callback(cog, ctx, user)
 
             # Assertions
-            unban_member_mock.assert_called_once_with(ctx.guild, user)
-            ctx.respond.assert_called_once_with(f"User #{user.id} has been unbanned.")
+            unban_member_mock.assert_awaited_once_with(ctx.guild, user)
+            ctx.respond.assert_awaited_once_with(f"User #{user.id} has been unbanned.")
 
     @pytest.mark.asyncio
     async def test_unban_failure(self, ctx, bot):
@@ -126,8 +125,8 @@ class TestBanCog:
             await cog.unban.callback(cog, ctx, user)
 
             # Assertions
-            unban_member_mock.assert_called_once_with(ctx.guild, user)
-            ctx.respond.assert_called_once_with("Failed to unban user. Are they perhaps not banned at all?")
+            unban_member_mock.assert_awaited_once_with(ctx.guild, user)
+            ctx.respond.assert_awaited_once_with("Failed to unban user. Are they perhaps not banned at all?")
 
     @pytest.mark.asyncio
     async def test_deny_success(self, ctx, bot):
