@@ -50,7 +50,7 @@ async def _get_ban_or_create(member: Member, ban: Ban, infraction: Infraction) -
 
 
 async def ban_member(
-    bot: Bot, guild: Guild, member: Member | User, duration: str, reason: str, author: Member = None,
+    bot: Bot, guild: Guild, member: Member | User, duration: str, reason: str, evidence: str, author: Member = None,
     needs_approval: bool = True
 ) -> SimpleResponse | None:
     """Ban a member from the guild."""
@@ -140,7 +140,7 @@ async def ban_member(
         member_name = f"{member.display_name} ({member.name})"
         embed = discord.Embed(
             title=f"Ban request #{ban_id}",
-            description=f"{author.display_name} ({author.name}) would like to ban {member_name} until {end_date} (UTC). Reason: {reason}", )
+            description=f"{author.display_name} ({author.name}) would like to ban {member_name} until {end_date} (UTC). \n Reason: {reason} \n Evidence: {evidence}", )
         embed.set_thumbnail(url=f"{settings.HTB_URL}/images/logo600.png")
         view = BanDecisionView(ban_id, bot, guild, member, end_date, reason)
         await guild.get_channel(settings.channels.SR_MOD).send(embed=embed, view=view)

@@ -34,7 +34,7 @@ class TestBanCog:
             # Assertions
             add_evidence_note_mock.assert_called_once_with(user.id, "Any valid reason", "Some evidence", ctx.user.id)
             ban_member_mock.assert_called_once_with(
-                bot, ctx.guild, user, "500w", "Any valid reason", ctx.user, needs_approval=False
+                bot, ctx.guild, user, "500w", "Any valid reason", "Some evidence", ctx.user, needs_approval=False
             )
             ctx.respond.assert_called_once_with(
                 f"Member {user.display_name} has been banned permanently.", delete_after=0
@@ -61,7 +61,7 @@ class TestBanCog:
             # Assertions
             add_evidence_note_mock.assert_called_once_with(user.id, "Any valid reason", "Some evidence", ctx.user.id)
             ban_member_mock.assert_called_once_with(
-                bot, ctx.guild, user, "5d", "Any valid reason", ctx.user, needs_approval=True
+                bot, ctx.guild, user, "5d", "Any valid reason", "Some evidence", ctx.user, needs_approval=True
             )
             ctx.respond.assert_called_once_with(
                 f"Member {user.display_name} has been banned temporarily.", delete_after=0
@@ -86,11 +86,11 @@ class TestBanCog:
             ban_member_mock.return_value = ban_response
 
             cog = ban.BanCog(bot)
-            await cog.tempban.callback(cog, ctx, user, "5", "Any valid reason")
+            await cog.tempban.callback(cog, ctx, user, "5", "Any valid reason", "Some evidence")
 
             # Assertions
             ban_member_mock.assert_called_once_with(
-                bot, ctx.guild, user, "5", "Any valid reason", ctx.user, needs_approval=True
+                bot, ctx.guild, user, "5", "Any valid reason", "Some evidence", ctx.user, needs_approval=True
             )
             ctx.respond.assert_called_once_with(
                 "Malformed duration. Please use duration units, (e.g. 12h, 14d, 5w).", delete_after=15
