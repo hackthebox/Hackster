@@ -75,8 +75,9 @@ class TestBanCog:
 
         with (
             patch('src.helpers.ban.validate_duration', new_callable=AsyncMock) as validate_duration_mock,
-            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock
-        ):
+            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock,
+            patch('src.cmds.core.ban.BanCog.add_evidence_note', new_callable=AsyncMock) as add_evidence_note_mock
+                ):
             validate_duration_mock.return_value = (
                 0, "Malformed duration. Please use duration units, (e.g. 12h, 14d, 5w)."
             )
