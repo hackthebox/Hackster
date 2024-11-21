@@ -4,12 +4,12 @@ import socket
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
 from discord import (
-    ApplicationContext, Cog, DiscordException, Embed, HTTPException, Forbidden, NotFound, Member,
-    User, Guild
+    ApplicationContext, Cog, DiscordException, Embed, Forbidden, Guild, HTTPException, Member, NotFound, User,
 )
+from discord.ext.commands import Bot as DiscordBot
 from discord.ext.commands import (
-    Bot as DiscordBot, CommandNotFound, CommandOnCooldown, DefaultHelpCommand,
-    MissingAnyRole, MissingPermissions, MissingRequiredArgument, NoPrivateMessage, UserInputError
+    CommandNotFound, CommandOnCooldown, DefaultHelpCommand, MissingAnyRole, MissingPermissions,
+    MissingRequiredArgument, NoPrivateMessage, UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
 
@@ -35,18 +35,22 @@ class Bot(DiscordBot):
         """
         super().__init__(**kwargs)
         if not mock:
-            logger.debug("Starting the HTTP session")
-            self.http_session = ClientSession(
-                connector=TCPConnector(resolver=AsyncResolver(), family=socket.AF_INET), trace_configs=[trace_config]
-            )
+            logger.debug("HTTP session will be initialized in an asynchronous context")
+            self.http_session = None
         else:
             logger.debug("Mocking the HTTP session")
             self.http_session = None
 
     async def on_ready(self) -> None:
         """Triggered when the bot is ready."""
-        name = f"{self.user} (ID: {self.user.id})"
+        if self.http_session is None:
+            logger.debug("Starting the HTTP session")
+            self.http_session = ClientSession(
+                connector=TCPConnector(resolver=AsyncResolver(), family=socket.AF_INET), 
+                trace_configs=[trace_config]
+            )
 
+        name = f"{self.user} (ID: {self.user.id})"
         devlog_msg = f"Connected {constants.emojis.partying_face}"
         self.loop.create_task(self.send_log(devlog_msg, colour=constants.colours.bright_green))
 
