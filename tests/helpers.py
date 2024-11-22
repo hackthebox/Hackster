@@ -63,7 +63,7 @@ class CustomMockMixin:
     The `_get_child_mock` method automatically returns an AsyncMock for coroutine methods of the mock
     object. As discord.py also uses synchronous methods that nonetheless return coroutine objects, the
     class attribute `additional_spec_asyncs` can be overwritten with an iterable containing additional
-    attribute names that should also mocked with an AsyncMock instead of a regular MagicMock/Mock. The
+    attribute names that also should be mocked with an AsyncMock instead of a regular MagicMock/Mock. The
     class method `spec_set` can be overwritten with the object that should be uses as the specification
     for the mock.
 
