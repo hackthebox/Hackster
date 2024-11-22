@@ -95,7 +95,7 @@ class UserCog(commands.Cog):
             )
 
         await ctx.guild.kick(user=member, reason=reason)
-        infraction_reason = f"{ctx.user.name} was kicked on {datetime.now()} for {reason}"
+        infraction_reason = f"{ctx.user.name} was kicked on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} for {reason}"
         await add_infraction(ctx.guild, member, 0, infraction_reason, ctx.user)
         return await ctx.respond(f"{member.name} got the boot!")
 
