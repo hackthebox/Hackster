@@ -13,7 +13,7 @@ To contribute, please follow these guidelines:
 
 * Look at the current Issues and/or discussions taking place in the #bot-dev channel on Discord for things that needs to
   be done.
-* Please create an issue in Github. For feature requests wait the community moderators to approve the issue.
+* Please create an issue in GitHub. For feature requests wait the community moderators to approve the issue.
 * Always create a feature branch for your work.
 * Please use pull requests from feature branch to development once you are confident that the implementation is done.
 * **Do not open a pull request if you aren't assigned to the issue**. If someone is already working on it, consider
