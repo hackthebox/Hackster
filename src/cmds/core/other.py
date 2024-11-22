@@ -1,7 +1,7 @@
 import logging
 
 import discord
-from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command
+from discord import ApplicationContext, Embed, Interaction, Message, Option, WebhookMessage, slash_command
 from discord.ext import commands
 from discord.ui import InputText, Modal
 from slack_sdk.webhook import WebhookClient
@@ -13,28 +13,30 @@ logger = logging.getLogger(__name__)
 
 
 class FeedbackModal(Modal):
+    """Feedback modal."""
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.add_item(InputText(label="Title"))
         self.add_item(InputText(label="Feedback", style=discord.InputTextStyle.long))
 
-    async def callback(self, interaction: discord.Interaction):
-        
+    async def callback(self, interaction: discord.Interaction) -> None:
+        """Callback for the feedback modal."""
         await interaction.response.send_message("Thank you, your feedback has been recorded.", ephemeral=True)
 
-        webhook = WebhookClient(settings.SLACK_WEBHOOK) # Establish Slack Webhook
-        
-        if interaction.user: # Protects against some weird edge-cases
+        webhook = WebhookClient(settings.SLACK_WEBHOOK)  # Establish Slack Webhook
+
+        if interaction.user:  # Protects against some weird edge-cases
             title = f"{self.children[0].value} - {interaction.user.name}"
         else:
             title = f"{self.children[0].value}"
-        
+
         message_body = self.children[1].value
         # Slack has no way to disallow @(@everyone calls), so we strip it out and replace it with a safe version
-        title = title.replace("@", "[at]").replace("<", "[bracket]") 
-        message_body = message_body.replace("@", "[at]").replace("<", "[bracket]") 
-        
+        title = title.replace("@", "[at]").replace("<", "[bracket]")
+        message_body = message_body.replace("@", "[at]").replace("<", "[bracket]")
+
         response = webhook.send(
             text=f"{title} - {message_body}",
             blocks=[
@@ -72,9 +74,14 @@ class OtherCog(commands.Cog):
                    description="A simple reply proving a link to the support desk article on how to get support")
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def support(
-            self, ctx: ApplicationContext
+            self, ctx: ApplicationContext,
+            platform: Option(str, "Select the platform", choices=["labs", "academy"], default="labs"),
     ) -> Message:
-        """A simple reply proving a link to the support desk article on how to get support"""
+        """A simple reply providing a link to the support desk article on how to get support."""
+        if platform == "academy":
+            return await ctx.respond(
+                "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
+            )
         return await ctx.respond(
             "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
         )
@@ -95,7 +102,7 @@ class OtherCog(commands.Cog):
     @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB!")
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def feedback(self, ctx: ApplicationContext) -> Interaction:
-        """ Provide Feedback to HTB  """
+        """Provide Feedback to HTB."""
         # Send the Modal defined above in Feedback Modal, which handles the callback
         modal = FeedbackModal(title="Feedback")
         return await ctx.send_modal(modal)

@@ -27,13 +27,14 @@ class TestOther:
         assert content.startswith("No hints are allowed")
 
     @pytest.mark.asyncio
-    async def test_support(self, bot, ctx):
+    async def test_support_labs(self, bot, ctx):
         """Test the response of the `support` command."""
         cog = other.OtherCog(bot)
         ctx.bot = bot
+        platform = "labs"
 
         # Invoke the command.
-        await cog.support.callback(cog, ctx)
+        await cog.support.callback(cog, ctx, platform)
 
         args, kwargs = ctx.respond.call_args
         content = args[0]
@@ -41,7 +42,42 @@ class TestOther:
         # Command should respond with a string.
         assert isinstance(content, str)
 
-        assert content.startswith("https://help.hackthebox.com")
+        assert content == "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
+
+    @pytest.mark.asyncio
+    async def test_support_academy(self, bot, ctx):
+        """Test the response of the `support` command."""
+        cog = other.OtherCog(bot)
+        ctx.bot = bot
+        platform = "academy"
+
+        # Invoke the command.
+        await cog.support.callback(cog, ctx, platform)
+
+        args, kwargs = ctx.respond.call_args
+        content = args[0]
+
+        # Command should respond with a string.
+        assert isinstance(content, str)
+
+        assert content == "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
+
+    @pytest.mark.asyncio
+    async def test_support_urls_different(self, bot, ctx):
+        """Test that the URLs for 'labs' and 'academy' platforms are different."""
+        cog = other.OtherCog(bot)
+        ctx.bot = bot
+
+        # Test the 'labs' platform
+        await cog.support.callback(cog, ctx, "labs")
+        labs_url = ctx.respond.call_args[0][0]
+
+        # Test the 'academy' platform
+        await cog.support.callback(cog, ctx, "academy")
+        academy_url = ctx.respond.call_args[0][0]
+
+        # Assert that the URLs are different
+        assert labs_url != academy_url
 
     @pytest.mark.asyncio
     async def test_spoiler_without_url(self, bot, ctx):
