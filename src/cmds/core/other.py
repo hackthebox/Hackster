@@ -1,7 +1,7 @@
 import logging
 
 import discord
-from discord import ApplicationContext, Embed, Interaction, Message, WebhookMessage, slash_command
+from discord import ApplicationContext, Embed, Interaction, Message, Option, WebhookMessage, slash_command
 from discord.ext import commands
 from discord.ui import InputText, Modal
 from slack_sdk.webhook import WebhookClient
@@ -74,22 +74,16 @@ class OtherCog(commands.Cog):
                    description="A simple reply proving a link to the support desk article on how to get support")
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def support(
-            self, ctx: ApplicationContext
+            self, ctx: ApplicationContext,
+            platform: Option(str, "Select the platform", choices=["labs", "academy"], default="labs"),
     ) -> Message:
-        """A simple reply proving a link to the support desk article on how to get support."""
+        """A simple reply providing a link to the support desk article on how to get support."""
+        if platform == "academy":
+            return await ctx.respond(
+                "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
+            )
         return await ctx.respond(
             "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
-        )
-
-    @slash_command(guild_ids=settings.guild_ids,
-                   description="A simple reply providing a link to the support desk article for HTB Academy")
-    @commands.cooldown(1, 60, commands.BucketType.user)
-    async def academysupport(
-            self, ctx: ApplicationContext
-    ) -> Message:
-        """A simple reply providing a link to the support desk article for HTB Academy."""
-        return await ctx.respond(
-            "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
         )
 
     @slash_command(guild_ids=settings.guild_ids, description="Add the URL which has spoiler link.")

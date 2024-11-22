@@ -27,13 +27,32 @@ class TestOther:
         assert content.startswith("No hints are allowed")
 
     @pytest.mark.asyncio
-    async def test_support(self, bot, ctx):
+    async def test_support_labs(self, bot, ctx):
         """Test the response of the `support` command."""
         cog = other.OtherCog(bot)
         ctx.bot = bot
+        platform = "labs"
 
         # Invoke the command.
-        await cog.support.callback(cog, ctx)
+        await cog.support.callback(cog, ctx, platform)
+
+        args, kwargs = ctx.respond.call_args
+        content = args[0]
+
+        # Command should respond with a string.
+        assert isinstance(content, str)
+
+        assert content.startswith("https://help.hackthebox.com")
+
+    @pytest.mark.asyncio
+    async def test_support_academy(self, bot, ctx):
+        """Test the response of the `support` command."""
+        cog = other.OtherCog(bot)
+        ctx.bot = bot
+        platform = "academy"
+
+        # Invoke the command.
+        await cog.support.callback(cog, ctx, platform)
 
         args, kwargs = ctx.respond.call_args
         content = args[0]
