@@ -21,8 +21,8 @@ class TestUserCog:
         user_to_kick.name = "User to Kick"
 
         with (
-            patch('src.cmds.core.user.add_evidence_note', new_callable=AsyncMock) as add_evidence_mock, 
-            patch('src.cmds.core.user.member_is_staff', return_value=False
+            patch('src.cmds.core.user.add_evidence_note', new_callable=AsyncMock) as add_evidence_mock,
+            patch('src.cmds.core.user.member_is_staff', return_value=False)
         ):
             cog = user.UserCog(bot)
             await cog.kick.callback(cog, ctx, user_to_kick, "Violation of rules")
