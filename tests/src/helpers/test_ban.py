@@ -1,5 +1,5 @@
 from unittest import mock
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from discord import Forbidden, HTTPException
@@ -113,6 +113,7 @@ class TestBanMember:
     async def test_ban_member_valid_duration(self, bot, guild, member, author):
         duration = "1d"
         reason = "xf reason"
+        evidence = "Some evidence"
         member.display_name = "Banned Member"
 
         with (
@@ -125,7 +126,7 @@ class TestBanMember:
             mock_channel.send.return_value = MagicMock()
             guild.get_channel.return_value = mock_channel
 
-            result = await ban_member(bot, guild, member, duration, reason)
+            result = await ban_member(bot, guild, member, duration, reason, evidence)
             assert isinstance(result, SimpleResponse)
             assert result.message == f"{member.display_name} ({member.id}) has been banned until 2023-05-16 22:41:40 " \
                                      f"(UTC)."
@@ -134,20 +135,22 @@ class TestBanMember:
     async def test_ban_member_invalid_duration(self, bot, guild, member, author):
         duration = "1d"
         reason = "xf reason"
+        evidence = "Some evidence"
         member.display_name = "Banned Member"
 
         with (
             mock.patch("src.helpers.ban._check_member", return_value=None),
             mock.patch("src.helpers.ban.validate_duration", return_value=(0, "Invalid duration: could not parse.")),
         ):
-            result = await ban_member(bot, guild, member, duration, reason)
+            result = await ban_member(bot, guild, member, duration, reason, evidence)
             assert isinstance(result, SimpleResponse)
             assert result.message == "Invalid duration: could not parse."
 
     @pytest.mark.asyncio
     async def test_ban_member_permanently_success(self, bot, guild, member, author):
         duration = "500w"
-        reason = 'Why not?'
+        reason = "Why not?"
+        evidence = "Some evidence"
         member.display_name = "Banned Member"
 
         # Patching the necessary classes and functions
@@ -157,14 +160,15 @@ class TestBanMember:
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
             mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
         ):
-            response = await ban_member(bot, guild, member, duration, reason, author, False)
+            response = await ban_member(bot, guild, member, duration, reason, evidence, author, False)
             assert isinstance(response, SimpleResponse)
             assert response.message == f"Member {member.display_name} has been banned permanently."
 
     @pytest.mark.asyncio
     async def test_ban_member_no_reason_success(self, bot, guild, member, author):
         duration = "500w"
-        reason = ''
+        reason = ""
+        evidence = "Some evidence"
         member.display_name = "Banned Member"
 
         # Patching the necessary classes and functions
@@ -174,14 +178,15 @@ class TestBanMember:
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
             mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
         ):
-            response = await ban_member(bot, guild, member, duration, reason, author, False)
+            response = await ban_member(bot, guild, member, duration, reason, evidence, author, False)
             assert isinstance(response, SimpleResponse)
             assert response.message == f"Member {member.display_name} has been banned permanently."
 
     @pytest.mark.asyncio
     async def test_ban_member_no_author_success(self, bot, guild, member):
         duration = '500w'
-        reason = ''
+        reason = ""
+        evidence = "Some evidence"
         member.display_name = "Banned Member"
 
         with (
@@ -190,14 +195,15 @@ class TestBanMember:
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
             mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
         ):
-            response = await ban_member(bot, guild, member, duration, reason, None, False)
+            response = await ban_member(bot, guild, member, duration, reason, evidence, None, False)
             assert isinstance(response, SimpleResponse)
             assert response.message == f"Member {member.display_name} has been banned permanently."
 
     @pytest.mark.asyncio
     async def test_ban_already_exists(self, bot, guild, member, author):
         duration = '500w'
-        reason = ''
+        reason = ""
+        evidence = "Some evidence"
         member.display_name = "Banned Member"
 
         with (
@@ -206,7 +212,7 @@ class TestBanMember:
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, True)),
             mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
         ):
-            response = await ban_member(bot, guild, member, duration, reason, author)
+            response = await ban_member(bot, guild, member, duration, reason, evidence, author)
             assert isinstance(response, SimpleResponse)
             assert response.message == f"A ban with id: 1 already exists for member {member}"
 
@@ -216,7 +222,7 @@ class TestBanMember:
         user = helpers.MockMember(id=2, name="Banned User")
         with patch('src.helpers.ban.member_is_staff', return_value=True):
             response = await ban_member(
-                bot, guild, user, "1d", "spamming", author=ctx.user, needs_approval=True
+                bot, guild, user, "1d", "spamming", "some evidence", author=ctx.user, needs_approval=True
             )
 
         assert isinstance(response, SimpleResponse)
@@ -228,7 +234,7 @@ class TestBanMember:
         member = helpers.MockMember(id=2, name="Bot Member", bot=True)
         with patch('src.helpers.ban.member_is_staff', return_value=False):
             response = await ban_member(
-                bot, guild, member, "1d", "spamming", author=ctx.user, needs_approval=True
+                bot, guild, member, "1d", "spamming", "some evidence", author=ctx.user, needs_approval=True
             )
 
         assert isinstance(response, SimpleResponse)
@@ -239,7 +245,7 @@ class TestBanMember:
         ctx.user = helpers.MockMember(id=1, name="Test User")
         with patch('src.helpers.ban.member_is_staff', return_value=False):
             response = await ban_member(
-                bot, guild, ctx.user, "1d", "spamming", author=ctx.user, needs_approval=True
+                bot, guild, ctx.user, "1d", "spamming", "some evidence", author=ctx.user, needs_approval=True
             )
 
         assert isinstance(response, SimpleResponse)
