@@ -63,6 +63,23 @@ class TestOther:
         assert content == "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
 
     @pytest.mark.asyncio
+    async def test_support_urls_different(self, bot, ctx):
+        """Test that the URLs for 'labs' and 'academy' platforms are different."""
+        cog = other.OtherCog(bot)
+        ctx.bot = bot
+
+        # Test the 'labs' platform
+        await cog.support.callback(cog, ctx, "labs")
+        labs_url = ctx.respond.call_args[0][0]
+
+        # Test the 'academy' platform
+        await cog.support.callback(cog, ctx, "academy")
+        academy_url = ctx.respond.call_args[0][0]
+
+        # Assert that the URLs are different
+        assert labs_url != academy_url
+
+    @pytest.mark.asyncio
     async def test_spoiler_without_url(self, bot, ctx):
         """Test the response of the `spoiler` command without url."""
         cog = other.OtherCog(bot)
