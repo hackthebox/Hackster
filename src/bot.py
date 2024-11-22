@@ -67,7 +67,7 @@ class Bot(DiscordBot):
         logger.debug(f"Command '{ctx.command}' received.")
         received_commands.labels(ctx.command.name).inc()
         embed = Embed(title="Command Log")
-        embed.add_field(name="Command", value=ctx.command, inline=True)
+        embed.add_field(name="Command", value=ctx.command.name, inline=True)
         embed.add_field(name="Caller", value=ctx.author.name, inline=True)
         if not isinstance(ctx.channel, discord.DMChannel):
             embed.add_field(name="Channel", value=ctx.channel.name, inline=True)

@@ -175,7 +175,7 @@ class LinePaginator(Paginator):
                 log.debug(f"Timed out waiting for a reaction (ID: {message.id})")
                 break  # We're done, no reactions for the last 5 minutes.
 
-            # Deletes the users reaction.
+            # Deletes the user's reaction.
             await message.remove_reaction(reaction.emoji, user)
 
             reaction_type = ""
@@ -239,7 +239,7 @@ class ImagePaginator(Paginator):
     Helper class that paginates images for embeds in messages.
 
     Close resemblance to LinePaginator, except focuses on images over text.
-    Refer to ImagePaginator.paginate for documentation on how to use.
+    Refer to `ImagePaginator.paginate` for documentation on how to use.
     """
 
     def __init__(self, prefix: str = "", suffix: str = ""):
@@ -358,7 +358,7 @@ class ImagePaginator(Paginator):
                 log.debug(f"Timed out waiting for a reaction (ID: {message.id})")
                 break  # We're done, no reactions for the last 5 minutes.
 
-            # Deletes the users reaction.
+            # Deletes the user's reaction.
             await message.remove_reaction(reaction.emoji, user)
 
             reaction_type = ""

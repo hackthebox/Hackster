@@ -1,7 +1,7 @@
 """Helper methods to handle bans, mutes and infractions. Bot or message responses are NOT allowed."""
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import arrow
 import discord
@@ -70,7 +70,7 @@ async def ban_member(
     if dur <= 0:
         return SimpleResponse(message=dur_exc, delete_after=15)
     else:
-        end_date: str = datetime.utcfromtimestamp(dur).strftime("%Y-%m-%d %H:%M:%S")
+        end_date: str = datetime.fromtimestamp(dur, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     if author is None:
         author = bot.user
@@ -94,7 +94,7 @@ async def ban_member(
     dm_banned_member = await _dm_banned_member(end_date, guild, member, reason)
     # Try to actually ban the member from the guild
     try:
-        await guild.ban(member, reason=reason, delete_message_days=0)
+        await guild.ban(member, reason=reason, delete_message_seconds=0)
     except Forbidden as exc:
         logger.warning(
             "Ban failed due to permission error", exc_info=exc,
@@ -127,7 +127,7 @@ async def ban_member(
             extra={"ban_requestor": author.name, "ban_receiver": member.id, "dm_banned_member": dm_banned_member}
         )
 
-        unban_task = schedule(unban_member(guild, member), run_at=ban.unban_time)
+        unban_task = schedule(unban_member(guild, member), run_at=datetime.fromtimestamp(ban.unban_time))
         asyncio.create_task(unban_task)
         logger.debug("Unbanned sceduled for ban", extra={"ban_id": ban_id, "unban_time": ban.unban_time})
         return SimpleResponse(message=message, delete_after=0)
@@ -228,7 +228,7 @@ async def mute_member(
         await member.add_roles(role, reason=reason)
 
         mute = Mute(
-            user_id=member.id, reason=reason, moderator_id=author.id, date=datetime.fromtimestamp(dur)
+            user_id=member.id, reason=reason, moderator_id=author.id, unmute_time=dur
         )
         async with AsyncSessionLocal() as session:
             session.add(mute)
@@ -296,7 +296,7 @@ async def add_evidence_note(
     if not evidence:
         evidence = "none provided"
     note = f"Reason for {action}: {reason} (Evidence: {evidence})"
-    today = arrow.utcnow().format("YYYY-MM-DD")
+    today = arrow.utcnow().date()
     user_note = UserNote(user_id=user_id, note=note, date=today, moderator_id=moderator_id)
     async with AsyncSessionLocal() as session:
         session.add(user_note)

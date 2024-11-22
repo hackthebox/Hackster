@@ -24,7 +24,7 @@ class VerifyCog(commands.Cog):
         description="Verify your HTB Certifications!"
     )
     @cooldown(1, 60, commands.BucketType.user)
-    async def verifycertification(self, ctx: ApplicationContext, certid: str, fullname: str) -> Interaction | WebhookMessage:
+    async def verifycertification(self, ctx: ApplicationContext, certid: str, fullname: str) -> Interaction | WebhookMessage | None:
         """Verify users their HTB Certification."""
         if not certid or not fullname:
             await ctx.respond("You must supply a cert id!", ephemeral=True)
