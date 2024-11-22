@@ -42,7 +42,7 @@ class TestOther:
         # Command should respond with a string.
         assert isinstance(content, str)
 
-        assert content.startswith("https://help.hackthebox.com")
+        assert content == "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
 
     @pytest.mark.asyncio
     async def test_support_academy(self, bot, ctx):
@@ -60,7 +60,7 @@ class TestOther:
         # Command should respond with a string.
         assert isinstance(content, str)
 
-        assert content.startswith("https://help.hackthebox.com")
+        assert content == "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
 
     @pytest.mark.asyncio
     async def test_spoiler_without_url(self, bot, ctx):
