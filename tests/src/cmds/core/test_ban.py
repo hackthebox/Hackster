@@ -21,8 +21,10 @@ class TestBanCog:
         user = helpers.MockMember(id=2, name="Banned User")
         bot.get_member_or_user.return_value = user
 
-        with patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock, \
-             patch('src.cmds.core.ban.add_evidence_note', new_callable=AsyncMock) as add_evidence_note_mock:
+        with (
+            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock,
+            patch('src.cmds.core.ban.add_evidence_note', new_callable=AsyncMock) as add_evidence_note_mock
+        ):
             ban_response = SimpleResponse(
                 message=f"Member {user.display_name} has been banned permanently.", delete_after=0
             )
@@ -68,15 +70,16 @@ class TestBanCog:
             )
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Skipping test temporarily until figuring out what's going wrong.")
-    async def test_tempban_failed_with_wrong_duration(self, ctx, bot):
+    async def test_tempban_failed_with_wrong_duration(self, ctx, bot, guild):
         ctx.user = helpers.MockMember(id=1, name="Test User")
+        ctx.guild = guild
         user = helpers.MockMember(id=2, name="Banned User")
         bot.get_member_or_user.return_value = user
 
         with (
             patch('src.helpers.ban.validate_duration', new_callable=AsyncMock) as validate_duration_mock,
-            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock
+            patch('src.cmds.core.ban.ban_member', new_callable=AsyncMock) as ban_member_mock,
+            patch('src.cmds.core.ban.add_evidence_note', new_callable=AsyncMock) as add_evidence_note_mock,
         ):
             validate_duration_mock.return_value = (
                 0, "Malformed duration. Please use duration units, (e.g. 12h, 14d, 5w)."
@@ -90,6 +93,9 @@ class TestBanCog:
             await cog.tempban.callback(cog, ctx, user, "5", "Any valid reason", "Some evidence")
 
             # Assertions
+            add_evidence_note_mock.assert_called_once_with(
+                user.id, "ban", "Any valid reason", "Some evidence", ctx.user.id
+            )
             ban_member_mock.assert_called_once_with(
                 bot, ctx.guild, user, "5", "Any valid reason", "Some evidence", ctx.user, needs_approval=True
             )
