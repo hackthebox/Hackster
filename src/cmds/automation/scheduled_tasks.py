@@ -43,22 +43,25 @@ class ScheduledTasks(commands.Cog):
             bans = result.all()
             logger.debug(f"Got {len(bans)} bans from DB.")
 
-        for ban in bans:
-            run_at = datetime.fromtimestamp(ban.unban_time)
-            logger.debug(
-                f"Got user_id: {ban.user_id} and unban timestamp: {run_at} from DB."
-            )
+        for guild_id in settings.guild_ids:
+            logger.debug(f"Running for guild: {guild_id}.")
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                logger.warning(f"Unable to find guild with ID {guild_id}.")
+                continue
 
-            for guild_id in settings.guild_ids:
-                logger.debug(f"Running for guild: {guild_id}.")
-                guild = self.bot.get_guild(guild_id)
-                if guild:
-                    member = await self.bot.get_member_or_user(guild, ban.user_id)
-                    unban_task = schedule(unban_member(guild, member), run_at=run_at)
-                    unban_tasks.append(unban_task)
-                    logger.info(f"Scheduled unban task for user_id {ban.user_id} at {run_at}.")
-                else:
-                    logger.warning(f"Unable to find guild with ID {guild_id}.")
+            for ban in bans:
+                run_at = datetime.fromtimestamp(ban.unban_time)
+                logger.debug(
+                    f"Got user_id: {ban.user_id} and unban timestamp: {run_at} from DB."
+                )
+                member = await self.bot.get_member_or_user(guild, ban.user_id)
+                if not member:
+                    logger.info(f"Member with id: {ban.user_id} not found.")
+                    continue
+                unban_task = schedule(unban_member(guild, member), run_at=run_at)
+                unban_tasks.append(unban_task)
+                logger.info(f"Scheduled unban task for user_id {ban.user_id} at {run_at}.")
 
         await asyncio.gather(*unban_tasks)
 
@@ -72,23 +75,27 @@ class ScheduledTasks(commands.Cog):
             mutes = result.all()
             logger.debug(f"Got {len(mutes)} mutes from DB.")
 
-        for mute in mutes:
-            run_at = datetime.fromtimestamp(mute.unmute_time)
-            logger.debug(
-                "Got user_id: {user_id} and unmute timestamp: {unmute_ts} from DB.".format(
-                    user_id=mute.user_id, unmute_ts=run_at
-                )
-            )
+        for guild_id in settings.guild_ids:
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                logger.warning(f"Unable to find guild with ID {guild_id}.")
+                continue
 
-            for guild_id in settings.guild_ids:
-                guild = self.bot.get_guild(guild_id)
-                if guild:
-                    member = await self.bot.get_member_or_user(guild, mute.user_id)
-                    unmute_task = schedule(unmute_member(guild, member), run_at=run_at)
-                    unmute_tasks.append(unmute_task)
-                    logger.info(f"Scheduled unban task for user_id {mute.user_id} at {str(run_at)}.")
-                else:
-                    logger.warning(f"Unable to find guild with ID {guild_id}.")
+            for mute in mutes:
+                run_at = datetime.fromtimestamp(mute.unmute_time)
+                logger.debug(
+                    "Got user_id: {user_id} and unmute timestamp: {unmute_ts} from DB.".format(
+                        user_id=mute.user_id, unmute_ts=run_at
+                    )
+                )
+                member = await self.bot.get_member_or_user(guild, mute.user_id)
+                if not member:
+                    logger.info(f"Member with id: {mute.user_id} not found.")
+                    continue
+                unmute_task = schedule(unmute_member(guild, member), run_at=run_at)
+                unmute_tasks.append(unmute_task)
+                logger.info(f"Scheduled unban task for user_id {mute.user_id} at {str(run_at)}.")
+
 
         await asyncio.gather(*unmute_tasks)
 
