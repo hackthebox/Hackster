@@ -1,7 +1,8 @@
 import logging
 
+import aiohttp
 import discord
-from discord import ApplicationContext, Embed, Interaction, Message, Option, WebhookMessage, slash_command
+from discord import ApplicationContext, Interaction, Message, Option, slash_command
 from discord.ext import commands
 from discord.ui import InputText, Modal
 from slack_sdk.webhook import WebhookClient
@@ -16,16 +17,16 @@ class FeedbackModal(Modal):
     """Feedback modal."""
 
     def __init__(self, *args, **kwargs) -> None:
+        """Initialize the Feedback Modal with input fields."""
         super().__init__(*args, **kwargs)
-
         self.add_item(InputText(label="Title"))
         self.add_item(InputText(label="Feedback", style=discord.InputTextStyle.long))
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        """Callback for the feedback modal."""
+        """Handle the modal submission by sending feedback to Slack."""
         await interaction.response.send_message("Thank you, your feedback has been recorded.", ephemeral=True)
 
-        webhook = WebhookClient(settings.SLACK_WEBHOOK)  # Establish Slack Webhook
+        webhook = WebhookClient(settings.SLACK_FEEDBACK_WEBHOOK)
 
         if interaction.user:  # Protects against some weird edge-cases
             title = f"{self.children[0].value} - {interaction.user.name}"
@@ -53,21 +54,53 @@ class FeedbackModal(Modal):
         assert response.body == "ok"
 
 
+class SpoilerModal(Modal):
+    """Modal for reporting a spoiler."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize the Spoiler Modal with input fields."""
+        super().__init__(*args, **kwargs)
+        self.add_item(InputText(label="URL", placeholder="Enter the spoiler URL", style=discord.InputTextStyle.long))
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        """Handle the modal submission by sending the spoiler report to JIRA."""
+        url = self.children[0].value.strip()  # Trim any whitespace
+
+        if not url:  # Check if the URL is empty
+            await interaction.response.send_message("Please provide the spoiler URL.", ephemeral=True)
+            return
+        await interaction.response.send_message("Thank you, the spoiler has been reported.", ephemeral=True)
+
+        user_name = interaction.user.display_name
+        url = self.children[0].value
+
+        webhook_url = settings.JIRA_SPOILER_WEBHOOK
+
+        payload = {
+            "user": user_name,
+            "url": url,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(webhook_url, json=payload) as response:
+                    if response.status != 200:
+                        logger.error(f"Failed to send to JIRA: {response.status} - {await response.text()}")
+            except Exception as e:
+                logger.error(f"Error sending to JIRA: {e}")
+
+
 class OtherCog(commands.Cog):
-    """Ban related commands."""
+    """Other commands related to the bot."""
 
     def __init__(self, bot: Bot):
         self.bot = bot
 
     @slash_command(guild_ids=settings.guild_ids, description="A simple reply stating hints are not allowed.")
-    async def no_hints(
-            self, ctx: ApplicationContext
-    ) -> Message:
-        """A simple reply stating hints are not allowed."""
+    async def no_hints(self, ctx: ApplicationContext) -> Message:
+        """Reply stating that hints are not allowed."""
         return await ctx.respond(
-            "No hints are allowed for the duration the event is going on. This is a competitive event with prizes. "
-            "Once the event is over you are more then welcome to share solutions/write-ups/etc and try them in the "
-            "After Party event."
+            "No hints are allowed for the duration of the event. Once the event is over, feel free to share solutions."
         )
 
     @slash_command(guild_ids=settings.guild_ids,
@@ -86,28 +119,20 @@ class OtherCog(commands.Cog):
             "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
         )
 
-    @slash_command(guild_ids=settings.guild_ids, description="Add the URL which has spoiler link.")
-    async def spoiler(self, ctx: ApplicationContext, url: str) -> Interaction | WebhookMessage:
-        """Add the URL which has spoiler link."""
-        if len(url) == 0:
-            return await ctx.respond("Please provide the spoiler URL.")
+    @slash_command(guild_ids=settings.guild_ids, description="Add a URL which contains a spoiler.")
+    async def spoiler(self, ctx: ApplicationContext) -> Interaction:
+        """Report a URL that contains a spoiler."""
+        modal = SpoilerModal(title="Report Spoiler")
+        return await ctx.send_modal(modal)
 
-        embed = Embed(title="Spoiler Report", color=0xB98700)
-        embed.add_field(name=f"{ctx.user} has submitted a spoiler.", value=f"URL: <{url}>", inline=False)
-
-        channel = self.bot.get_channel(settings.channels.SPOILER)
-        await channel.send(embed=embed)
-        return await ctx.respond("Thanks for the reporting the spoiler.", ephemeral=True, delete_after=15)
-
-    @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB!")
+    @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB.")
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def feedback(self, ctx: ApplicationContext) -> Interaction:
-        """Provide Feedback to HTB."""
-        # Send the Modal defined above in Feedback Modal, which handles the callback
+        """Provide feedback to HTB."""
         modal = FeedbackModal(title="Feedback")
         return await ctx.send_modal(modal)
 
 
 def setup(bot: Bot) -> None:
-    """Load the `ChannelManageCog` cog."""
+    """Load the OtherCog cog."""
     bot.add_cog(OtherCog(bot))
