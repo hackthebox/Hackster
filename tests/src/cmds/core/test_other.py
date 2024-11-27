@@ -1,9 +1,12 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from discord import ApplicationContext
 
+from src.bot import Bot
 from src.cmds.core import other
-from tests.helpers import MockTextChannel
+from src.cmds.core.other import OtherCog, SpoilerModal
+from src.core import settings
 
 
 class TestOther:
@@ -12,7 +15,7 @@ class TestOther:
     @pytest.mark.asyncio
     async def test_no_hints(self, bot, ctx):
         """Test the response of the `no_hints` command."""
-        cog = other.OtherCog(bot)
+        cog = OtherCog(bot)
         ctx.bot = bot
 
         # Invoke the command.
@@ -80,45 +83,46 @@ class TestOther:
         assert labs_url != academy_url
 
     @pytest.mark.asyncio
-    async def test_spoiler_without_url(self, bot, ctx):
-        """Test the response of the `spoiler` command without url."""
-        cog = other.OtherCog(bot)
+    async def test_spoiler_modal_callback_with_url(self):
+        modal = SpoilerModal(title="Report Spoiler")
+        interaction = AsyncMock()
+        interaction.user.display_name = "TestUser"
+        modal.children[0].value = "http://example.com/spoiler"
 
-        # Invoke the command.
-        await cog.spoiler.callback(cog, ctx, url="")
-
-        args, kwargs = ctx.respond.call_args
-        content = args[0]
-
-        assert isinstance(content, str)
-
-        assert content == "Please provide the spoiler URL."
+        with patch('aiohttp.ClientSession.post', new_callable=AsyncMock) as mock_post:
+            mock_post.return_value.__aenter__.return_value.status = 200
+            await modal.callback(interaction)
+            interaction.response.send_message.assert_called_once_with(
+                "Thank you, the spoiler has been reported.", ephemeral=True
+            )
+            await mock_post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_spoiler(self, bot, ctx):
-        """Test the response of the `spoiler` command."""
-        cog = other.OtherCog(bot)
-        mock_channel = MockTextChannel()
+    async def test_spoiler_modal_callback_with_url(self):
+        modal = SpoilerModal(title="Report Spoiler")
+        interaction = AsyncMock()
+        interaction.user.display_name = "TestUser"
+        modal.children[0].value = "http://example.com/spoiler"
 
-        with patch.object(bot, "get_channel", return_value=mock_channel):
-            # Invoke the command.
-            await cog.spoiler.callback(cog, ctx, "https://www.definitely-a-spoiler.com/")
+        with patch('aiohttp.ClientSession.post', new_callable=AsyncMock) as mock_post:
+            mock_post.return_value.__aenter__.return_value.status = 200
+            await modal.callback(interaction)
+            interaction.response.send_message.assert_called_once_with(
+                "Thank you, the spoiler has been reported.", ephemeral=True
+            )
+            mock_post.assert_called_once()
 
-        args, kwargs = ctx.respond.call_args
-        content = args[0]
-        ephemeral = kwargs.get("ephemeral")
-        delete_after = kwargs.get("delete_after")
+    @pytest.mark.asyncio
+    async def test_spoiler_modal_callback_without_url(self):
+        modal = SpoilerModal(title="Report Spoiler")
+        interaction = AsyncMock()
+        interaction.user.display_name = "TestUser"
+        modal.children[0].value = ""
 
-        # Command should respond with an embed.
-        assert mock_channel.send.call_count == 1
-        assert isinstance(content, str)
-        assert isinstance(ephemeral, bool)
-        assert isinstance(delete_after, int)
-
-        assert content == "Thanks for the reporting the spoiler."
-        assert ephemeral is True
-        assert delete_after == 15
-
+        await modal.callback(interaction)
+        interaction.response.send_message.assert_called_once_with(
+            "Please provide the spoiler URL.", ephemeral=True
+        )
     def test_setup(self, bot):
         """Test the setup method of the cog."""
         # Invoke the command
