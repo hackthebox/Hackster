@@ -3,6 +3,7 @@ from typing import Sequence
 
 import arrow
 from discord import ApplicationContext, Embed, Interaction, SlashCommandGroup, WebhookMessage
+from discord.abc import GuildChannel
 from discord.ext import commands
 from discord.ext.commands import has_any_role
 from sqlalchemy import select
@@ -28,10 +29,13 @@ class MacroCog(commands.Cog):
     async def add(self, ctx: ApplicationContext, name: str, text: str) -> Interaction | WebhookMessage:
         """Add a macro to the records."""
         if len(text) == 0:
-            return await ctx.respond("The macro is empty. Try again...")
+            return await ctx.respond("The macro is empty. Try again...", ephemeral=True)
 
         if len(name) == 0:
-            return await ctx.respond("The macro name is empty. Try again...")
+            return await ctx.respond("The macro name is empty. Try again...", ephemeral=True)
+
+        # Name should be lowercase.
+        name = name.lower()
 
         # We need to check if the macro name already exists.
         async with AsyncSessionLocal() as session:
@@ -39,7 +43,7 @@ class MacroCog(commands.Cog):
             result = await session.scalars(stmt)
             macro: Macro = result.first()
             if macro:
-                return await ctx.respond(f"Macro with the name '{name}' already exists.")
+                return await ctx.respond(f"Macro with the name '{name}' already exists.", ephemeral=True)
 
         moderator_id = ctx.user.id
         today = arrow.utcnow().format("YYYY-MM-DD HH:mm:ss")
@@ -48,7 +52,7 @@ class MacroCog(commands.Cog):
             session.add(macro)
             await session.commit()
 
-        return await ctx.respond(f"Macro {name} added. ID: {macro.id}")
+        return await ctx.respond(f"Macro {name} added. ID: {macro.id}", ephemeral=True)
 
     @macro.command(description="Remove a macro by providing the ID to remove.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_HTB_STAFF"))
@@ -59,9 +63,9 @@ class MacroCog(commands.Cog):
             if macro:
                 await session.delete(macro)
                 await session.commit()
-                return await ctx.respond(f"Macro #{macro_id} ({macro.name} has been deleted.")
+                return await ctx.respond(f"Macro #{macro_id} ({macro.name}) has been deleted.", ephemeral=True)
             else:
-                return await ctx.respond(f"Macro #{macro_id} has not been found.")
+                return await ctx.respond(f"Macro #{macro_id} has not been found.", ephemeral=True)
 
     @macro.command(description="Edit a macro by providing the ID to edit.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_HTB_STAFF"))
@@ -74,12 +78,12 @@ class MacroCog(commands.Cog):
             if macro:
                 macro.text = text
                 await session.commit()
-                return await ctx.respond(f"Macro #{macro_id} has been updated.")
+                return await ctx.respond(f"Macro #{macro_id} has been updated.", ephemeral=True)
             else:
-                return await ctx.respond(f"Macro #{macro_id} has not been found.")
+                return await ctx.respond(f"Macro #{macro_id} has not been found.", ephemeral=True)
 
     @macro.command(description="List all macro's.")
-    @commands.cooldown(1, 60, commands.BucketType.user)
+    @commands.cooldown(1, 30, commands.BucketType.user)
     async def list(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
         """List all macro's."""
         async with AsyncSessionLocal() as session:
@@ -93,21 +97,43 @@ class MacroCog(commands.Cog):
             embed = Embed(title="Macros", description="List of all macros.")
             for macro in macros:
                 embed.add_field(name=f"Macro #{macro.id} - name: {macro.name}", value=macro.text, inline=False)
-            return await ctx.respond(embed=embed)
+            return await ctx.respond(embed=embed, ephemeral=True)
 
     @macro.command(description="Send text from a macro by providing the name.")
-    @commands.cooldown(1, 60, commands.BucketType.user)
-    async def send(self, ctx: ApplicationContext, name: str) -> Interaction | WebhookMessage:
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def send(self,
+                   ctx: ApplicationContext,
+                   name: str,
+                   channel: GuildChannel = None
+                   ) -> Interaction | WebhookMessage:
         """Send text from a macro by providing the name."""
+        # Name should be lowercase.
+        name = name.lower()
         async with AsyncSessionLocal() as session:
             stmt = select(Macro).filter(Macro.name == name)
             result = await session.scalars(stmt)
             macro: Macro = result.first()
+
             if macro:
+                # If channel provided, send message in channel
+                if channel:
+                    await channel.send(f"{macro.text}")
+                    return await ctx.respond(f"Macro #{name} has been sent to {channel.mention}.", ephemeral=True)
                 return await ctx.respond(f"{macro.text}")
             else:
                 return await ctx.respond(f"Macro #{name} has not been found. "
-                                         " Check the list of macros via the command `/macro list`.")
+                                         "Check the list of macros via the command `/macro list`.", ephemeral=True)
+
+    @macro.command(description="Instructions for the macro commands.")
+    async def help(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
+        """Send instructions from the macro functionalities."""
+        embed = Embed(title="Macro Help", description="Instructions for the macro commands.")
+        embed.add_field(name="Add a macro", value="`/macro add <name> <text>`", inline=False)
+        embed.add_field(name="Remove a macro", value="`/macro remove <id>`", inline=False)
+        embed.add_field(name="Edit a macro", value="`/macro edit <id> <text>`", inline=False)
+        embed.add_field(name="List all macros", value="`/macro list`", inline=False)
+        embed.add_field(name="Send a macro", value="`/macro send <name> [channel]` (channel=optional)", inline=False)
+        return await ctx.respond(embed=embed, ephemeral=True)
 
 
 def setup(bot: Bot) -> None:

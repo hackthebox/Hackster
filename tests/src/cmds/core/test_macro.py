@@ -103,7 +103,7 @@ async def test_add_macro_duplicate_name(cog, ctx, mock_session):
     # Assert
     assert not mock_session.add.called
     assert not mock_session.commit.called
-    ctx.respond.assert_called_once_with(f"Macro with the name '{name}' already exists.")
+    ctx.respond.assert_called_once_with(f"Macro with the name '{name}' already exists.", ephemeral=True)
 
 @pytest.mark.asyncio
 async def test_remove_macro_success(cog, ctx, mock_session):
@@ -133,7 +133,7 @@ async def test_remove_macro_not_found(cog, ctx, mock_session):
     # Assert
     assert not mock_session.delete.called
     assert not mock_session.commit.called
-    ctx.respond.assert_called_once_with(f"Macro #{macro_id} has not been found.")
+    ctx.respond.assert_called_once_with(f"Macro #{macro_id} has not been found.", ephemeral=True)
 
 @pytest.mark.asyncio
 async def test_edit_macro_success(cog, ctx, mock_session):
@@ -163,7 +163,7 @@ async def test_edit_macro_not_found(cog, ctx, mock_session):
 
     # Assert
     assert not mock_session.commit.called
-    ctx.respond.assert_called_once_with(f"Macro #{macro_id} has not been found.")
+    ctx.respond.assert_called_once_with(f"Macro #{macro_id} has not been found.", ephemeral=True)
 
 @pytest.mark.asyncio
 async def test_list_macros_success(cog, ctx, mock_session):
@@ -228,3 +228,56 @@ async def test_send_macro_not_found(cog, ctx, mock_session):
     # Assert
     ctx.respond.assert_called_once()
     assert "has not been found" in ctx.respond.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_send_macro_to_channel_success(cog, ctx, mock_session):
+    # Setup
+    name = "test_macro"
+    text = "Macro text"
+    mock_macro = Macro(name=name, text=text)
+    mock_channel = AsyncMock()
+    mock_channel.mention = "#test-channel"
+    mock_session.scalars = AsyncMock(return_value=MockScalarsResult(mock_macro))
+
+    # Execute
+    await cog.send.callback(cog, ctx, name=name, channel=mock_channel)
+
+    # Assert
+    mock_channel.send.assert_called_once_with(text)
+    ctx.respond.assert_called_once_with(f"Macro #{name} has been sent to #test-channel.", ephemeral=True)
+
+@pytest.mark.asyncio
+async def test_send_macro_to_channel_macro_not_found(cog, ctx, mock_session):
+    # Setup
+    name = "nonexistent"
+    mock_channel = AsyncMock()
+    mock_session.scalars = AsyncMock(return_value=MockScalarsResult(None))
+
+    # Execute
+    await cog.send.callback(cog, ctx, name=name, channel=mock_channel)
+
+    # Assert
+    mock_channel.send.assert_not_called()
+    ctx.respond.assert_called_once_with(
+        f"Macro #{name} has not been found. Check the list of macros via the command `/macro list`.",
+        ephemeral=True
+    )
+
+@pytest.mark.asyncio
+async def test_send_macro_channel_error(cog, ctx, mock_session):
+    # Setup
+    name = "test_macro"
+    text = "Macro text"
+    mock_macro = Macro(name=name, text=text)
+    mock_channel = AsyncMock()
+    mock_channel.send.side_effect = Exception("Channel error")
+    mock_channel.mention = "#test-channel"
+    mock_session.scalars = AsyncMock(return_value=MockScalarsResult(mock_macro))
+
+    # Execute
+    with pytest.raises(Exception, match="Channel error"):
+        await cog.send.callback(cog, ctx, name=name, channel=mock_channel)
+
+    # Assert
+    mock_channel.send.assert_called_once_with(text)
+    # No response assert since exception is raised
