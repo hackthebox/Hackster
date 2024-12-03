@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from src.bot import Bot
 from src.cmds.core.macro import MacroCog
+from src.core import settings
 from src.database.models import Macro
 
 
@@ -239,29 +240,34 @@ async def test_send_macro_to_channel_success(cog, ctx, mock_session):
     mock_channel.mention = "#test-channel"
     mock_session.scalars = AsyncMock(return_value=MockScalarsResult(mock_macro))
 
+    # Mock admin role
+    ctx.user.roles = [MagicMock(id=settings.role_groups["ALL_ADMINS"][0])]
+
     # Execute
     await cog.send.callback(cog, ctx, name=name, channel=mock_channel)
 
     # Assert
     mock_channel.send.assert_called_once_with(text)
-    ctx.respond.assert_called_once_with(f"Macro #{name} has been sent to #test-channel.", ephemeral=True)
+    ctx.respond.assert_called_once_with(f"Macro {name} has been sent to #test-channel.", ephemeral=True)
 
 @pytest.mark.asyncio
-async def test_send_macro_to_channel_macro_not_found(cog, ctx, mock_session):
+async def test_send_macro_to_channel_no_permission(cog, ctx, mock_session):
     # Setup
-    name = "nonexistent"
+    name = "test_macro"
+    text = "Macro text"
+    mock_macro = Macro(name=name, text=text)
     mock_channel = AsyncMock()
-    mock_session.scalars = AsyncMock(return_value=MockScalarsResult(None))
+    mock_session.scalars = AsyncMock(return_value=MockScalarsResult(mock_macro))
+
+    # Mock regular user role
+    ctx.user.roles = [MagicMock(id=0)]
 
     # Execute
     await cog.send.callback(cog, ctx, name=name, channel=mock_channel)
 
     # Assert
     mock_channel.send.assert_not_called()
-    ctx.respond.assert_called_once_with(
-        f"Macro #{name} has not been found. Check the list of macros via the command `/macro list`.",
-        ephemeral=True
-    )
+    ctx.respond.assert_called_once_with("You don't have permission to send macros in other channels.", ephemeral=True)
 
 @pytest.mark.asyncio
 async def test_send_macro_channel_error(cog, ctx, mock_session):
@@ -274,10 +280,12 @@ async def test_send_macro_channel_error(cog, ctx, mock_session):
     mock_channel.mention = "#test-channel"
     mock_session.scalars = AsyncMock(return_value=MockScalarsResult(mock_macro))
 
+    # Mock admin role
+    ctx.user.roles = [MagicMock(id=settings.role_groups["ALL_ADMINS"][0])]
+
     # Execute
     with pytest.raises(Exception, match="Channel error"):
         await cog.send.callback(cog, ctx, name=name, channel=mock_channel)
 
     # Assert
     mock_channel.send.assert_called_once_with(text)
-    # No response assert since exception is raised

@@ -106,8 +106,7 @@ class MacroCog(commands.Cog):
                    name: str,
                    channel: GuildChannel = None
                    ) -> Interaction | WebhookMessage:
-        """Send text from a macro by providing the name."""
-        # Name should be lowercase.
+        """Send text from a macro by providing the name If a mod or higher, they can send to a remote channel."""
         name = name.lower()
         async with AsyncSessionLocal() as session:
             stmt = select(Macro).filter(Macro.name == name)
@@ -115,14 +114,21 @@ class MacroCog(commands.Cog):
             macro: Macro = result.first()
 
             if macro:
-                # If channel provided, send message in channel
                 if channel:
-                    await channel.send(f"{macro.text}")
-                    return await ctx.respond(f"Macro #{name} has been sent to {channel.mention}.", ephemeral=True)
+                    allowed_roles = {role.id for role in ctx.user.roles}
+                    required_roles = set(
+                        settings.role_groups.get("ALL_ADMINS", [])
+                        + settings.role_groups.get("ALL_HTB_STAFF", [])
+                        + settings.role_groups.get("ALL_MODS", [])
+                    )
+                    if allowed_roles & required_roles:
+                        await channel.send(f"{macro.text}")
+                        return await ctx.respond(f"Macro {name} has been sent to {channel.mention}.", ephemeral=True)
+                    return await ctx.respond("You don't have permission to send macros in other channels.",
+                                             ephemeral=True)
                 return await ctx.respond(f"{macro.text}")
-            else:
-                return await ctx.respond(f"Macro #{name} has not been found. "
-                                         "Check the list of macros via the command `/macro list`.", ephemeral=True)
+            return await ctx.respond(f"Macro #{name} has not been found. "
+                                     "Check the list of macros via the command `/macro list`.", ephemeral=True)
 
     @macro.command(description="Instructions for the macro commands.")
     async def help(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
