@@ -22,7 +22,7 @@ def upgrade() -> None:
     op.create_table('macro',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', mysql.BIGINT(display_width=18), nullable=False),
-    sa.Column('name', mysql.TEXT(), nullable=False),
+    sa.Column('name', mysql.TEXT(), nullable=False, unique=True),
     sa.Column('text', mysql.TEXT(), nullable=False),
     sa.Column('created_at', mysql.TIMESTAMP(), nullable=False),
     sa.PrimaryKeyConstraint('id'),

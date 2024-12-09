@@ -7,6 +7,7 @@ from discord.abc import GuildChannel
 from discord.ext import commands
 from discord.ext.commands import has_any_role
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from src.bot import Bot
 from src.core import settings
@@ -37,22 +38,16 @@ class MacroCog(commands.Cog):
         # Name should be lowercase.
         name = name.lower()
 
-        # We need to check if the macro name already exists.
-        async with AsyncSessionLocal() as session:
-            stmt = select(Macro).filter(Macro.name == name)
-            result = await session.scalars(stmt)
-            macro: Macro = result.first()
-            if macro:
-                return await ctx.respond(f"Macro with the name '{name}' already exists.", ephemeral=True)
-
         moderator_id = ctx.user.id
         today = arrow.utcnow().format("YYYY-MM-DD HH:mm:ss")
         macro = Macro(user_id=moderator_id, name=name, text=text, created_at=today)
         async with AsyncSessionLocal() as session:
-            session.add(macro)
-            await session.commit()
-
-        return await ctx.respond(f"Macro {name} added. ID: {macro.id}", ephemeral=True)
+            try:
+                session.add(macro)
+                await session.commit()
+                return await ctx.respond(f"Macro {name} added. ID: {macro.id}", ephemeral=True)
+            except IntegrityError:
+                return await ctx.respond(f"Macro with the name '{name}' already exists.", ephemeral=True)
 
     @macro.command(description="Remove a macro by providing the ID to remove.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_HTB_STAFF"))
@@ -113,22 +108,23 @@ class MacroCog(commands.Cog):
             result = await session.scalars(stmt)
             macro: Macro = result.first()
 
-            if macro:
-                if channel:
-                    allowed_roles = {role.id for role in ctx.user.roles}
-                    required_roles = set(
-                        settings.role_groups.get("ALL_ADMINS", [])
-                        + settings.role_groups.get("ALL_HTB_STAFF", [])
-                        + settings.role_groups.get("ALL_MODS", [])
-                    )
-                    if allowed_roles & required_roles:
-                        await channel.send(f"{macro.text}")
-                        return await ctx.respond(f"Macro {name} has been sent to {channel.mention}.", ephemeral=True)
-                    return await ctx.respond("You don't have permission to send macros in other channels.",
-                                             ephemeral=True)
-                return await ctx.respond(f"{macro.text}")
-            return await ctx.respond(f"Macro #{name} has not been found. "
-                                     "Check the list of macros via the command `/macro list`.", ephemeral=True)
+            if not macro:
+                return await ctx.respond(f"Macro #{name} has not been found. "
+                                         "Check the list of macros via the command `/macro list`.", ephemeral=True)
+
+            if channel:
+                allowed_roles = {role.id for role in ctx.user.roles}
+                required_roles = set(
+                    settings.role_groups.get("ALL_ADMINS", [])
+                    + settings.role_groups.get("ALL_HTB_STAFF", [])
+                    + settings.role_groups.get("ALL_MODS", [])
+                )
+                if allowed_roles & required_roles:
+                    await channel.send(f"{macro.text}")
+                    return await ctx.respond(f"Macro {name} has been sent to {channel.mention}.", ephemeral=True)
+                return await ctx.respond("You don't have permission to send macros in other channels.",
+                                         ephemeral=True)
+            return await ctx.respond(f"{macro.text}")
 
     @macro.command(description="Instructions for the macro commands.")
     async def help(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:

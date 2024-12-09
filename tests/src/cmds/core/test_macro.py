@@ -4,6 +4,7 @@ import arrow
 import pytest
 from discord import ApplicationContext, Embed, Interaction, WebhookMessage
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from src.bot import Bot
@@ -82,29 +83,16 @@ async def test_add_macro_success(cog, ctx, mock_session):
     assert "added" in ctx.respond.call_args[0][0]
 
 @pytest.mark.asyncio
-@pytest.mark.asyncio
 async def test_add_macro_duplicate_name(cog, ctx, mock_session):
-    # Setup
     name = "existing_macro"
     text = "This is a test macro"
-    mock_macro = Macro(name=name)  # Create a mock macro
+    mock_session.commit = AsyncMock(side_effect=IntegrityError("", "", ""))
 
-    # Mock the scalars call to simulate finding an existing macro
-    async def mock_scalars_call(stmt):
-        # Return a result that indicates the macro already exists
-        result = AsyncMock()
-        result.first.return_value = mock_macro
-        return result
-
-    mock_session.scalars.side_effect = mock_scalars_call
-
-    # Execute
     await cog.add.callback(cog, ctx, name=name, text=text)
 
-    # Assert
-    assert not mock_session.add.called
-    assert not mock_session.commit.called
+    mock_session.add.assert_called_once()
     ctx.respond.assert_called_once_with(f"Macro with the name '{name}' already exists.", ephemeral=True)
+
 
 @pytest.mark.asyncio
 async def test_remove_macro_success(cog, ctx, mock_session):
