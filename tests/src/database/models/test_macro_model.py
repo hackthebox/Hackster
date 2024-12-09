@@ -44,7 +44,7 @@ class TestMacroModel:
                 .where(Macro.id == 1)
                 .values(name="Test", text="Test")
             )
-            session.execute(query)
+            await session.execute(query)
             await session.commit()
 
             # Check if the methods were called with the correct arguments
@@ -59,7 +59,7 @@ class TestMacroModel:
             session.commit.return_value = None
 
             query = delete(Macro).where(Macro.id == 1)
-            session.delete(query)
+            await session.delete(query)
             await session.commit()
 
             # Check if the methods were called with the correct arguments
