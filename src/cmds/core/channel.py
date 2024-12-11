@@ -50,7 +50,11 @@ class ChannelCog(commands.Cog):
         return await ctx.respond(f"Slow-mode set in {channel.name} to {seconds} seconds.")
 
     @slash_command(guild_ids=settings.guild_ids)
-    @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
+    @has_any_role(
+        *settings.role_groups.get("ALL_ADMINS"),
+        *settings.role_groups.get("ALL_SR_MODS"),
+        *settings.role_groups.get("ALL_MODS")
+    )
     async def cleanup(
         self, ctx: ApplicationContext,
         count: Option(int, "How many messages to delete", required=True, default=5),
