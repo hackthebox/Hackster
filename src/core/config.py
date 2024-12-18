@@ -227,7 +227,7 @@ class Global(BaseSettings):
             self.academy_certificates.CERTIFIED_PENETRATION_TESTING_SPECIALIST: self.roles.ACADEMY_CPTS,
             self.academy_certificates.CERTIFIED_DEFENSIVE_SECURITY_ANALYST: self.roles.ACADEMY_CDSA,
             self.academy_certificates.CERTIFIED_WEB_EXPLOITATION_EXPERT: self.roles.ACADEMY_CWEE,
-            self.academy_certificates.CERTIFIED_ACTIVEDIRECTORY_PENTESTING_EXPERT: self.roles.ACADEMY_CAPE,
+            self.academy_certificates.CERTIFIED_ACTIVEDIRECTORY_PENTESTING_EXPERT: self.roles.ACADEMY_CAPE
         }.get(certificate)
 
     def get_post_or_rank(self, what: str) -> Optional[int]:
@@ -262,7 +262,7 @@ class Global(BaseSettings):
             "CBBH": self.roles.ACADEMY_CBBH,
             "CDSA": self.roles.ACADEMY_CDSA,
             "CWEE": self.roles.ACADEMY_CWEE,
-            "CAPE": self.roles.ACADEMY_CAPE,
+            "CAPE": self.roles.ACADEMY_CAPE
         }.get(what)
 
     class Config:
