@@ -74,7 +74,9 @@ async def _check_for_ban(uid: str) -> Optional[Dict]:
 
     return ban_details
 
+
 async def process_certification(certid: str, name: str):
+    """Process certifications."""
     cert_api_url = f"{settings.API_V4_URL}/certificate/lookup"
     params = {'id': certid, 'name': name}
     async with aiohttp.ClientSession() as session:
@@ -98,6 +100,8 @@ async def process_certification(certid: str, name: str):
         cert = "CDSA"
     elif certRawName == "HTB Certified Web Exploitation Expert":
         cert = "CWEE"
+    elif certRawName == "HTB Certified Active Directory Pentesting Expert":
+        cert = "CAPE"
     else:
         cert = False
     return cert
