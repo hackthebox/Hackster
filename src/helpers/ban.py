@@ -280,7 +280,7 @@ async def add_infraction(
             f"Following is the reason given:\n>>> {reason}\n"
         )
     except Forbidden as ex:
-        message = "Could not DM member due to privacy settings, however will still attempt to ban them..."
+        message = "Could not DM member due to privacy settings, however the infraction was still added."
         logger.warning(f"Forbidden, when trying to contact user with ID {member.id} about infraction.", exc_info=ex)
     except HTTPException as ex:
         message = "Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week."
