@@ -4,6 +4,7 @@ from datetime import date
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from discord import Forbidden
 
 from src.cmds.core import ban
 from src.database.models import Ban, Infraction
@@ -11,6 +12,13 @@ from src.helpers.duration import parse_duration_str
 from src.helpers.responses import SimpleResponse
 from tests import helpers
 
+
+class MockResponse:
+    def __init__(self, status):
+        self.status = status
+        self.reason = 'Forbidden'
+        self.code = status
+        self.text = "Cannot send messages to this user"
 
 class TestBanCog:
     """Test the `Ban` cog."""
@@ -166,6 +174,32 @@ class TestBanCog:
 
             # Assertions
             add_infraction_mock.assert_called_once_with(ctx.guild, user, 0, "Any valid reason", ctx.user)
+
+    @pytest.mark.asyncio
+    async def test_add_infraction_dm_forbidden(self, ctx, bot):
+        """Test add_infraction when DMing the user is forbidden."""
+        ctx.user = helpers.MockMember(id=1, name="Test Moderator")
+        user = helpers.MockMember(id=2, name="Warned User")
+        user.send = AsyncMock(side_effect=Forbidden(
+            response=MockResponse(403),
+            message="Cannot send messages to this user"
+        ))
+        bot.get_member_or_user.return_value = user
+
+        with patch('src.cmds.core.ban.add_infraction', new_callable=AsyncMock) as add_infraction_mock:
+            add_infraction_mock.return_value = SimpleResponse(
+                message="Could not DM member due to privacy settings, however the infraction was still added.",
+                delete_after=None
+            )
+
+            cog = ban.BanCog(bot)
+            await cog.warn.callback(cog, ctx, user, "Test reason")
+
+            # Assertions
+            add_infraction_mock.assert_called_once_with(ctx.guild, user, 0, "Test reason", ctx.user)
+            ctx.respond.assert_called_once_with(
+                "Could not DM member due to privacy settings, however the infraction was still added.", delete_after=None
+            )
 
     @pytest.mark.asyncio
     async def test_warn_user_not_found(self, ctx, bot):
