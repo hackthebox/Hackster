@@ -60,7 +60,7 @@ class SpoilerModal(Modal):
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the Spoiler Modal with input fields."""
         super().__init__(*args, **kwargs)
-        self.add_item(InputText(label="Description", placeholder="Description", style=discord.InputTextStyle.long))
+        self.add_item(InputText(label="Description", placeholder="Description", required=False, style=discord.InputTextStyle.long))
         self.add_item(InputText(label="URL", placeholder="Enter URL", required=True, style=discord.InputTextStyle.long))
 
     async def callback(self, interaction: discord.Interaction) -> None:
