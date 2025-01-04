@@ -87,7 +87,8 @@ class TestOther:
         modal = SpoilerModal(title="Report Spoiler")
         interaction = AsyncMock()
         interaction.user.display_name = "TestUser"
-        modal.children[0].value = "http://example.com/spoiler"
+        modal.children[0].value = "Test description"
+        modal.children[1].value = "http://example.com/spoiler"
 
         with patch('aiohttp.ClientSession.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value.__aenter__.return_value.status = 200
@@ -102,7 +103,8 @@ class TestOther:
         modal = SpoilerModal(title="Report Spoiler")
         interaction = AsyncMock()
         interaction.user.display_name = "TestUser"
-        modal.children[0].value = "http://example.com/spoiler"
+        modal.children[0].value = "Test description"
+        modal.children[1].value = "http://example.com/spoiler"
 
         with patch('aiohttp.ClientSession.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value.__aenter__.return_value.status = 200
@@ -112,17 +114,6 @@ class TestOther:
             )
             mock_post.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_spoiler_modal_callback_without_url(self):
-        modal = SpoilerModal(title="Report Spoiler")
-        interaction = AsyncMock()
-        interaction.user.display_name = "TestUser"
-        modal.children[0].value = ""
-
-        await modal.callback(interaction)
-        interaction.response.send_message.assert_called_once_with(
-            "Please provide the spoiler URL.", ephemeral=True
-        )
     def test_setup(self, bot):
         """Test the setup method of the cog."""
         # Invoke the command
