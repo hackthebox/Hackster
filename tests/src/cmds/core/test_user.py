@@ -24,16 +24,14 @@ class TestUserCog:
 
         with (
             patch('src.cmds.core.user.add_infraction', new_callable=AsyncMock) as add_infraction_mock,
-            patch('src.cmds.core.user.add_evidence_note', new_callable=AsyncMock) as add_evidence_mock,
             patch('src.cmds.core.user.member_is_staff', return_value=False)
         ):
             cog = user.UserCog(bot)
             await cog.kick.callback(cog, ctx, user_to_kick, "Violation of rules")
 
             reason = "Violation of rules"
-            add_evidence_mock.assert_called_once_with(user_to_kick.id, "kick", reason, None, ctx.user.id)
             add_infraction_mock.assert_called_once_with(
-                ctx.guild, user_to_kick, 0, f"{ctx.user.name} was kicked on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} for {reason}", ctx.user
+                ctx.guild, user_to_kick, 0, f"{ctx.user.name} was kicked on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} for {reason} - Evidence: None", ctx.user
             )
 
             # Assertions
