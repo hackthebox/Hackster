@@ -60,11 +60,13 @@ class SpoilerModal(Modal):
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the Spoiler Modal with input fields."""
         super().__init__(*args, **kwargs)
-        self.add_item(InputText(label="URL", placeholder="Enter the spoiler URL", style=discord.InputTextStyle.long))
+        self.add_item(InputText(label="Description", placeholder="Description", required=False, style=discord.InputTextStyle.long))
+        self.add_item(InputText(label="URL", placeholder="Enter URL", required=True, style=discord.InputTextStyle.long))
 
     async def callback(self, interaction: discord.Interaction) -> None:
         """Handle the modal submission by sending the spoiler report to JIRA."""
-        url = self.children[0].value.strip()  # Trim any whitespace
+        desc = self.children[0].value.strip()  # Trim any whitespace
+        url = self.children[1].value.strip()  # Trim any whitespace
 
         if not url:  # Check if the URL is empty
             await interaction.response.send_message("Please provide the spoiler URL.", ephemeral=True)
@@ -72,13 +74,12 @@ class SpoilerModal(Modal):
         await interaction.response.send_message("Thank you, the spoiler has been reported.", ephemeral=True)
 
         user_name = interaction.user.display_name
-        url = self.children[0].value
-
         webhook_url = settings.JIRA_WEBHOOK
 
         data = {
             "user": user_name,
             "url": url,
+            "desc": desc,
             "type": "spoiler"
         }
 

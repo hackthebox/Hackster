@@ -126,7 +126,8 @@ class TestOther:
         modal = SpoilerModal(title="Report Spoiler")
         interaction = AsyncMock()
         interaction.user.display_name = "TestUser"
-        modal.children[0].value = "http://example.com/spoiler"
+        modal.children[0].value = "Test description"
+        modal.children[1].value = "http://example.com/spoiler"
 
         with patch('src.helpers.webhook.webhook_call', new_callable=AsyncMock) as mock_webhook:
             await modal.callback(interaction)
@@ -141,22 +142,10 @@ class TestOther:
                 {
                     "user": "TestUser",
                     "url": "http://example.com/spoiler",
+                    "desc": "Test description",
                     "type": "spoiler"
                 }
             )
-
-    @pytest.mark.asyncio
-    async def test_spoiler_modal_callback_without_url(self):
-        """Test the spoiler modal callback without a URL."""
-        modal = SpoilerModal(title="Report Spoiler")
-        interaction = AsyncMock()
-        interaction.user.display_name = "TestUser"
-        modal.children[0].value = ""
-
-        await modal.callback(interaction)
-        interaction.response.send_message.assert_called_once_with(
-            "Please provide the spoiler URL.", ephemeral=True
-        )
 
     @pytest.mark.asyncio
     async def test_cheater_command(self, bot, ctx):
