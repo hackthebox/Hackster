@@ -33,7 +33,7 @@ def parse_duration_str(duration: str, baseline_ts: int = None) -> int | None:
     units["d"] = units["day"] = units["days"] = units["h"] * 24
     units["wk"] = units["w"] = units["week"] = units["weeks"] = units["d"] * 7
     units["month"] = units["months"] = units["mo"] = units["d"] * 30
-    units["y"] = units["yr"] = units["d"] * 365
+    units["y"] = units["yr"] = units["year"] = units["years"] = units["d"] * 365
     sum_seconds = 0
 
     while duration:
