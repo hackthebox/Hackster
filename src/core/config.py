@@ -190,7 +190,7 @@ class Global(BaseSettings):
     WEBHOOK_TOKEN: str = ""
 
     SLACK_FEEDBACK_WEBHOOK: str = ""
-    JIRA_SPOILER_WEBHOOK: str = ""
+    JIRA_WEBHOOK: str = ""
 
     ROOT: Path = None
 

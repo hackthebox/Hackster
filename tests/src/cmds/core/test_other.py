@@ -7,6 +7,44 @@ from src.bot import Bot
 from src.cmds.core import other
 from src.cmds.core.other import OtherCog, SpoilerModal
 from src.core import settings
+from src.helpers import webhook
+
+
+class TestWebhookHelper:
+    """Test the webhook helper functions."""
+
+    @pytest.mark.asyncio
+    async def test_webhook_call_success(self):
+        """Test successful webhook call."""
+        test_url = "http://test.webhook.url"
+        test_data = {"key": "value"}
+
+        # Mock the aiohttp ClientSession
+        with patch('aiohttp.ClientSession.post') as mock_post:
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_post.return_value.__aenter__.return_value = mock_response
+
+            await webhook.webhook_call(test_url, test_data)
+
+            # Verify the post was called with correct parameters
+            mock_post.assert_called_once_with(test_url, json=test_data)
+
+    @pytest.mark.asyncio
+    async def test_webhook_call_failure(self):
+        """Test failed webhook call."""
+        test_url = "http://test.webhook.url"
+        test_data = {"key": "value"}
+
+        # Mock the aiohttp ClientSession
+        with patch('aiohttp.ClientSession.post') as mock_post:
+            mock_response = AsyncMock()
+            mock_response.status = 500
+            mock_response.text = AsyncMock(return_value="Internal Server Error")
+            mock_post.return_value.__aenter__.return_value = mock_response
+
+            # Test should complete without raising an exception
+            await webhook.webhook_call(test_url, test_data)
 
 
 class TestOther:
@@ -84,45 +122,63 @@ class TestOther:
 
     @pytest.mark.asyncio
     async def test_spoiler_modal_callback_with_url(self):
+        """Test the spoiler modal callback with a valid URL."""
         modal = SpoilerModal(title="Report Spoiler")
         interaction = AsyncMock()
         interaction.user.display_name = "TestUser"
-        modal.children[0].value = "http://example.com/spoiler"
+        modal.children[0].value = "Test description"
+        modal.children[1].value = "http://example.com/spoiler"
 
-        with patch('aiohttp.ClientSession.post', new_callable=AsyncMock) as mock_post:
-            mock_post.return_value.__aenter__.return_value.status = 200
+        with patch('src.helpers.webhook.webhook_call', new_callable=AsyncMock) as mock_webhook:
             await modal.callback(interaction)
+
             interaction.response.send_message.assert_called_once_with(
                 "Thank you, the spoiler has been reported.", ephemeral=True
             )
-            await mock_post.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_spoiler_modal_callback_with_url(self):
-        modal = SpoilerModal(title="Report Spoiler")
-        interaction = AsyncMock()
-        interaction.user.display_name = "TestUser"
-        modal.children[0].value = "http://example.com/spoiler"
-
-        with patch('aiohttp.ClientSession.post', new_callable=AsyncMock) as mock_post:
-            mock_post.return_value.__aenter__.return_value.status = 200
-            await modal.callback(interaction)
-            interaction.response.send_message.assert_called_once_with(
-                "Thank you, the spoiler has been reported.", ephemeral=True
+            # Verify webhook was called with correct data
+            mock_webhook.assert_called_once_with(
+                settings.JIRA_WEBHOOK,
+                {
+                    "user": "TestUser",
+                    "url": "http://example.com/spoiler",
+                    "desc": "Test description",
+                    "type": "spoiler"
+                }
             )
-            mock_post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_spoiler_modal_callback_without_url(self):
-        modal = SpoilerModal(title="Report Spoiler")
-        interaction = AsyncMock()
-        interaction.user.display_name = "TestUser"
-        modal.children[0].value = ""
+    async def test_cheater_command(self, bot, ctx):
+        """Test the cheater command with valid inputs."""
+        cog = OtherCog(bot)
+        ctx.bot = bot
+        ctx.user.display_name = "ReporterUser"
 
-        await modal.callback(interaction)
-        interaction.response.send_message.assert_called_once_with(
-            "Please provide the spoiler URL.", ephemeral=True
-        )
+        test_username = "SuspectedUser"
+        test_description = "Suspicious activity description"
+
+        with patch('src.helpers.webhook.webhook_call', new_callable=AsyncMock) as mock_webhook:
+            await cog.cheater.callback(cog, ctx, test_username, test_description)
+
+            # Verify the webhook was called with correct data
+            mock_webhook.assert_called_once_with(
+                settings.JIRA_WEBHOOK,
+                {
+                    "user": "ReporterUser",
+                    "cheater": test_username,
+                    "description": test_description,
+                    "type": "cheater"
+                }
+            )
+
+            # Verify the response was sent
+            ctx.respond.assert_called_once_with(
+                "Thank you for your report.",
+                ephemeral=True
+            )
+
+
+
     def test_setup(self, bot):
         """Test the setup method of the cog."""
         # Invoke the command

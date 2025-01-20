@@ -1,6 +1,5 @@
 import logging
 
-import aiohttp
 import discord
 from discord import ApplicationContext, Interaction, Message, Option, slash_command
 from discord.ext import commands
@@ -9,6 +8,7 @@ from slack_sdk.webhook import WebhookClient
 
 from src.bot import Bot
 from src.core import settings
+from src.helpers import webhook
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class FeedbackModal(Modal):
 
         webhook = WebhookClient(settings.SLACK_FEEDBACK_WEBHOOK)
 
-        if interaction.user:  # Protects against some weird edge-cases
+        if interaction.user:  # Protects against some weird edge cases
             title = f"{self.children[0].value} - {interaction.user.name}"
         else:
             title = f"{self.children[0].value}"
@@ -60,11 +60,13 @@ class SpoilerModal(Modal):
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the Spoiler Modal with input fields."""
         super().__init__(*args, **kwargs)
-        self.add_item(InputText(label="URL", placeholder="Enter the spoiler URL", style=discord.InputTextStyle.long))
+        self.add_item(InputText(label="Description", placeholder="Description", required=False, style=discord.InputTextStyle.long))
+        self.add_item(InputText(label="URL", placeholder="Enter URL", required=True, style=discord.InputTextStyle.long))
 
     async def callback(self, interaction: discord.Interaction) -> None:
         """Handle the modal submission by sending the spoiler report to JIRA."""
-        url = self.children[0].value.strip()  # Trim any whitespace
+        desc = self.children[0].value.strip()  # Trim any whitespace
+        url = self.children[1].value.strip()  # Trim any whitespace
 
         if not url:  # Check if the URL is empty
             await interaction.response.send_message("Please provide the spoiler URL.", ephemeral=True)
@@ -72,22 +74,16 @@ class SpoilerModal(Modal):
         await interaction.response.send_message("Thank you, the spoiler has been reported.", ephemeral=True)
 
         user_name = interaction.user.display_name
-        url = self.children[0].value
+        webhook_url = settings.JIRA_WEBHOOK
 
-        webhook_url = settings.JIRA_SPOILER_WEBHOOK
-
-        payload = {
+        data = {
             "user": user_name,
             "url": url,
+            "desc": desc,
+            "type": "spoiler"
         }
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(webhook_url, json=payload) as response:
-                    if response.status != 200:
-                        logger.error(f"Failed to send to JIRA: {response.status} - {await response.text()}")
-            except Exception as e:
-                logger.error(f"Error sending to JIRA: {e}")
+        await webhook.webhook_call(webhook_url, data)
 
 
 class OtherCog(commands.Cog):
@@ -132,7 +128,27 @@ class OtherCog(commands.Cog):
         modal = FeedbackModal(title="Feedback")
         return await ctx.send_modal(modal)
 
+    @slash_command(guild_ids=settings.guild_ids, description="Report a suspected cheater on the main platform.")
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def cheater(
+        self,
+        ctx: ApplicationContext,
+        user: Option(str, "Please provide the HTB username.", required=True),
+        description: Option(str, "What do you want to report?", required=True),
+    ) -> None:
+        """Report a suspected cheater on the main platform."""
+        data = {
+            "user": ctx.user.display_name,
+            "cheater": user,
+            "description": description,
+            "type": "cheater"
+        }
+
+        await webhook.webhook_call(settings.JIRA_WEBHOOK, data)
+
+        await ctx.respond("Thank you for your report.", ephemeral=True)
+
 
 def setup(bot: Bot) -> None:
-    """Load the OtherCog cog."""
+    """Load the cogs."""
     bot.add_cog(OtherCog(bot))
