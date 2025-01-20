@@ -14,7 +14,7 @@ from src.helpers.schedule import schedule
 
 
 class BanDecisionView(View):
-    """View for making it easier to make a decision on a ban duration. It has buttons for approving, denying, and disputing the ban duration."""
+    """View for making decisions on a ban duration."""
 
     def __init__(self, ban_id: int, bot: Bot, guild: Guild, member: Member | User, end_date: str, reason: str):
         super().__init__(timeout=None)
@@ -25,14 +25,23 @@ class BanDecisionView(View):
         self.end_date = end_date
         self.reason = reason
 
-    # Disable all buttons and update the message to reflect the decision
-
     async def update_message(self, interaction: Interaction, decision: str) -> None:
-        """Update the message to reflect the decision. Decision can always be overturned."""
-        # Edit the original message to reflect the decision and who made it
+        """Update the message to reflect the decision."""
         admin_name = interaction.user.display_name
         decision_message = f"{admin_name} has made a decision: **{decision}** for {self.member.display_name}."
         await interaction.message.edit(content=decision_message, view=self)
+
+    async def disable_all_buttons(self) -> None:
+        """Disable all buttons in the view."""
+        for item in self.children:
+            if isinstance(item, Button):
+                item.disabled = True
+
+    async def update_buttons(self, clicked_button_id: str) -> None:
+        """Disable the clicked button and enable all others."""
+        for item in self.children:
+            if isinstance(item, Button):
+                item.disabled = item.custom_id == clicked_button_id
 
     @discord.ui.button(label="Approve duration", style=discord.ButtonStyle.success, custom_id="approve_button")
     async def approve_button(self, button: Button, interaction: Interaction) -> None:
@@ -50,7 +59,9 @@ class BanDecisionView(View):
         await self.guild.get_channel(settings.channels.SR_MOD).send(
             f"Ban duration for {self.member.display_name} has been approved by {interaction.user.display_name}."
         )
-        # Disable buttons and update message after approval
+        # Disable the clicked button and enable others
+        await self.update_buttons("approve_button")
+        await interaction.message.edit(view=self)
         await self.update_message(interaction, "Approved Duration")
 
     @discord.ui.button(label="Deny and unban", style=discord.ButtonStyle.danger, custom_id="deny_button")
@@ -64,13 +75,14 @@ class BanDecisionView(View):
         await self.guild.get_channel(settings.channels.SR_MOD).send(
             f"Ban for {self.member.display_name} has been denied by {interaction.user.display_name} and the member has been unbanned."
         )
-        # Disable buttons and update message after denial
+        # Disable all buttons after denial
+        await self.disable_all_buttons()
+        await interaction.message.edit(view=self)
         await self.update_message(interaction, "Denied and Unbanned")
 
     @discord.ui.button(label="Dispute", style=discord.ButtonStyle.primary, custom_id="dispute_button")
     async def dispute_button(self, button: Button, interaction: Interaction) -> None:
         """Dispute the ban duration."""
-        # Pass self as the parent view to DisputeModal for updating after completion
         modal = DisputeModal(self.ban_id, self.bot, self.guild, self.member, self.end_date, self.reason, self)
         await interaction.response.send_modal(modal)
 
