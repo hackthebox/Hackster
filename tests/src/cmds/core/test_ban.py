@@ -236,60 +236,54 @@ class TestBanCog:
 
 
     @pytest.mark.asyncio
-    async def test_add_infraction_success(self, ctx, bot):
-        ctx.user = helpers.MockMember(id=1, name="Test Moderator")
-        user = helpers.MockMember(id=2, name="Test User")
-        user.send = AsyncMock()
-        bot.get_member_or_user.return_value = user
+    async def test_add_infraction_success(self, ctx, guild, member, author, bot):
+        member.send = AsyncMock()
+        bot.get_member_or_user.return_value = member
 
         # Patch the AsyncSessionLocal to simulate database interaction
         async with AsyncMock() as mock_session:
             with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
-                response = await add_infraction(ctx.guild, user, 10, "Test infraction reason", ctx.user)
+                response = await add_infraction(guild, member, 10, "Test infraction reason", author)
 
         # Assertions
-        assert response.message == f"{user.mention} ({user.id}) has been warned with a strike weight of 10."
-        user.send.assert_called_once_with(
-            f"You have been warned on {ctx.guild.name} with a strike value of 10. "
+        assert response.message == f"{member.mention} ({member.id}) has been warned with a strike weight of 10."
+        member.send.assert_called_once_with(
+            f"You have been warned on {guild.name} with a strike value of 10. "
             f"After a total value of 3, permanent exclusion from the server may be enforced.\n"
             f"Following is the reason given:\n>>> Test infraction reason\n"
         )
 
     @pytest.mark.asyncio
-    async def test_add_infraction_dm_forbidden(self, ctx, bot):
-        ctx.user = helpers.MockMember(id=1, name="Test Moderator")
-        user = helpers.MockMember(id=2, name="Test User")
-        user.send = AsyncMock(side_effect=Forbidden(
+    async def test_add_infraction_dm_forbidden(self, ctx, guild, member, author, bot):
+        member.send = AsyncMock(side_effect=Forbidden(
             response=MockResponse(403),
             message="Cannot send messages to this user"
         ))
-        bot.get_member_or_user.return_value = user
+        bot.get_member_or_user.return_value = member
 
         # Patch the AsyncSessionLocal to simulate database interaction
         async with AsyncMock() as mock_session:
             with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
-                response = await add_infraction(ctx.guild, user, 10, "Test infraction reason", ctx.user)
+                response = await add_infraction(guild, member, 10, "Test infraction reason", author)
 
         # Assertions
         assert response.message == "Could not DM member due to privacy settings, however the infraction was still added."
-        user.send.assert_called_once()
+        member.send.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_infraction_no_reason(self, ctx, bot):
-        ctx.user = helpers.MockMember(id=1, name="Test Moderator")
-        user = helpers.MockMember(id=2, name="Test User")
-        user.send = AsyncMock()
-        bot.get_member_or_user.return_value = user
+    async def test_add_infraction_no_reason(self, ctx, guild, member, author, bot):
+        member.send = AsyncMock()
+        bot.get_member_or_user.return_value = member
 
         # Patch the AsyncSessionLocal to simulate database interaction
         async with AsyncMock() as mock_session:
             with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
-                response = await add_infraction(ctx.guild, user, 10, "", ctx.user)
+                response = await add_infraction(guild, member, 10, "", author)
 
         # Assertions
-        assert response.message == f"{user.mention} ({user.id}) has been warned with a strike weight of 10."
-        user.send.assert_called_once_with(
-            f"You have been warned on {ctx.guild.name} with a strike value of 10. "
+        assert response.message == f"{member.mention} ({member.id}) has been warned with a strike weight of 10."
+        member.send.assert_called_once_with(
+            f"You have been warned on {guild.name} with a strike value of 10. "
             f"After a total value of 3, permanent exclusion from the server may be enforced.\n"
             f"Following is the reason given:\n>>> No reason given ...\n"
         )
