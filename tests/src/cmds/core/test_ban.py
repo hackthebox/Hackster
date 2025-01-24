@@ -4,13 +4,22 @@ from datetime import date
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from discord import Forbidden
 
 from src.cmds.core import ban
 from src.database.models import Ban, Infraction
+from src.helpers.ban import add_infraction
 from src.helpers.duration import parse_duration_str
 from src.helpers.responses import SimpleResponse
 from tests import helpers
 
+
+class MockResponse:
+    def __init__(self, status):
+        self.status = status
+        self.reason = 'Forbidden'
+        self.code = status
+        self.text = "Cannot send messages to this user"
 
 class TestBanCog:
     """Test the `Ban` cog."""
@@ -224,6 +233,60 @@ class TestBanCog:
                 await cog.remove_infraction.callback(cog, ctx, infraction_record.id)
 
                 ctx.respond.assert_called_once_with(f"Infraction record #{infraction_record.id} has been deleted.")
+
+
+    @pytest.mark.asyncio
+    async def test_add_infraction_success(self, ctx, guild, member, author, bot):
+        member.send = AsyncMock()
+        bot.get_member_or_user.return_value = member
+
+        # Patch the AsyncSessionLocal to simulate database interaction
+        async with AsyncMock() as mock_session:
+            with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
+                response = await add_infraction(guild, member, 10, "Test infraction reason", author)
+
+        # Assertions
+        assert response.message == f"{member.mention} ({member.id}) has been warned with a strike weight of 10."
+        member.send.assert_called_once_with(
+            f"You have been warned on {guild.name} with a strike value of 10. "
+            f"After a total value of 3, permanent exclusion from the server may be enforced.\n"
+            f"Following is the reason given:\n>>> Test infraction reason\n"
+        )
+
+    @pytest.mark.asyncio
+    async def test_add_infraction_dm_forbidden(self, ctx, guild, member, author, bot):
+        member.send = AsyncMock(side_effect=Forbidden(
+            response=MockResponse(403),
+            message="Cannot send messages to this user"
+        ))
+        bot.get_member_or_user.return_value = member
+
+        # Patch the AsyncSessionLocal to simulate database interaction
+        async with AsyncMock() as mock_session:
+            with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
+                response = await add_infraction(guild, member, 10, "Test infraction reason", author)
+
+        # Assertions
+        assert response.message == "Could not DM member due to privacy settings, however the infraction was still added."
+        member.send.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_add_infraction_no_reason(self, ctx, guild, member, author, bot):
+        member.send = AsyncMock()
+        bot.get_member_or_user.return_value = member
+
+        # Patch the AsyncSessionLocal to simulate database interaction
+        async with AsyncMock() as mock_session:
+            with patch('src.helpers.ban.AsyncSessionLocal', return_value=mock_session):
+                response = await add_infraction(guild, member, 10, "", author)
+
+        # Assertions
+        assert response.message == f"{member.mention} ({member.id}) has been warned with a strike weight of 10."
+        member.send.assert_called_once_with(
+            f"You have been warned on {guild.name} with a strike value of 10. "
+            f"After a total value of 3, permanent exclusion from the server may be enforced.\n"
+            f"Following is the reason given:\n>>> No reason given ...\n"
+        )
 
     def test_setup(self, bot):
         """Test the setup method of the cog."""
