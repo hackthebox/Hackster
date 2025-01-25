@@ -67,6 +67,8 @@ class UserCog(commands.Cog):
             -> Interaction | WebhookMessage:
         """Kick a user from the server."""
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
+        if not isinstance(member, discord.Member):
+            return await ctx.respond("User seems to have already left the server.")
         if not member:
             return await ctx.respond(f"User {user} not found.")
         if member_is_staff(member):
