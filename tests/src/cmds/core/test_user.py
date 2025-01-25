@@ -1,4 +1,3 @@
-from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -31,7 +30,7 @@ class TestUserCog:
 
             reason = "Violation of rules"
             add_infraction_mock.assert_called_once_with(
-                ctx.guild, user_to_kick, 0, f"Previously kicked on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} for {reason} - Evidence: None", ctx.user
+                ctx.guild, user_to_kick, 0, f"Previously kicked for {reason} - Evidence: None", ctx.user
             )
 
             # Assertions

@@ -1,7 +1,6 @@
 import logging
 import os
 import random
-from datetime import datetime
 from typing import Tuple, Union
 
 import discord
@@ -93,7 +92,7 @@ class UserCog(commands.Cog):
             )
 
         await ctx.guild.kick(user=member, reason=reason)
-        infraction_reason = f"Previously kicked on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} for {reason} - Evidence: {evidence}"
+        infraction_reason = f"Previously kicked for {reason} - Evidence: {evidence}"
         await add_infraction(ctx.guild, member, 0, infraction_reason, ctx.user)
         return await ctx.respond(f"{member.name} got the boot!")
 
