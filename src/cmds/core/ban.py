@@ -12,7 +12,7 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import Ban, Infraction
 from src.database.session import AsyncSessionLocal
-from src.helpers.ban import add_evidence_note, add_infraction, ban_member, unban_member
+from src.helpers.ban import add_infraction, ban_member, unban_member
 from src.helpers.duration import validate_duration
 from src.helpers.schedule import schedule
 
@@ -34,7 +34,6 @@ class BanCog(commands.Cog):
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
             return await ctx.respond(f"User {user} not found.")
-        await add_evidence_note(member.id, "ban", reason, evidence, ctx.user.id)
         response = await ban_member(
             self.bot, ctx.guild, member, "500w", reason, evidence, ctx.user, needs_approval=False
         )
@@ -54,7 +53,6 @@ class BanCog(commands.Cog):
         member = await self.bot.get_member_or_user(ctx.guild, user.id)
         if not member:
             return await ctx.respond(f"User {user} not found.")
-        await add_evidence_note(member.id, "ban", reason, evidence, ctx.user.id)
         response = await ban_member(
             self.bot, ctx.guild, member, duration, reason, evidence, ctx.user, needs_approval=True
         )

@@ -11,7 +11,7 @@ from sqlalchemy.exc import NoResultFound
 
 from src.bot import Bot
 from src.core import settings
-from src.database.models import Ban, Infraction, Mute, UserNote
+from src.database.models import Ban, Infraction, Mute
 from src.database.session import AsyncSessionLocal
 from src.helpers.checks import member_is_staff
 from src.helpers.duration import validate_duration
@@ -62,6 +62,9 @@ async def ban_member(
     if len(reason) == 0:
         reason = "No reason given ..."
 
+    if not evidence:
+        evidence = "none provided"
+
     # Validate duration
     dur, dur_exc = validate_duration(duration)
     # Check if duration is valid,
@@ -80,7 +83,10 @@ async def ban_member(
         approved=False if needs_approval else True
     )
     infraction = Infraction(
-        user_id=member.id, reason=f"Previously banned for: {reason}", weight=0, moderator_id=author.id,
+        user_id=member.id,
+        reason=f"Previously banned for: {reason} - Evidence: {evidence}",
+        weight=0,
+        moderator_id=author.id,
         date=datetime.now().date()
     )
     ban_id, is_existing = await _get_ban_or_create(member, ban, infraction)
@@ -287,17 +293,3 @@ async def add_infraction(
         logger.warning(f"HTTPException when trying to add infraction for user with ID {member.id}", exc_info=ex)
 
     return SimpleResponse(message=message, delete_after=None)
-
-
-async def add_evidence_note(
-        user_id: int, action: str, reason: str, evidence: str, moderator_id: int
-) -> None:
-    """Add a note with evidence to the user's history records."""
-    if not evidence:
-        evidence = "none provided"
-    note = f"Reason for {action}: {reason} (Evidence: {evidence})"
-    today = arrow.utcnow().date()
-    user_note = UserNote(user_id=user_id, note=note, date=today, moderator_id=moderator_id)
-    async with AsyncSessionLocal() as session:
-        session.add(user_note)
-        await session.commit()
