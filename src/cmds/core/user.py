@@ -1,7 +1,6 @@
 import logging
 import os
 import random
-from datetime import datetime
 from typing import Tuple, Union
 
 import discord
@@ -16,7 +15,7 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import HtbDiscordLink
 from src.database.session import AsyncSessionLocal
-from src.helpers.ban import add_evidence_note, add_infraction
+from src.helpers.ban import add_infraction
 from src.helpers.checks import member_is_staff
 
 logger = logging.getLogger(__name__)
@@ -81,8 +80,6 @@ class UserCog(commands.Cog):
         if len(reason) == 0:
             reason = "No reason given..."
 
-        await add_evidence_note(member.id, "kick", reason, evidence, ctx.user.id)
-
         try:
             await member.send(f"You have been kicked from {ctx.guild.name} for the following reason:\n>>> {reason}\n")
         except Forbidden as ex:
@@ -97,7 +94,7 @@ class UserCog(commands.Cog):
             )
 
         await ctx.guild.kick(user=member, reason=reason)
-        infraction_reason = f"{ctx.user.name} was kicked on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} for {reason}"
+        infraction_reason = f"Previously kicked for: {reason} - Evidence: {evidence}"
         await add_infraction(ctx.guild, member, 0, infraction_reason, ctx.user)
         return await ctx.respond(f"{member.name} got the boot!")
 
