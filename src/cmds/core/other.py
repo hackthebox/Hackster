@@ -61,7 +61,7 @@ class SpoilerModal(Modal):
         """Initialize the Spoiler Modal with input fields."""
         super().__init__(*args, **kwargs)
         self.add_item(InputText(label="Description", placeholder="Description", required=False, style=discord.InputTextStyle.long))
-        self.add_item(InputText(label="URL", placeholder="Enter URL", required=True, style=discord.InputTextStyle.long))
+        self.add_item(InputText(label="URL", placeholder="Enter URL. Submitting malicious or fake links will result in consequences.", required=True, style=discord.InputTextStyle.paragraph))
 
     async def callback(self, interaction: discord.Interaction) -> None:
         """Handle the modal submission by sending the spoiler report to JIRA."""
