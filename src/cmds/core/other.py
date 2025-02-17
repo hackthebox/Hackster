@@ -3,7 +3,7 @@ import logging
 import discord
 from discord import ApplicationContext, Interaction, Message, Option, slash_command
 from discord.ext import commands
-from discord.ui import InputText, Modal
+from discord.ui import Button, InputText, Modal, View
 from slack_sdk.webhook import WebhookClient
 
 from src.bot import Bot
@@ -60,8 +60,22 @@ class SpoilerModal(Modal):
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the Spoiler Modal with input fields."""
         super().__init__(*args, **kwargs)
-        self.add_item(InputText(label="Description", placeholder="Description", required=False, style=discord.InputTextStyle.long))
-        self.add_item(InputText(label="URL", placeholder="Enter URL", required=True, style=discord.InputTextStyle.long))
+        self.add_item(
+            InputText(
+                label="Description",
+                placeholder="Description",
+                required=False,
+                style=discord.InputTextStyle.long
+            )
+        )
+        self.add_item(
+            InputText(
+                label="URL",
+                placeholder="Enter URL. Submitting malicious or fake links will result in consequences.",
+                required=True,
+                style=discord.InputTextStyle.paragraph
+            )
+        )
 
     async def callback(self, interaction: discord.Interaction) -> None:
         """Handle the modal submission by sending the spoiler report to JIRA."""
@@ -84,6 +98,25 @@ class SpoilerModal(Modal):
         }
 
         await webhook.webhook_call(webhook_url, data)
+
+
+class SpoilerConfirmationView(View):
+    """A confirmation view before opening the SpoilerModal."""
+
+    def __init__(self, user: discord.Member):
+        super().__init__(timeout=60)
+        self.user = user
+
+    @discord.ui.button(label="Proceed", style=discord.ButtonStyle.danger)
+    async def proceed(self, button: Button, interaction: discord.Interaction) -> None:
+        """Opens the spoiler modal after confirmation."""
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("This confirmation is not for you.", ephemeral=True)
+            return
+
+        modal = SpoilerModal(title="Report Spoiler")
+        await interaction.response.send_modal(modal)
+        self.stop()
 
 
 class OtherCog(commands.Cog):
@@ -116,10 +149,14 @@ class OtherCog(commands.Cog):
         )
 
     @slash_command(guild_ids=settings.guild_ids, description="Add a URL which contains a spoiler.")
-    async def spoiler(self, ctx: ApplicationContext) -> Interaction:
-        """Report a URL that contains a spoiler."""
-        modal = SpoilerModal(title="Report Spoiler")
-        return await ctx.send_modal(modal)
+    async def spoiler(self, ctx: ApplicationContext) -> None:
+        """Ask for confirmation before reporting a spoiler."""
+        view = SpoilerConfirmationView(ctx.user)
+        await ctx.respond(
+            "Thank you for taking the time to report a spoiler. \n ⚠️ **Warning:** Submitting malicious or fake links will result in consequences.",
+            view=view,
+            ephemeral=True
+        )
 
     @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB.")
     @commands.cooldown(1, 60, commands.BucketType.user)
