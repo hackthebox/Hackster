@@ -49,11 +49,11 @@ class Fun(Cog):
         self, ctx: ApplicationContext, flag: Option(str, "What has the sphere revealed to you?")
     ) -> Interaction | WebhookMessage:
         if flag == settings.APRIL_FLAG_1:
-            guild_role = ctx.guild.get_role(settings.APRIL_ROLE_1)
+            guild_role = ctx.guild.get_role(settings.roles.APRIL_ROLE_1)
             await ctx.user.add_roles(guild_role)
             return ctx.respond("Ahoy, you found it! Perhaps another is lurking", ephemeral=True)
         if flag == settings.APRIL_FLAG_2:
-            guild_role = ctx.guild.get_role(settings.APRIL_ROLE_2)
+            guild_role = ctx.guild.get_role(settings.roles.APRIL_ROLE_2)
             await ctx.user.add_roles(guild_role)
             return ctx.respond("You have completed your quest.", ephemeral=True)
         return ctx.respond("That is not right.", ephemeral=True)
