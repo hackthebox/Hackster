@@ -142,7 +142,8 @@ class Roles(BaseSettings):
     BUDDY_GANG: int
     RED_TEAM: int
     BLUE_TEAM: int
-
+    APRIL_ROLE_1: int
+    APRIL_ROLE_2: int
     @validator("*", pre=True, each_item=True)
     def check_length(cls, value: str | int) -> str | int:
         value_str = str(value)
@@ -165,6 +166,8 @@ class Global(BaseSettings):
     channels: Channels = None
     roles: Roles = None
 
+    APRIL_FLAG_1: str
+    APRIL_FLAG_2: str
     HTB_API_KEY: str
 
     # Collections are defined using lowercase
