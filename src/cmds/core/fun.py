@@ -43,7 +43,20 @@ class Fun(Cog):
         return await ctx.respond(
             "Get Started with the HTB Beginners Bible: https://www.hackthebox.com/blog/learn-to-hack-beginners-bible"
         )
-
+        
+    @slash_command(guild_ids=settings.guild_ids, name="sphere", default_permission=True)
+    async def sphere(
+        self, ctx: ApplicationContext, flag: Option(str, "What has the sphere revealed to you?")
+    ) -> Interaction | WebhookMessage:
+        if flag = settings.APRIL_FLAG_1:
+            guild_role = ctx.guild.get_role(SETTINGS.APRIL_ROLE_1)
+            await ctx.user.add_roles(guild_role)
+            return ctx.respond("Ahoy, you found it! Perhaps another is lurking", ephemeral=True)
+        if flag = settings.APRIL_FLAG_2:
+            guild_role = ctx.guild.get_role(settings.APRIL_ROLE_2)
+            await ctx.user.add_roles(guild_role)
+            return ctx.respond("You have completed your quest.", ephemeral=True)
+        return ctx.respond("That is not right.", ephemeral=True)
 
 def setup(bot: Bot) -> None:
     """Load the `Fun` cog."""
