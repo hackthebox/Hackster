@@ -194,6 +194,7 @@ class Global(BaseSettings):
 
     SLACK_FEEDBACK_WEBHOOK: str = ""
     JIRA_WEBHOOK: str = ""
+    JIRA_WEBHOOK_SECRET: str = ""
 
     ROOT: Path = None
 

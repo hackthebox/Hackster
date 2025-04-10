@@ -144,7 +144,8 @@ class TestOther:
                     "url": "http://example.com/spoiler",
                     "desc": "Test description",
                     "type": "spoiler"
-                }
+                },
+                settings.JIRA_WEBHOOK_SECRET
             )
 
     @pytest.mark.asyncio
@@ -168,7 +169,8 @@ class TestOther:
                     "cheater": test_username,
                     "description": test_description,
                     "type": "cheater"
-                }
+                },
+                settings.JIRA_WEBHOOK_SECRET
             )
 
             # Verify the response was sent

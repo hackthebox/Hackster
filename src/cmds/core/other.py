@@ -97,7 +97,7 @@ class SpoilerModal(Modal):
             "type": "spoiler"
         }
 
-        await webhook.webhook_call(webhook_url, data)
+        await webhook.webhook_call(webhook_url, data, settings.JIRA_WEBHOOK_SECRET)
 
 
 class SpoilerConfirmationView(View):
@@ -133,7 +133,7 @@ class OtherCog(commands.Cog):
         )
 
     @slash_command(guild_ids=settings.guild_ids,
-                   description="A simple reply proving a link to the support desk article on how to get support")
+                   description="A simple reply providing a link to the support desk article on how to get support")
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def support(
             self, ctx: ApplicationContext,
@@ -153,7 +153,8 @@ class OtherCog(commands.Cog):
         """Ask for confirmation before reporting a spoiler."""
         view = SpoilerConfirmationView(ctx.user)
         await ctx.respond(
-            "Thank you for taking the time to report a spoiler. \n ⚠️ **Warning:** Submitting malicious or fake links will result in consequences.",
+            "Thank you for taking the time to report a spoiler. \n ⚠️ **Warning:** Submitting malicious or fake links "
+            "will result in consequences.",
             view=view,
             ephemeral=True
         )
@@ -181,7 +182,7 @@ class OtherCog(commands.Cog):
             "type": "cheater"
         }
 
-        await webhook.webhook_call(settings.JIRA_WEBHOOK, data)
+        await webhook.webhook_call(settings.JIRA_WEBHOOK, data, settings.JIRA_WEBHOOK_SECRET)
 
         await ctx.respond("Thank you for your report.", ephemeral=True)
 
