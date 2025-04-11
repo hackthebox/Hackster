@@ -97,7 +97,11 @@ class SpoilerModal(Modal):
             "type": "spoiler"
         }
 
-        await webhook.webhook_call(webhook_url, data, settings.JIRA_WEBHOOK_SECRET)
+        headers = {
+            "X-Automation-Webhook-Token": settings.JIRA_WEBHOOK_SECRET,
+        }
+
+        await webhook.webhook_call(webhook_url, data, headers)
 
 
 class SpoilerConfirmationView(View):
@@ -181,8 +185,11 @@ class OtherCog(commands.Cog):
             "description": description,
             "type": "cheater"
         }
+        headers = {
+            "X-Automation-Webhook-Token": settings.JIRA_WEBHOOK_SECRET,
+        }
 
-        await webhook.webhook_call(settings.JIRA_WEBHOOK, data, settings.JIRA_WEBHOOK_SECRET)
+        await webhook.webhook_call(settings.JIRA_WEBHOOK, data, headers)
 
         await ctx.respond("Thank you for your report.", ephemeral=True)
 
