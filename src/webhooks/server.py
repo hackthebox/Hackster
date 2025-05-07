@@ -2,8 +2,9 @@ import hmac
 import logging
 from typing import Any, Dict, Union
 
-from fastapi import FastAPI, HTTPException, Header
-from uvicorn import Config, Server
+from fastapi import FastAPI, Header, HTTPException
+from hypercorn.asyncio import serve as hypercorn_serve
+from hypercorn.config import Config as HypercornConfig
 
 from src.bot import bot
 from src.core import settings
@@ -17,7 +18,9 @@ app = FastAPI()
 
 
 @app.post("/webhook")
-async def webhook_handler(body: WebhookBody, authorization: Union[str, None] = Header(default=None)) -> Dict[str, Any]:
+async def webhook_handler(
+    body: WebhookBody, authorization: Union[str, None] = Header(default=None)
+) -> Dict[str, Any]:
     """
     Handles incoming webhook requests and forwards them to the appropriate handler.
 
@@ -54,5 +57,9 @@ async def webhook_handler(body: WebhookBody, authorization: Union[str, None] = H
 
 app.mount("/metrics", metrics_app)
 
-config = Config(app, host="0.0.0.0", port=settings.WEBHOOK_PORT)
-server = Server(config)
+config = HypercornConfig()
+config.bind = [f"0.0.0.0:{settings.WEBHOOK_PORT}"]
+
+
+async def serve():
+    await hypercorn_serve(app, config)
