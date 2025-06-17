@@ -1,9 +1,9 @@
 from discord import Bot
 
-from src.webhooks.handlers.academy import handler as academy_handler
+from src.webhooks.handlers.account import AccountHandler
 from src.webhooks.types import Platform, WebhookBody
 
-handlers = {Platform.ACADEMY: academy_handler}
+handlers = {Platform.ACCOUNT: AccountHandler.handle}
 
 
 def can_handle(platform: Platform) -> bool:
