@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 import aiohttp
 import discord
-from discord import Forbidden, Member, Role, User
+from discord import ApplicationContext, Forbidden, Member, Role, User, HTTPException
 from discord.ext.commands import GuildNotFound, MemberNotFound
 
 from src.bot import Bot
@@ -11,6 +11,74 @@ from src.core import settings
 from src.helpers.ban import BanCodes, ban_member
 
 logger = logging.getLogger(__name__)
+
+
+async def send_verification_instructions(
+    ctx: ApplicationContext, member: Member
+) -> discord.Interaction | discord.WebhookMessage:
+    """Send instructions via DM on how to identify with HTB account.
+
+    Args:
+        ctx (ApplicationContext): The context of the command.
+        member (Member): The member to send the instructions to.
+
+    Returns:
+        discord.Interaction | discord.WebhookMessage: The response message.
+    """
+    member = ctx.user
+
+    # Create step-by-step instruction embeds
+    embed_step1 = discord.Embed(color=0x9ACC14)
+    embed_step1.add_field(
+        name="Step 1: Login to your HTB Account",
+        value="Go to <https://account.hackthebox.com/> and login.",
+        inline=False,
+    )
+    embed_step1.set_image(
+        url="https://media.discordapp.net/attachments/1102700815493378220/1384587341338902579/image.png"
+    )
+
+    embed_step2 = discord.Embed(color=0x9ACC14)
+    embed_step2.add_field(
+        name="Step 2: Navigate to your Security Settings",
+        value="In the navigation bar, click on **Security Settings** and scroll down to the **Discord Account** section. "
+        "(<https://account.hackthebox.com/security-settings>)",
+        inline=False,
+    )
+    embed_step2.set_image(
+        url="https://media.discordapp.net/attachments/1102700815493378220/1384587813760270392/image.png"
+    )
+
+    embed_step3 = discord.Embed(color=0x9ACC14)
+    embed_step3.add_field(
+        name="Step 3: Link your Discord Account",
+        value="Click **Connect** and you will be redirected to login to your Discord account via oauth. "
+        "After logging in, you will be redirected back to the HTB Account page. "
+        "Your Discord account will now be linked. Discord may take a few minutes to update. "
+        "If you have any issues, please contact a Moderator.",
+        inline=False,
+    )
+    embed_step3.set_image(
+        url="https://media.discordapp.net/attachments/1102700815493378220/1384586811384402042/image.png"
+    )
+
+    try:
+        await member.send(embed=embed_step1)
+        await member.send(embed=embed_step2)
+        await member.send(embed=embed_step3)
+    except Forbidden as ex:
+        logger.error("Exception during verify call", exc_info=ex)
+        return await ctx.respond(
+            "Whoops! I cannot DM you after all due to your privacy settings. Please allow DMs from other server "
+            "members and try again in 1 minute."
+        )
+    except HTTPException as ex:
+        logger.error("Exception during verify call.", exc_info=ex)
+        return await ctx.respond(
+            "An unexpected error happened (HTTP 400, bad request). Please contact an Administrator."
+        )
+
+    return await ctx.respond("Please check your DM for instructions.", ephemeral=True)
 
 
 async def get_user_details(account_identifier: str) -> Optional[Dict]:
