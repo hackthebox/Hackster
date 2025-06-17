@@ -1,10 +1,13 @@
+import hashlib
 import hmac
 import logging
-from typing import Any, Dict, Union
+import json
+from typing import Any, Dict
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from hypercorn.asyncio import serve as hypercorn_serve
 from hypercorn.config import Config as HypercornConfig
+from pydantic import ValidationError
 
 from src.bot import bot
 from src.core import settings
@@ -17,20 +20,36 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 
+def verify_signature(body: dict, signature: str, secret: str) -> bool:
+    """
+    HMAC SHA1 signature verification.
+
+    Args:
+        body (dict): The raw body of the webhook request.
+        signature (str): The X-Signature header of the webhook request.
+        secret (str): The webhook secret.
+
+    Returns:
+        bool: True if the signature is valid, False otherwise.
+    """
+    if not signature:
+        return False
+
+    digest = hmac.new(secret.encode(), body, hashlib.sha1).hexdigest()
+    return hmac.compare_digest(signature, digest)
+
+
 @app.post("/webhook")
-async def webhook_handler(
-    body: WebhookBody, authorization: Union[str, None] = Header(default=None)
-) -> Dict[str, Any]:
+async def webhook_handler(request: Request) -> Dict[str, Any]:
     """
     Handles incoming webhook requests and forwards them to the appropriate handler.
 
-    This function first checks the provided authorization token in the request header.
-    If the token is valid, it checks if the platform can be handled and then forwards
+    This function first verifies the provided HMAC signature in the request header.
+    If the signature is valid, it checks if the platform can be handled and then forwards
     the request to the corresponding handler.
 
     Args:
-        body (WebhookBody): The data received from the webhook.
-        authorization (Union[str, None]): The authorization header containing the Bearer token.
+        request (Request): The incoming webhook request.
 
     Returns:
         Dict[str, Any]: The response from the corresponding handler. The dictionary contains
@@ -39,17 +58,21 @@ async def webhook_handler(
     Raises:
         HTTPException: If an error occurs while processing the webhook event or if unauthorized.
     """
-    if authorization is None or not authorization.strip().startswith("Bearer"):
+    body = await request.body()
+    signature = request.headers.get("X-Signature")
+
+    if not verify_signature(body, signature, settings.WEBHOOK_TOKEN):
         logger.warning("Unauthorized webhook request")
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    token = authorization[6:].strip()
-    if hmac.compare_digest(token, settings.WEBHOOK_TOKEN):
-        logger.warning("Unauthorized webhook request")
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        body = WebhookBody.model_validate(json.loads(body))
+    except ValidationError as e:
+        logger.warning("Invalid webhook request: %s", e.errors())
+        raise HTTPException(status_code=400, detail="Invalid webhook request body")
 
     if not handlers.can_handle(body.platform):
-        logger.warning("Webhook request not handled by platform")
+        logger.warning("Webhook request not handled by platform: %s", body.platform)
         raise HTTPException(status_code=501, detail="Platform not implemented")
 
     return await handlers.handle(body, bot)
