@@ -1,8 +1,6 @@
 import logging
 
-import discord
 from discord import ApplicationContext, Interaction, WebhookMessage, slash_command
-from discord.errors import Forbidden, HTTPException
 from discord.ext import commands
 from discord.ext.commands import cooldown
 
