@@ -1,3 +1,5 @@
+import logging
+
 from discord import Bot
 
 from src.core import settings

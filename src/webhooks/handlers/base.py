@@ -23,10 +23,10 @@ class BaseHandler(ABC):
 
 
     def __init__(self):
-        self.logger = logging.getLogger(self.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     @abstractmethod
-    async def handler(self, body: WebhookBody, bot: Bot) -> dict:
+    async def handle(self, body: WebhookBody, bot: Bot) -> dict:
         pass
 
     async def get_guild_member(self, discord_id: int, bot: Bot) -> Member:

@@ -3,7 +3,7 @@ from discord import Bot
 from src.webhooks.handlers.account import AccountHandler
 from src.webhooks.types import Platform, WebhookBody
 
-handlers = {Platform.ACCOUNT: AccountHandler.handle}
+handlers = {Platform.ACCOUNT: AccountHandler().handle}
 
 
 def can_handle(platform: Platform) -> bool:
