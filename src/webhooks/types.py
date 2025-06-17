@@ -1,11 +1,12 @@
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class WebhookEvent(Enum):
-    ACCOUNT_LINKED = "AccountLinked"
-    ACCOUNT_UNLINKED = "AccountUnlinked"
+    ACCOUNT_LINKED = "DiscordAccountLinked"
+    ACCOUNT_UNLINKED = "DiscordAccountUnlinked"
+    ACCOUNT_DELETED = "UserAccountDeleted"
     CERTIFICATE_AWARDED = "CertificateAwarded"
     RANK_UP = "RankUp"
     HOF_CHANGE = "HofChange"
@@ -19,9 +20,13 @@ class Platform(Enum):
     ACADEMY = "academy"
     CTF = "ctf"
     ENTERPRISE = "enterprise"
+    ACCOUNT = "account"
 
 
 class WebhookBody(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     platform: Platform
     event: WebhookEvent
-    data: dict
+    properties: dict | None
+    traits: dict | None
