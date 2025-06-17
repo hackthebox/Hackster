@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional
 
 import aiohttp
 import discord
@@ -9,7 +8,7 @@ from discord.ext.commands import GuildNotFound, MemberNotFound
 
 from src.bot import Bot
 from src.core import settings
-from src.helpers.ban import ban_member
+from src.helpers.ban import BanCodes, ban_member
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +22,14 @@ async def get_user_details(account_identifier: str) -> Optional[Dict]:
             if r.status == 200:
                 response = await r.json()
             elif r.status == 404:
-                logger.debug("Account identifier has been regenerated since last identification. Cannot re-verify.")
+                logger.debug(
+                    "Account identifier has been regenerated since last identification. Cannot re-verify."
+                )
                 response = None
             else:
-                logger.error(f"Non-OK HTTP status code returned from identifier lookup: {r.status}.")
+                logger.error(
+                    f"Non-OK HTTP status code returned from identifier lookup: {r.status}."
+                )
                 response = None
 
     return response
@@ -45,7 +48,9 @@ async def get_season_rank(htb_uid: int) -> str | None:
                 logger.error("Invalid Season ID.")
                 response = None
             else:
-                logger.error(f"Non-OK HTTP status code returned from identifier lookup: {r.status}.")
+                logger.error(
+                    f"Non-OK HTTP status code returned from identifier lookup: {r.status}."
+                )
                 response = None
 
     if not response["data"]:
@@ -59,26 +64,19 @@ async def get_season_rank(htb_uid: int) -> str | None:
     return rank
 
 
-async def _check_for_ban(uid: str) -> Optional[Dict]:
-    async with aiohttp.ClientSession() as session:
-        token_url = f"{settings.API_URL}/discord/{uid}/banned?secret={settings.HTB_API_SECRET}"
-        async with session.get(token_url) as r:
-            if r.status == 200:
-                ban_details = await r.json()
-            else:
-                logger.error(
-                    f"Could not fetch ban details for uid {uid}: "
-                    f"non-OK status code returned ({r.status}). Body: {r.content}"
-                )
-                ban_details = None
-
-    return ban_details
+async def _check_for_ban(member: Member) -> Optional[Dict]:
+    """Check if the member is banned."""
+    try:
+        member.guild.get_role(settings.roles.BANNED)
+        return True
+    except Forbidden:
+        return False
 
 
 async def process_certification(certid: str, name: str):
     """Process certifications."""
     cert_api_url = f"{settings.API_V4_URL}/certificate/lookup"
-    params = {'id': certid, 'name': name}
+    params = {"id": certid, "name": name}
     async with aiohttp.ClientSession() as session:
         async with session.get(cert_api_url, params=params) as r:
             if r.status == 200:
@@ -86,7 +84,9 @@ async def process_certification(certid: str, name: str):
             elif r.status == 404:
                 return False
             else:
-                logger.error(f"Non-OK HTTP status code returned from identifier lookup: {r.status}.")
+                logger.error(
+                    f"Non-OK HTTP status code returned from identifier lookup: {r.status}."
+                )
                 response = None
     try:
         certRawName = response["certificates"][0]["name"]
@@ -107,7 +107,90 @@ async def process_certification(certid: str, name: str):
     return cert
 
 
-async def process_identification(
+async def _handle_banned_user(member: Member, bot: Bot):
+    """Handle banned trait during account linking.
+
+    Args:
+        member (Member): The member to process.
+        bot (Bot): The bot instance.
+    """
+    resp = await ban_member(
+        bot,
+        member.guild,
+        member,
+        "1337w",
+        (
+            "Banned on the HTB Platform. Ban duration could not be determined. "
+            "Please login to confirm ban details and contact HTB Support to appeal."
+        ),
+        None,
+        needs_approval=False,
+    )
+    if resp.code == BanCodes.SUCCESS:
+        embed = discord.Embed(
+            title="Identification error",
+            description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
+            color=0xFF2429,
+        )
+        await member.guild.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
+
+
+async def _set_nickname(member: Member, nickname: str) -> bool:
+    """Set the nickname of the member.
+
+    Args:
+        member (Member): The member to set the nickname for.
+        nickname (str): The nickname to set.
+
+    Returns:
+        bool: True if the nickname was set, False otherwise.
+    """
+    try:
+        await member.edit(nick=nickname)
+        return True
+    except Forbidden as e:
+        logger.error(f"Exception whe trying to edit the nick-name of the user: {e}")
+        return False
+
+
+async def process_account_identification(
+    member: Member, bot: Bot, traits: dict[str, str] | None = None
+) -> None:
+    """Process HTB account identification, to be called during account linking.
+
+    Args:
+        member (Member): The member to process.
+        bot (Bot): The bot instance.
+        traits (dict[str, str] | None): Optional user traits to process.
+    """
+    await member.add_roles(member.guild.get_role(settings.roles.VERIFIED), atomic=True)
+
+    nickname_changed = False
+
+    if traits.get("username") and traits.get("username") != member.name:
+        nickname_changed = await _set_nickname(member, traits.get("username"))
+
+    if not nickname_changed:
+        logger.warning(
+            f"No username provided for {member.name} with ID {member.id} during identification."
+        )
+
+    if traits.get("mp_user_id"):
+        htb_user_details = await get_user_details(traits.get("mp_user_id"))
+        await process_labs_identification(htb_user_details, member, bot)
+
+        if not nickname_changed:
+            logger.debug(
+                f"Falling back on HTB username to set nickname for {member.name} with ID {member.id}."
+            )
+            await _set_nickname(member, htb_user_details["username"])
+
+    if traits.get("banned", False) == True:  # noqa: E712 - explicit bool only, no truthiness
+        await _handle_banned_user(member, bot)
+        return
+
+
+async def process_labs_identification(
     htb_user_details: Dict[str, str], user: Optional[Member | User], bot: Bot
 ) -> Optional[List[Role]]:
     """Returns roles to assign if identification was successfully processed."""
@@ -123,54 +206,33 @@ async def process_identification(
             raise MemberNotFound(str(user.id))
     else:
         raise GuildNotFound(f"Could not identify member {user} in guild.")
-    season_rank = await get_season_rank(htb_uid)
-    banned_details = await _check_for_ban(htb_uid)
-
-    if banned_details is not None and banned_details["banned"]:
-        # If user is banned, this field must be a string
-        # Strip date e.g. from "2022-01-31T11:00:00.000000Z"
-        banned_until: str = cast(str, banned_details["ends_at"])[:10]
-        banned_until_dt: datetime = datetime.strptime(banned_until, "%Y-%m-%d")
-        ban_duration: str = f"{(banned_until_dt - datetime.now()).days}d"
-        reason = "Banned on the HTB Platform. Please contact HTB Support to appeal."
-        logger.info(f"Discord user {member.name} ({member.id}) is platform banned. Banning from Discord...")
-        await ban_member(bot, guild, member, ban_duration, reason, None, needs_approval=False)
-
-        embed = discord.Embed(
-            title="Identification error",
-            description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
-            color=0xFF2429, )
-
-        await guild.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
-        return None
 
     to_remove = []
-
     for role in member.roles:
-        if role.id in settings.role_groups.get("ALL_RANKS") + settings.role_groups.get("ALL_POSITIONS"):
+        if role.id in settings.role_groups.get("ALL_RANKS") + settings.role_groups.get(
+            "ALL_POSITIONS"
+        ):
             to_remove.append(guild.get_role(role.id))
 
     to_assign = []
-    logger.debug(
-        "Getting role 'rank':", extra={
-            "role_id": settings.get_post_or_rank(htb_user_details["rank"]),
-            "role_obj": guild.get_role(settings.get_post_or_rank(htb_user_details["rank"])),
-            "htb_rank": htb_user_details["rank"],
-        }, )
-    if htb_user_details["rank"] not in ["Deleted", "Moderator", "Ambassador", "Admin", "Staff"]:
-        to_assign.append(guild.get_role(settings.get_post_or_rank(htb_user_details["rank"])))
+    if htb_user_details["rank"] not in [
+        "Deleted",
+        "Moderator",
+        "Ambassador",
+        "Admin",
+        "Staff",
+    ]:
+        to_assign.append(
+            guild.get_role(settings.get_post_or_rank(htb_user_details["rank"]))
+        )
+
+    season_rank = await get_season_rank(htb_uid)
     if season_rank:
         to_assign.append(guild.get_role(settings.get_season(season_rank)))
+
     if htb_user_details["vip"]:
-        logger.debug(
-            'Getting role "VIP":', extra={"role_id": settings.roles.VIP, "role_obj": guild.get_role(settings.roles.VIP)}
-        )
         to_assign.append(guild.get_role(settings.roles.VIP))
     if htb_user_details["dedivip"]:
-        logger.debug(
-            'Getting role "VIP+":',
-            extra={"role_id": settings.roles.VIP_PLUS, "role_obj": guild.get_role(settings.roles.VIP_PLUS)}
-        )
         to_assign.append(guild.get_role(settings.roles.VIP_PLUS))
     if htb_user_details["hof_position"] != "unranked":
         position = int(htb_user_details["hof_position"])
@@ -180,45 +242,17 @@ async def process_identification(
         elif position <= 10:
             pos_top = "10"
         if pos_top:
-            logger.debug(f"User is Hall of Fame rank {position}. Assigning role Top-{pos_top}...")
-            logger.debug(
-                'Getting role "HoF role":', extra={
-                    "role_id": settings.get_post_or_rank(pos_top),
-                    "role_obj": guild.get_role(settings.get_post_or_rank(pos_top)), "hof_val": pos_top,
-                }, )
             to_assign.append(guild.get_role(settings.get_post_or_rank(pos_top)))
-        else:
-            logger.debug(f"User is position {position}. No Hall of Fame roles for them.")
     if htb_user_details["machines"]:
-        logger.debug(
-            'Getting role "BOX_CREATOR":',
-            extra={"role_id": settings.roles.BOX_CREATOR, "role_obj": guild.get_role(settings.roles.BOX_CREATOR)}, )
         to_assign.append(guild.get_role(settings.roles.BOX_CREATOR))
     if htb_user_details["challenges"]:
-        logger.debug(
-            'Getting role "CHALLENGE_CREATOR":', extra={
-                "role_id": settings.roles.CHALLENGE_CREATOR,
-                "role_obj": guild.get_role(settings.roles.CHALLENGE_CREATOR),
-            }, )
         to_assign.append(guild.get_role(settings.roles.CHALLENGE_CREATOR))
 
-    if member.nick != htb_user_details["user_name"]:
-        try:
-            await member.edit(nick=htb_user_details["user_name"])
-        except Forbidden as e:
-            logger.error(f"Exception whe trying to edit the nick-name of the user: {e}")
-
-    logger.debug("All roles to_assign:", extra={"to_assign": to_assign})
     # We don't need to remove any roles that are going to be assigned again
     to_remove = list(set(to_remove) - set(to_assign))
-    logger.debug("All roles to_remove:", extra={"to_remove": to_remove})
     if to_remove:
         await member.remove_roles(*to_remove, atomic=True)
-    else:
-        logger.debug("No roles need to be removed")
     if to_assign:
         await member.add_roles(*to_assign, atomic=True)
-    else:
-        logger.debug("No roles need to be assigned")
 
     return to_assign
