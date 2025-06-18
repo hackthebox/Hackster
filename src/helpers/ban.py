@@ -2,6 +2,8 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
+from enum import Enum
+
 
 import arrow
 import discord
@@ -22,6 +24,12 @@ from src.views.bandecisionview import BanDecisionView
 logger = logging.getLogger(__name__)
 
 
+class BanCodes(Enum):
+    SUCCESS = "SUCCESS"
+    ALREADY_EXISTS = "ALREADY_EXISTS"
+    FAILED = "FAILED"
+
+
 async def _check_member(bot: Bot, guild: Guild, member: Member | User, author: Member = None) -> SimpleResponse | None:
     if isinstance(member, Member):
         if member_is_staff(member):
@@ -29,9 +37,9 @@ async def _check_member(bot: Bot, guild: Guild, member: Member | User, author: M
     elif isinstance(member, User):
         member = await bot.get_member_or_user(guild, member.id)
     if member.bot:
-        return SimpleResponse(message="You cannot ban a bot.", delete_after=None)
+        return SimpleResponse(message="You cannot ban a bot.", delete_after=None, code=BanCodes.FAILED)
     if author and author.id == member.id:
-        return SimpleResponse(message="You cannot ban yourself.", delete_after=None)
+        return SimpleResponse(message="You cannot ban yourself.", delete_after=None, code=BanCodes.FAILED)
 
 
 async def _get_ban_or_create(member: Member, ban: Ban, infraction: Infraction) -> tuple[int, bool]:
@@ -48,6 +56,29 @@ async def _get_ban_or_create(member: Member, ban: Ban, infraction: Infraction) -
     ban_id: int = ban.id
     assert ban_id is not None
     return ban_id, False
+
+
+async def _create_ban_response(member: Member | User, end_date: str, dm_banned_member: bool, needs_approval: bool) -> SimpleResponse:
+    """Create a SimpleResponse for ban operations."""
+    if needs_approval:
+        if member:
+            message = f"{member.display_name} ({member.id}) has been banned until {end_date} (UTC)."
+        else:
+            message = f"{member.id} has been banned until {end_date} (UTC)."
+    else:
+        if member:
+            message = f"Member {member.display_name} has been banned permanently."
+        else:
+            message = f"Member {member.id} has been banned permanently."
+
+    if not dm_banned_member:
+        message += "\n Could not DM banned member due to permission error."
+
+    return SimpleResponse(
+        message=message,
+        delete_after=0 if not needs_approval else None,
+        code=BanCodes.SUCCESS
+    )
 
 
 async def ban_member(
@@ -93,7 +124,8 @@ async def ban_member(
     if is_existing:
         return SimpleResponse(
             message=f"A ban with id: {ban_id} already exists for member {member}",
-            delete_after=None
+            delete_after=None,
+            code=BanCodes.ALREADY_EXISTS
         )
 
     # DM member, before we ban, else we cannot dm since we do not share a guild
@@ -107,27 +139,20 @@ async def ban_member(
             extra={"ban_requestor": author.name, "ban_receiver": member.id}
         )
         if author:
-            return SimpleResponse(message="You do not have the proper permissions to ban.", delete_after=None)
+            return SimpleResponse(message="You do not have the proper permissions to ban.", delete_after=None, code=BanCodes.FAILED)
         return
     except HTTPException as ex:
         logger.warning(f"HTTPException when trying to ban user with ID {member.id}", exc_info=ex)
         if author:
             return SimpleResponse(
                 message="Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week.",
-                delete_after=None
+                delete_after=None,
+                code=BanCodes.FAILED
             )
         return
 
     # If approval is required, send a message to the moderator channel about the ban
     if not needs_approval:
-        if member:
-            message = f"Member {member.display_name} has been banned permanently."
-        else:
-            message = f"Member {member.id} has been banned permanently."
-
-        if not dm_banned_member:
-            message += "\n Could not DM banned member due to permission error."
-
         logger.info(
             "Member has been banned permanently.",
             extra={"ban_requestor": author.name, "ban_receiver": member.id, "dm_banned_member": dm_banned_member}
@@ -136,16 +161,7 @@ async def ban_member(
         unban_task = schedule(unban_member(guild, member), run_at=datetime.fromtimestamp(ban.unban_time))
         asyncio.create_task(unban_task)
         logger.debug("Unbanned sceduled for ban", extra={"ban_id": ban_id, "unban_time": ban.unban_time})
-        return SimpleResponse(message=message, delete_after=0)
     else:
-        if member:
-            message = f"{member.display_name} ({member.id}) has been banned until {end_date} (UTC)."
-        else:
-            message = f"{member.id} has been banned until {end_date} (UTC)."
-
-        if not dm_banned_member:
-            message += " Could not DM banned member due to permission error."
-
         member_name = f"{member.display_name} ({member.name})"
         embed = discord.Embed(
             title=f"Ban request #{ban_id}",
@@ -156,7 +172,8 @@ async def ban_member(
         embed.set_thumbnail(url=f"{settings.HTB_URL}/images/logo600.png")
         view = BanDecisionView(ban_id, bot, guild, member, end_date, reason)
         await guild.get_channel(settings.channels.SR_MOD).send(embed=embed, view=view)
-        return SimpleResponse(message=message)
+
+    return await _create_ban_response(member, end_date, dm_banned_member, needs_approval)
 
 
 async def _dm_banned_member(end_date: str, guild: Guild, member: Member, reason: str) -> bool:

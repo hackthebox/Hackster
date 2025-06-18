@@ -91,6 +91,7 @@ class AcademyCertificates(BaseSettings):
 
 class Roles(BaseSettings):
     """The roles settings."""
+    VERIFIED: int
 
     # Moderation
     COMMUNITY_MANAGER: int
