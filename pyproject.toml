@@ -22,12 +22,12 @@ bcrypt = "^4.0.1"
 asyncmy = "^0.2.7"
 fastapi = "^0.109.1"
 sentry-sdk = { extras = ["sqlalchemy"], version = "^2.8.0" }
-uvicorn = "^0.21.1"
 alembic = "^1.10.3"
 pymysql = "^1.1.1"
 prometheus-client = "^0.16.0"
 toml = "^0.10.2"
 slack-sdk = "^3.27.1"
+hypercorn = "^0.17.3"
 
 [tool.poetry.group.dev.dependencies]
 colorlog = "^6.5.0"
