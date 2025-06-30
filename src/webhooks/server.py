@@ -7,7 +7,7 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, Request
 from hypercorn.asyncio import serve as hypercorn_serve
 from hypercorn.config import Config as HypercornConfig
-from pydantic import ValidationError
+from pydantic import ValidationError, 
 
 from src.bot import bot
 from src.core import settings
@@ -66,7 +66,7 @@ async def webhook_handler(request: Request) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
-        body = WebhookBody.model_validate(json.loads(body))
+        body = WebhookBody.validate(json.loads(body))
     except ValidationError as e:
         logger.warning("Invalid webhook request: %s", e.errors())
         raise HTTPException(status_code=400, detail="Invalid webhook request body")
