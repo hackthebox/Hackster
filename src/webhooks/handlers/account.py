@@ -22,6 +22,8 @@ class AccountHandler(BaseHandler):
             await self.handle_account_unlinked(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_DELETED:
             await self.handle_account_deleted(body, bot)
+        elif body.event == WebhookEvent.ACCOUNT_BANNED:
+            await self.handle_account_banned(body, bot)
 
     async def handle_account_linked(self, body: WebhookBody, bot: Bot) -> dict:
         """
@@ -95,5 +97,23 @@ class AccountHandler(BaseHandler):
             extra_log_data=extra,
         )
 
-        self.logger.debug(f"Platform ban handling result: {result['action']}", extra=extra)
+        self.logger.debug(
+            f"Platform ban handling result: {result['action']}", extra=extra
+        )
 
+    async def handle_account_deleted(self, body: WebhookBody, bot: Bot) -> dict:
+        """
+        Handles the account deleted event.
+        """
+        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
+        account_id = self.validate_account_id(body.properties.get("account_id"))
+
+        member = await self.get_guild_member(discord_id, bot)
+        if not member:
+            self.logger.warning(
+                f"Cannot delete account {account_id}- not found in guild",
+                extra={"account_id": account_id, "discord_id": discord_id},
+            )
+            return
+
+        await member.remove_roles(settings.roles.VERIFIED, atomic=True)
