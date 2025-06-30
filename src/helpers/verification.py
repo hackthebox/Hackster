@@ -3,12 +3,12 @@ from typing import Dict, List, Optional
 
 import aiohttp
 import discord
-from discord import ApplicationContext, Forbidden, Member, Role, User, HTTPException
+from discord import ApplicationContext, Forbidden, HTTPException, Member, Role, User
 from discord.ext.commands import GuildNotFound, MemberNotFound
 
 from src.bot import Bot
 from src.core import settings
-from src.helpers.ban import BanCodes, ban_member
+from src.helpers.ban import BanCodes, ban_member, _send_ban_notice
 
 logger = logging.getLogger(__name__)
 
@@ -188,19 +188,21 @@ async def _handle_banned_user(member: Member, bot: Bot):
         member,
         "1337w",
         (
-            "Banned on the HTB Platform. Ban duration could not be determined. "
+            "Platform Ban - Ban duration could not be determined. "
             "Please login to confirm ban details and contact HTB Support to appeal."
         ),
         None,
         needs_approval=False,
     )
     if resp.code == BanCodes.SUCCESS:
-        embed = discord.Embed(
-            title="Identification error",
-            description=f"User {member.mention} ({member.id}) was platform banned HTB and thus also here.",
-            color=0xFF2429,
+        await _send_ban_notice(
+            member.guild,
+            member,
+            resp.message,
+            "System",
+            "1337w",
+            member.guild.get_channel(settings.channels.VERIFY_LOGS),
         )
-        await member.guild.get_channel(settings.channels.VERIFY_LOGS).send(embed=embed)
 
 
 async def _set_nickname(member: Member, nickname: str) -> bool:

@@ -1,13 +1,11 @@
-import logging
-
+from datetime import datetime
 from discord import Bot
 
 from src.core import settings
+from src.helpers.ban import handle_platform_ban_or_update
 from src.helpers.verification import process_account_identification
-from src.webhooks.types import WebhookBody, WebhookEvent
-
 from src.webhooks.handlers.base import BaseHandler
-
+from src.webhooks.types import WebhookBody, WebhookEvent
 
 
 class AccountHandler(BaseHandler):
@@ -33,10 +31,20 @@ class AccountHandler(BaseHandler):
         account_id = self.validate_account_id(body.properties.get("account_id"))
 
         member = await self.get_guild_member(discord_id, bot)
-        await process_account_identification(member, bot, traits=self.merge_properties_and_traits(body.properties, body.traits))
-        await bot.send_message(settings.channels.VERIFY_LOGS, f"Account linked: {account_id} -> ({member.mention} ({member.id})")
+        await process_account_identification(
+            member,
+            bot,
+            traits=self.merge_properties_and_traits(body.properties, body.traits),
+        )
+        await bot.send_message(
+            settings.channels.VERIFY_LOGS,
+            f"Account linked: {account_id} -> ({member.mention} ({member.id})",
+        )
 
-        self.logger.info(f"Account {account_id} linked to {member.id}", extra={"account_id": account_id, "discord_id": discord_id})
+        self.logger.info(
+            f"Account {account_id} linked to {member.id}",
+            extra={"account_id": account_id, "discord_id": discord_id},
+        )
 
     async def handle_account_unlinked(self, body: WebhookBody, bot: Bot) -> dict:
         """
@@ -46,5 +54,46 @@ class AccountHandler(BaseHandler):
         account_id = self.validate_account_id(body.properties.get("account_id"))
 
         member = await self.get_guild_member(discord_id, bot)
-        
+
         await member.remove_roles(settings.roles.VERIFIED, atomic=True)
+
+    async def handle_account_banned(self, body: WebhookBody, bot: Bot) -> dict:
+        """
+        Handles the account banned event.
+        """
+        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
+        account_id = self.validate_account_id(body.properties.get("account_id"))
+        expires_at = self.validate_property(
+            body.properties.get("expires_at"), "expires_at"
+        )
+        reason = body.properties.get("reason")
+        notes = body.properties.get("notes")
+        created_by = body.properties.get("created_by")
+
+        expires_ts = int(datetime.fromisoformat(expires_at).timestamp())
+        extra = {"account_id": account_id, "discord_id": discord_id}
+
+        member = await self.get_guild_member(discord_id, bot)
+        if not member:
+            self.logger.warning(
+                f"Cannot ban user {discord_id}- not found in guild", extra=extra
+            )
+            return
+
+        # Use the generic ban helper to handle all the complex logic
+        result = await handle_platform_ban_or_update(
+            bot=bot,
+            guild=bot.guild,
+            member=member,
+            expires_timestamp=expires_ts,
+            reason=f"Platform Ban - {reason}",
+            evidence=notes or "N/A",
+            author_name=created_by or "System",
+            expires_at_str=expires_at,
+            log_channel_id=settings.channels.BOT_LOGS,
+            logger=self.logger,
+            extra_log_data=extra,
+        )
+
+        self.logger.debug(f"Platform ban handling result: {result['action']}", extra=extra)
+

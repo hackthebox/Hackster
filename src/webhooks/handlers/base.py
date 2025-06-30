@@ -1,5 +1,4 @@
 import logging
-
 from abc import ABC, abstractmethod
 from typing import TypeVar
 
@@ -17,10 +16,9 @@ class BaseHandler(ABC):
     ACADEMY_USER_ID = "academy_user_id"
     MP_USER_ID = "mp_user_id"
     EP_USER_ID = "ep_user_id"
-    CTF_USER_ID = "ctf_user_id" 
+    CTF_USER_ID = "ctf_user_id"
     ACCOUNT_ID = "account_id"
     DISCORD_ID = "discord_id"
-
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -92,13 +90,18 @@ class BaseHandler(ABC):
         Gets a trait or property from the webhook body.
         """
         return body.properties.get(name) or body.traits.get(name)
-    
-    def merge_properties_and_traits(self, properties: dict[str, int | None], traits: dict[str, int | None]) -> dict[str, int | None]:
+
+    def merge_properties_and_traits(
+        self, properties: dict[str, int | None], traits: dict[str, int | None]
+    ) -> dict[str, int | None]:
         """
         Merges the properties and traits from the webhook body without duplicates.
         If a property and trait have the same name but different values, the property value will be used.
         """
-        return {**properties, **{k: v for k, v in traits.items() if k not in properties}}
+        return {
+            **properties,
+            **{k: v for k, v in traits.items() if k not in properties},
+        }
 
     def get_platform_properties(self, body: WebhookBody) -> dict[str, int | None]:
         """
@@ -109,6 +112,8 @@ class BaseHandler(ABC):
             self.MP_USER_ID: self.get_property_or_trait(body, self.MP_USER_ID),
             self.EP_USER_ID: self.get_property_or_trait(body, self.EP_USER_ID),
             self.CTF_USER_ID: self.get_property_or_trait(body, self.CTF_USER_ID),
-            self.ACADEMY_USER_ID: self.get_property_or_trait(body, self.ACADEMY_USER_ID),
+            self.ACADEMY_USER_ID: self.get_property_or_trait(
+                body, self.ACADEMY_USER_ID
+            ),
         }
         return properties
