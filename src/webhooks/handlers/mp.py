@@ -11,7 +11,7 @@ from src.webhooks.handlers.base import BaseHandler
 from src.webhooks.types import WebhookBody, WebhookEvent
 
 
-class AccountHandler(BaseHandler):
+class MPHandler(BaseHandler):
     async def handle(self, body: WebhookBody, bot: Bot):
         """
         Handles incoming webhook events and performs actions accordingly.
