@@ -1,8 +1,10 @@
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from discord import Forbidden, HTTPException
+from datetime import datetime, timezone
 
 from src.helpers.ban import _check_member, _dm_banned_member, ban_member
 from src.helpers.responses import SimpleResponse
@@ -116,11 +118,15 @@ class TestBanMember:
         evidence = "Some evidence"
         member.display_name = "Banned Member"
 
+        # Use a future timestamp instead of a past one
+        future_timestamp = int((datetime.now(tz=timezone.utc).timestamp() + 86400))  # 1 day from now
+        expected_date = datetime.fromtimestamp(future_timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
         with (
             mock.patch("src.helpers.ban._check_member", return_value=None),
             mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
-            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(future_timestamp, "")),
         ):
             mock_channel = helpers.MockTextChannel()
             mock_channel.send.return_value = MagicMock()
@@ -128,7 +134,7 @@ class TestBanMember:
 
             result = await ban_member(bot, guild, member, duration, reason, evidence)
             assert isinstance(result, SimpleResponse)
-            assert result.message == f"{member.display_name} ({member.id}) has been banned until 2023-05-16 22:41:40 " \
+            assert result.message == f"{member.display_name} ({member.id}) has been banned until {expected_date} " \
                                      f"(UTC)."
 
     @pytest.mark.asyncio
@@ -153,12 +159,15 @@ class TestBanMember:
         evidence = "Some evidence"
         member.display_name = "Banned Member"
 
+        # Use a future timestamp instead of a past one
+        future_timestamp = int((datetime.now(tz=timezone.utc).timestamp() + 86400))  # 1 day from now
+
         # Patching the necessary classes and functions
         with (
             mock.patch("src.helpers.ban._check_member", return_value=None),
             mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
-            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(future_timestamp, "")),
         ):
             response = await ban_member(bot, guild, member, duration, reason, evidence, author, False)
             assert isinstance(response, SimpleResponse)
@@ -171,12 +180,15 @@ class TestBanMember:
         evidence = "Some evidence"
         member.display_name = "Banned Member"
 
+        # Use a future timestamp instead of a past one
+        future_timestamp = int((datetime.now(tz=timezone.utc).timestamp() + 86400))  # 1 day from now
+
         # Patching the necessary classes and functions
         with (
             mock.patch("src.helpers.ban._check_member", return_value=None),
             mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
-            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(future_timestamp, "")),
         ):
             response = await ban_member(bot, guild, member, duration, reason, evidence, author, False)
             assert isinstance(response, SimpleResponse)
@@ -189,11 +201,14 @@ class TestBanMember:
         evidence = "Some evidence"
         member.display_name = "Banned Member"
 
+        # Use a future timestamp instead of a past one
+        future_timestamp = int((datetime.now(tz=timezone.utc).timestamp() + 86400))  # 1 day from now
+
         with (
             mock.patch("src.helpers.ban._check_member", return_value=None),
             mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
-            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(future_timestamp, "")),
         ):
             response = await ban_member(bot, guild, member, duration, reason, evidence, None, False)
             assert isinstance(response, SimpleResponse)
@@ -206,11 +221,14 @@ class TestBanMember:
         evidence = "Some evidence"
         member.display_name = "Banned Member"
 
+        # Use a future timestamp instead of a past one
+        future_timestamp = int((datetime.now(tz=timezone.utc).timestamp() + 86400))  # 1 day from now
+
         with (
             mock.patch("src.helpers.ban._check_member", return_value=None),
             mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
             mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, True)),
-            mock.patch("src.helpers.ban.validate_duration", return_value=(1684276900, "")),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(future_timestamp, "")),
         ):
             response = await ban_member(bot, guild, member, duration, reason, evidence, author)
             assert isinstance(response, SimpleResponse)

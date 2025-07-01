@@ -283,7 +283,10 @@ async def ban_member_with_epoch(
 
     if author is None:
         author = bot.user
-        assert isinstance(author, Member)  # For linting
+    
+    # Author should never be None at this point
+    if author is None:
+        raise ValueError("Author cannot be None")
 
     ban = Ban(
         user_id=member.id,
@@ -508,7 +511,10 @@ async def mute_member(
 
     if author is None:
         author = bot.user
-        assert isinstance(author, Member)  # For linting
+    
+    # Author should never be None at this point
+    if author is None:
+        raise ValueError("Author cannot be None")
 
     role = guild.get_role(settings.roles.MUTED)
 

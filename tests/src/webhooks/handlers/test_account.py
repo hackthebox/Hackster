@@ -57,22 +57,36 @@ class TestAccountHandler:
 
     @pytest.mark.asyncio
     async def test_handle_account_deleted_event(self, bot):
-        """Test handle method with ACCOUNT_DELETED event (method not implemented)."""
+        """Test handle method with ACCOUNT_DELETED event."""
         handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        mock_member = helpers.MockMember(id=discord_id)
+        
         body = WebhookBody(
             platform=Platform.ACCOUNT,
             event=WebhookEvent.ACCOUNT_DELETED,
-            properties={"discord_id": 123456789, "account_id": 987654321},
+            properties={"discord_id": discord_id, "account_id": account_id},
             traits={},
         )
 
-        # The handle_account_deleted method is not implemented, so this should raise AttributeError
-        with pytest.raises(AttributeError):
-            await handler.handle(body, bot)
+        with (
+            patch.object(handler, "validate_discord_id", return_value=discord_id),
+            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
+            patch("src.webhooks.handlers.account.settings") as mock_settings,
+        ):
+            mock_settings.roles.VERIFIED = helpers.MockRole(id=99999, name="Verified")
+            mock_member.remove_roles = AsyncMock()
+            
+            result = await handler.handle(body, bot)
+            
+            # Should succeed and return success
+            assert result == handler.success()
 
     @pytest.mark.asyncio
     async def test_handle_unknown_event(self, bot):
-        """Test handle method with unknown event does nothing."""
+        """Test handle method with unknown event raises ValueError."""
         handler = AccountHandler()
         body = WebhookBody(
             platform=Platform.ACCOUNT,
@@ -81,8 +95,9 @@ class TestAccountHandler:
             traits={},
         )
 
-        # Should not raise any exceptions, just do nothing
-        await handler.handle(body, bot)
+        # Should raise ValueError for unknown event
+        with pytest.raises(ValueError, match="Invalid event"):
+            await handler.handle(body, bot)
 
     @pytest.mark.asyncio
     async def test_handle_account_linked_success(self, bot):
@@ -98,10 +113,6 @@ class TestAccountHandler:
             properties={"discord_id": discord_id, "account_id": account_id},
             traits={"htb_user_id": 555},
         )
-
-        # Create a custom bot mock without spec_set restrictions for this test
-        custom_bot = MagicMock()
-        custom_bot.send_message = AsyncMock()
 
         with (
             patch.object(
@@ -134,29 +145,39 @@ class TestAccountHandler:
         ):
             mock_settings.channels.VERIFY_LOGS = 12345
             
-            await handler.handle_account_linked(body, custom_bot)
+            # Mock the bot's guild structure and channel
+            mock_channel = MagicMock()
+            mock_channel.send = AsyncMock()
+            mock_guild = MagicMock()
+            mock_guild.get_channel.return_value = mock_channel
+            bot.guilds = [mock_guild]
+            
+            result = await handler.handle_account_linked(body, bot)
 
             # Verify all method calls
             mock_validate_discord.assert_called_once_with(discord_id)
             mock_validate_account.assert_called_once_with(account_id)
-            mock_get_member.assert_called_once_with(discord_id, custom_bot)
+            mock_get_member.assert_called_once_with(discord_id, bot)
             mock_merge.assert_called_once_with(body.properties, body.traits)
             mock_process.assert_called_once_with(
                 mock_member,
-                custom_bot,
+                bot,
                 traits={
                     "discord_id": discord_id,
                     "account_id": account_id,
                     "htb_user_id": 555,
                 },
             )
-            custom_bot.send_message.assert_called_once_with(
-                12345, f"Account linked: {account_id} -> (@testuser ({discord_id})"
+            mock_channel.send.assert_called_once_with(
+                f"Account linked: {account_id} -> (@testuser ({discord_id})"
             )
             mock_log.assert_called_once_with(
                 f"Account {account_id} linked to {discord_id}",
                 extra={"account_id": account_id, "discord_id": discord_id},
             )
+            
+            # Should return success
+            assert result == handler.success()
 
     @pytest.mark.asyncio
     async def test_handle_account_linked_invalid_discord_id(self, bot):
@@ -269,18 +290,26 @@ class TestAccountHandler:
             ) as mock_get_member,
             patch("src.webhooks.handlers.account.settings") as mock_settings,
         ):
-            mock_settings.roles.VERIFIED = helpers.MockRole(id=99999, name="Verified")
+            # Mock the bot's guild structure and role
+            mock_role = helpers.MockRole(id=99999, name="Verified")
+            mock_guild = MagicMock()
+            mock_guild.get_role.return_value = mock_role
+            bot.guilds = [mock_guild]
+            mock_settings.roles.VERIFIED = 99999
             mock_member.remove_roles = AsyncMock()
 
-            await handler.handle_account_unlinked(body, bot)
+            result = await handler.handle_account_unlinked(body, bot)
 
             # Verify all method calls
             mock_validate_discord.assert_called_once_with(discord_id)
             mock_validate_account.assert_called_once_with(account_id)
             mock_get_member.assert_called_once_with(discord_id, bot)
             mock_member.remove_roles.assert_called_once_with(
-                mock_settings.roles.VERIFIED, atomic=True
+                mock_role, atomic=True
             )
+            
+            # Should return success
+            assert result == handler.success()
 
     @pytest.mark.asyncio
     async def test_handle_account_unlinked_invalid_discord_id(self, bot):

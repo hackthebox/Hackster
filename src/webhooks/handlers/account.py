@@ -17,13 +17,13 @@ class AccountHandler(BaseHandler):
         HTB Account.
         """
         if body.event == WebhookEvent.ACCOUNT_LINKED:
-            await self.handle_account_linked(body, bot)
+            return await self.handle_account_linked(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_UNLINKED:
-            await self.handle_account_unlinked(body, bot)
+            return await self.handle_account_unlinked(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_DELETED:
-            await self.handle_account_deleted(body, bot)
+            return await self.handle_account_deleted(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_BANNED:
-            await self.handle_account_banned(body, bot)
+            return await self.handle_account_banned(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
 
