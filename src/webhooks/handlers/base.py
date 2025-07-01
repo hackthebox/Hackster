@@ -27,7 +27,7 @@ class BaseHandler(ABC):
     async def handle(self, body: WebhookBody, bot: Bot) -> dict:
         pass
 
-    async def get_guild_member(self, discord_id: int, bot: Bot) -> Member:
+    async def get_guild_member(self, discord_id: int | str, bot: Bot) -> Member:
         """
         Fetches a guild member from the Discord server.
 
@@ -41,9 +41,10 @@ class BaseHandler(ABC):
         Raises:
             HTTPException: If the user is not in the Discord server (400)
         """
+        
         try:
             guild = await bot.fetch_guild(settings.guild_ids[0])
-            member = await guild.fetch_member(discord_id)
+            member = await guild.fetch_member(int(discord_id))
             return member
 
         except NotFound as exc:
@@ -73,13 +74,13 @@ class BaseHandler(ABC):
 
         return property
 
-    def validate_discord_id(self, discord_id: str | int) -> int:
+    def validate_discord_id(self, discord_id: str | int | None) -> int | str:
         """
         Validates the Discord ID. See validate_property function.
         """
         return self.validate_property(discord_id, "Discord ID")
 
-    def validate_account_id(self, account_id: str | int) -> int:
+    def validate_account_id(self, account_id: str | int | None) -> int | str:
         """
         Validates the Account ID. See validate_property function.
         """
@@ -117,3 +118,11 @@ class BaseHandler(ABC):
             ),
         }
         return properties
+
+    @staticmethod
+    def success():
+        return {"success": True}
+    
+    @staticmethod
+    def fail():
+        return {"success": False}

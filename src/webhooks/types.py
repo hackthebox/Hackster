@@ -12,10 +12,8 @@ class WebhookEvent(Enum):
     RANK_UP = "RankUp"
     HOF_CHANGE = "HofChange"
     SUBSCRIPTION_CHANGE = "SubscriptionChange"
-    CONTENT_RELEASED = "ContentReleased"
     NAME_CHANGE = "NameChange"
     SEASON_RANK_CHANGE = "SeasonRankChange"
-    PROLAB_COMPLETED = "ProlabCompleted"
 
 
 class Platform(Enum):

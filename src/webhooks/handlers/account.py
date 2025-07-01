@@ -9,7 +9,7 @@ from src.webhooks.types import WebhookBody, WebhookEvent
 
 
 class AccountHandler(BaseHandler):
-    async def handle(self, body: WebhookBody, bot: Bot) -> 
+    async def handle(self, body: WebhookBody, bot: Bot):
         """
         Handles incoming webhook events and performs actions accordingly.
 
@@ -24,6 +24,8 @@ class AccountHandler(BaseHandler):
             await self.handle_account_deleted(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_BANNED:
             await self.handle_account_banned(body, bot)
+        else:
+            raise ValueError(f"Invalid event: {body.event}")
 
     async def handle_account_linked(self, body: WebhookBody, bot: Bot) -> dict:
         """
@@ -35,11 +37,10 @@ class AccountHandler(BaseHandler):
         member = await self.get_guild_member(discord_id, bot)
         await process_account_identification(
             member,
-            bot,
+            bot,  # type: ignore
             traits=self.merge_properties_and_traits(body.properties, body.traits),
         )
-        await bot.send_message(
-            settings.channels.VERIFY_LOGS,
+        await bot.guilds[0].get_channel(settings.channels.VERIFY_LOGS).send(  # type: ignore
             f"Account linked: {account_id} -> ({member.mention} ({member.id})",
         )
 
@@ -47,6 +48,8 @@ class AccountHandler(BaseHandler):
             f"Account {account_id} linked to {member.id}",
             extra={"account_id": account_id, "discord_id": discord_id},
         )
+
+        return self.success()
 
     async def handle_account_unlinked(self, body: WebhookBody, bot: Bot) -> dict:
         """
@@ -57,7 +60,9 @@ class AccountHandler(BaseHandler):
 
         member = await self.get_guild_member(discord_id, bot)
 
-        await member.remove_roles(settings.roles.VERIFIED, atomic=True)
+        await member.remove_roles(bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True)  # type: ignore
+
+        return self.success()
 
     async def handle_account_banned(self, body: WebhookBody, bot: Bot) -> dict:
         """
@@ -80,11 +85,11 @@ class AccountHandler(BaseHandler):
             self.logger.warning(
                 f"Cannot ban user {discord_id}- not found in guild", extra=extra
             )
-            return
+            return self.fail()
 
         # Use the generic ban helper to handle all the complex logic
         result = await handle_platform_ban_or_update(
-            bot=bot,
+            bot=bot,  # type: ignore
             guild=bot.guilds[0],
             member=member,
             expires_timestamp=expires_ts,
@@ -101,6 +106,8 @@ class AccountHandler(BaseHandler):
             f"Platform ban handling result: {result['action']}", extra=extra
         )
 
+        return self.success()
+
     async def handle_account_deleted(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the account deleted event.
@@ -114,6 +121,8 @@ class AccountHandler(BaseHandler):
                 f"Cannot delete account {account_id}- not found in guild",
                 extra={"account_id": account_id, "discord_id": discord_id},
             )
-            return
+            return self.fail()
 
-        await member.remove_roles(settings.roles.VERIFIED, atomic=True)
+        await member.remove_roles(bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True)  # type: ignore
+
+        return self.success()

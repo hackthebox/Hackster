@@ -7,7 +7,7 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, Request
 from hypercorn.asyncio import serve as hypercorn_serve
 from hypercorn.config import Config as HypercornConfig
-from pydantic import ValidationError, 
+from pydantic import ValidationError
 
 from src.bot import bot
 from src.core import settings
@@ -35,7 +35,7 @@ def verify_signature(body: dict, signature: str, secret: str) -> bool:
     if not signature:
         return False
 
-    digest = hmac.new(secret.encode(), body, hashlib.sha1).hexdigest()
+    digest = hmac.new(secret.encode(), body, hashlib.sha1).hexdigest()  # type: ignore
     return hmac.compare_digest(signature, digest)
 
 
@@ -61,7 +61,7 @@ async def webhook_handler(request: Request) -> Dict[str, Any]:
     body = await request.body()
     signature = request.headers.get("X-Signature")
 
-    if not verify_signature(body, signature, settings.WEBHOOK_TOKEN):
+    if not verify_signature(body, signature, settings.WEBHOOK_TOKEN):  # type: ignore
         logger.warning("Unauthorized webhook request")
         raise HTTPException(status_code=401, detail="Unauthorized")
 
