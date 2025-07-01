@@ -12,12 +12,16 @@ from discord.ext.commands import (
     MissingRequiredArgument, NoPrivateMessage, UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
+from typing import TypeVar
 
 from src import trace_config
 from src.core import constants, settings
 from src.metrics import completed_commands, errored_commands, received_commands
 
 logger = logging.getLogger(__name__)
+
+
+BOT_TYPE = TypeVar("BOT_TYPE", "Bot", DiscordBot)
 
 
 class Bot(DiscordBot):

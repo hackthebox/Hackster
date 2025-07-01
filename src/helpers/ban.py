@@ -13,8 +13,8 @@ from discord import (
     Member,
     NotFound,
     User,
-    GuildChannel,
     TextChannel,
+    ClientUser,
 )
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -39,7 +39,7 @@ class BanCodes(Enum):
 
 
 async def _check_member(
-    bot: Bot, guild: Guild, member: Member | User, author: Member = None
+    bot: Bot, guild: Guild, member: Member | User, author: Member | ClientUser | None = None
 ) -> SimpleResponse | None:
     if isinstance(member, Member):
         if member_is_staff(member):
@@ -47,7 +47,7 @@ async def _check_member(
                 message="You cannot ban another staff member.", delete_after=None
             )
     elif isinstance(member, User):
-        member = await bot.get_member_or_user(guild, member.id)
+        member = await bot.get_member_or_user(guild, member.id)  # type: ignore
     if member.bot:
         return SimpleResponse(
             message="You cannot ban a bot.", delete_after=None, code=BanCodes.FAILED
@@ -58,7 +58,7 @@ async def _check_member(
         )
 
 
-async def get_ban(member: Member) -> Ban | None:
+async def get_ban(member: Member | User) -> Ban | None:
     async with AsyncSessionLocal() as session:
         stmt = (
             select(Ban)
@@ -77,7 +77,7 @@ async def update_ban(ban: Ban) -> None:
 
 
 async def _get_ban_or_create(
-    member: Member, ban: Ban, infraction: Infraction
+    member: Member | User, ban: Ban, infraction: Infraction
 ) -> tuple[int, bool]:
     existing_ban = await get_ban(member)
     if existing_ban:
@@ -128,7 +128,7 @@ async def _send_ban_notice(
 ) -> None:
     """Send a ban log to the moderator channel."""
     if not isinstance(channel, TextChannel):
-        channel = guild.get_channel(settings.channels.SR_MOD)
+        channel = guild.get_channel(settings.channels.SR_MOD)  # type: ignore
 
     embed = discord.Embed(
         title="Ban",
@@ -139,7 +139,7 @@ async def _send_ban_notice(
     embed.add_field(name="Author", value=author)
     embed.add_field(name="End Date", value=end_date)
 
-    await channel.send(embed=embed)
+    await channel.send(embed=embed)  # type: ignore
 
 
 async def handle_platform_ban_or_update(
@@ -153,7 +153,7 @@ async def handle_platform_ban_or_update(
     expires_at_str: str,
     log_channel_id: int,
     logger,
-    extra_log_data: dict = None,
+    extra_log_data: dict | None = None,
 ) -> dict:
     """Handle platform ban by either creating new ban, updating existing ban, or taking no action.
     
@@ -185,7 +185,7 @@ async def handle_platform_ban_or_update(
             bot, guild, member, expires_timestamp, reason, evidence, needs_approval=False
         )
         await _send_ban_notice(
-            guild, member, reason, author_name, expires_at_str, guild.get_channel(log_channel_id)
+            guild, member, reason, author_name, expires_at_str, guild.get_channel(log_channel_id)  # type: ignore
         )
         logger.info(f"Created new platform ban for user {member.id} until {expires_at_str}", extra=extra_log_data)
         return {"action": "created"}
@@ -199,7 +199,7 @@ async def handle_platform_ban_or_update(
             # Platform ban has expired, unban the user
             await unban_member(guild, member)
             msg = f"User {member.mention} ({member.id}) has been unbanned due to platform ban expiration."
-            await guild.get_channel(log_channel_id).send(msg)
+            await guild.get_channel(log_channel_id).send(msg)  # type: ignore
             logger.info(msg, extra=extra_log_data)
             return {"action": "unbanned"}
         
@@ -208,7 +208,7 @@ async def handle_platform_ban_or_update(
             existing_ban.unban_time = expires_timestamp
             await update_ban(existing_ban)
             msg = f"User {member.mention} ({member.id}) has had their ban extended to {expires_at_str}."
-            await guild.get_channel(log_channel_id).send(msg)
+            await guild.get_channel(log_channel_id).send(msg)  # type: ignore
             logger.info(msg, extra=extra_log_data)
             return {"action": "extended"}
     else:
@@ -241,9 +241,9 @@ async def ban_member_with_epoch(
     unban_epoch_time: int,
     reason: str,
     evidence: str,
-    author: Member = None,
+    author: Member | ClientUser | None = None,
     needs_approval: bool = True,
-) -> SimpleResponse | None:
+) -> SimpleResponse:
     """Ban a member from the guild until a specific epoch time.
     
     Args:
@@ -283,6 +283,7 @@ async def ban_member_with_epoch(
 
     if author is None:
         author = bot.user
+        assert isinstance(author, Member)  # For linting
 
     ban = Ban(
         user_id=member.id,
@@ -366,7 +367,7 @@ async def ban_member_with_epoch(
         )
         embed.set_thumbnail(url=f"{settings.HTB_URL}/images/logo600.png")
         view = BanDecisionView(ban_id, bot, guild, member, end_date, reason)
-        await guild.get_channel(settings.channels.SR_MOD).send(embed=embed, view=view)
+        await guild.get_channel(settings.channels.SR_MOD).send(embed=embed, view=view)  # type: ignore
 
     return await _create_ban_response(
         member, end_date, dm_banned_member, needs_approval
@@ -377,12 +378,12 @@ async def ban_member(
     bot: Bot,
     guild: Guild,
     member: Member | User,
-    duration: str | int,
+    duration: str,
     reason: str,
     evidence: str,
-    author: Member = None,
+    author: Member | None = None,
     needs_approval: bool = True,
-) -> SimpleResponse | None:
+) -> SimpleResponse:
     """Ban a member from the guild using a duration.
     
     Args:
@@ -419,7 +420,7 @@ async def ban_member(
 
 
 async def _dm_banned_member(
-    end_date: str, guild: Guild, member: Member, reason: str
+    end_date: str, guild: Guild, member: Member | User, reason: str
 ) -> bool:
     """Send a message to the member about the ban."""
     message = (
@@ -443,7 +444,7 @@ async def _dm_banned_member(
     return False
 
 
-async def unban_member(guild: Guild, member: Member) -> Member:
+async def unban_member(guild: Guild, member: Member | User) -> Member | User:
     """Unban a member from the guild."""
     try:
         await guild.unban(member)
@@ -489,7 +490,7 @@ async def mute_member(
     member: Member,
     duration: str,
     reason: str,
-    author: Member = None,
+    author: Member | ClientUser | None = None,
 ) -> SimpleResponse | None:
     """Mute a member on the guild."""
     if checked := await _check_member(bot, guild, member, author):
@@ -507,13 +508,14 @@ async def mute_member(
 
     if author is None:
         author = bot.user
+        assert isinstance(author, Member)  # For linting
 
     role = guild.get_role(settings.roles.MUTED)
 
     if member:
         # No longer on the server - cleanup, but don't attempt to remove a role
         logger.info(f"Add mute from {member.name}:{member.id}.")
-        await member.add_roles(role, reason=reason)
+        await member.add_roles(role, reason=reason)  # type: ignore
 
         mute = Mute(
             user_id=member.id, reason=reason, moderator_id=author.id, unmute_time=dur
@@ -530,7 +532,7 @@ async def unmute_member(guild: Guild, member: Member) -> Member:
     if isinstance(member, Member):
         # No longer on the server - cleanup, but don't attempt to remove a role
         logger.info(f"Remove mute from {member.name}:{member.id}.")
-        await member.remove_roles(role)
+        await member.remove_roles(role)  # type: ignore
         await member.remove_timeout()
 
     async with AsyncSessionLocal() as session:

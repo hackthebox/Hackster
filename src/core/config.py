@@ -331,6 +331,8 @@ def load_settings(env_file: str | None = None):
             global_settings.roles.NOOB,
             global_settings.roles.VIP,
             global_settings.roles.VIP_PLUS,
+        ],
+        "ALL_SEASON_RANKS": [
             global_settings.roles.SEASON_HOLO,
             global_settings.roles.SEASON_PLATINUM,
             global_settings.roles.SEASON_RUBY,

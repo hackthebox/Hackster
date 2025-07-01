@@ -9,7 +9,7 @@ from src.webhooks.types import WebhookBody, WebhookEvent
 
 
 class AccountHandler(BaseHandler):
-    async def handle(self, body: WebhookBody, bot: Bot) -> dict:
+    async def handle(self, body: WebhookBody, bot: Bot) -> 
         """
         Handles incoming webhook events and performs actions accordingly.
 
@@ -85,7 +85,7 @@ class AccountHandler(BaseHandler):
         # Use the generic ban helper to handle all the complex logic
         result = await handle_platform_ban_or_update(
             bot=bot,
-            guild=bot.guild,
+            guild=bot.guilds[0],
             member=member,
             expires_timestamp=expires_ts,
             reason=f"Platform Ban - {reason}",

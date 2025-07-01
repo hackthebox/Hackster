@@ -1,12 +1,20 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, TypeVar
 
 import aiohttp
 import discord
-from discord import ApplicationContext, Forbidden, HTTPException, Member, Role, User
+from discord import (
+    ApplicationContext,
+    Forbidden,
+    HTTPException,
+    Member,
+    Role,
+    User,
+)
 from discord.ext.commands import GuildNotFound, MemberNotFound
 
-from src.bot import Bot
+from src.bot import Bot, BOT_TYPE
+
 from src.core import settings
 from src.helpers.ban import BanCodes, ban_member, _send_ban_notice
 
@@ -114,12 +122,12 @@ async def get_season_rank(htb_uid: int) -> str | None:
                 response = await r.json()
             elif r.status == 404:
                 logger.error("Invalid Season ID.")
-                response = None
+                response = {}
             else:
                 logger.error(
                     f"Non-OK HTTP status code returned from identifier lookup: {r.status}."
                 )
-                response = None
+                response = {}
 
     if not response["data"]:
         rank = None
@@ -130,15 +138,6 @@ async def get_season_rank(htb_uid: int) -> str | None:
             logger.error("Could not get season rank from HTB.", exc_info=exc)
             rank = None
     return rank
-
-
-async def _check_for_ban(member: Member) -> Optional[Dict]:
-    """Check if the member is banned."""
-    try:
-        member.guild.get_role(settings.roles.BANNED)
-        return True
-    except Forbidden:
-        return False
 
 
 async def process_certification(certid: str, name: str):
@@ -155,7 +154,7 @@ async def process_certification(certid: str, name: str):
                 logger.error(
                     f"Non-OK HTTP status code returned from identifier lookup: {r.status}."
                 )
-                response = None
+                response = {}
     try:
         certRawName = response["certificates"][0]["name"]
     except IndexError:
@@ -175,7 +174,7 @@ async def process_certification(certid: str, name: str):
     return cert
 
 
-async def _handle_banned_user(member: Member, bot: Bot):
+async def _handle_banned_user(member: Member, bot: BOT_TYPE):
     """Handle banned trait during account linking.
 
     Args:
@@ -183,7 +182,7 @@ async def _handle_banned_user(member: Member, bot: Bot):
         bot (Bot): The bot instance.
     """
     resp = await ban_member(
-        bot,
+        bot,  # type: ignore
         member.guild,
         member,
         "1337w",
@@ -191,7 +190,8 @@ async def _handle_banned_user(member: Member, bot: Bot):
             "Platform Ban - Ban duration could not be determined. "
             "Please login to confirm ban details and contact HTB Support to appeal."
         ),
-        None,
+        "N/A",
+        None,  
         needs_approval=False,
     )
     if resp.code == BanCodes.SUCCESS:
@@ -201,7 +201,7 @@ async def _handle_banned_user(member: Member, bot: Bot):
             resp.message,
             "System",
             "1337w",
-            member.guild.get_channel(settings.channels.VERIFY_LOGS),
+            member.guild.get_channel(settings.channels.VERIFY_LOGS),  # type: ignore
         )
 
 
@@ -224,7 +224,7 @@ async def _set_nickname(member: Member, nickname: str) -> bool:
 
 
 async def process_account_identification(
-    member: Member, bot: Bot, traits: dict[str, str] | None = None
+    member: Member, bot: BOT_TYPE, traits: dict[str, Any]
 ) -> None:
     """Process HTB account identification, to be called during account linking.
 
@@ -233,12 +233,14 @@ async def process_account_identification(
         bot (Bot): The bot instance.
         traits (dict[str, str] | None): Optional user traits to process.
     """
-    await member.add_roles(member.guild.get_role(settings.roles.VERIFIED), atomic=True)
+    await member.add_roles(member.guild.get_role(settings.roles.VERIFIED), atomic=True)  # type: ignore
 
     nickname_changed = False
 
+    traits = traits or {}
+
     if traits.get("username") and traits.get("username") != member.name:
-        nickname_changed = await _set_nickname(member, traits.get("username"))
+        nickname_changed = await _set_nickname(member, traits.get("username"))  # type: ignore
 
     if not nickname_changed:
         logger.warning(
@@ -246,13 +248,13 @@ async def process_account_identification(
         )
 
     if traits.get("mp_user_id"):
-        htb_user_details = await get_user_details(traits.get("mp_user_id"))
-        await process_labs_identification(htb_user_details, member, bot)
+        htb_user_details = await get_user_details(traits.get("mp_user_id")) or {}  # type: ignore
+        await process_labs_identification(htb_user_details, member, bot)  # type: ignore
 
         if not nickname_changed:
             logger.debug(
                 f"Falling back on HTB username to set nickname for {member.name} with ID {member.id}."
-            )
+            ) 
             await _set_nickname(member, htb_user_details["username"])
 
     if traits.get("banned", False) == True:  # noqa: E712 - explicit bool only, no truthiness
@@ -264,7 +266,7 @@ async def process_labs_identification(
     htb_user_details: Dict[str, str], user: Optional[Member | User], bot: Bot
 ) -> Optional[List[Role]]:
     """Returns roles to assign if identification was successfully processed."""
-    htb_uid = htb_user_details["user_id"]
+    htb_uid = int(htb_user_details["user_id"])
     if isinstance(user, Member):
         member = user
         guild = member.guild
@@ -278,10 +280,8 @@ async def process_labs_identification(
         raise GuildNotFound(f"Could not identify member {user} in guild.")
 
     to_remove = []
-    for role in member.roles:
-        if role.id in settings.role_groups.get("ALL_RANKS") + settings.role_groups.get(
-            "ALL_POSITIONS"
-        ):
+    for role in member.roles:  # type: ignore
+        if role.id in (settings.role_groups.get("ALL_RANKS") or []) + (settings.role_groups.get("ALL_POSITIONS") or []):
             to_remove.append(guild.get_role(role.id))
 
     to_assign = []
@@ -293,12 +293,12 @@ async def process_labs_identification(
         "Staff",
     ]:
         to_assign.append(
-            guild.get_role(settings.get_post_or_rank(htb_user_details["rank"]))
+            guild.get_role(settings.get_post_or_rank(htb_user_details["rank"]) or -1)
         )
 
     season_rank = await get_season_rank(htb_uid)
-    if season_rank:
-        to_assign.append(guild.get_role(settings.get_season(season_rank)))
+    if isinstance(season_rank, str):
+        to_assign.append(guild.get_role(settings.get_season(season_rank) or -1))
 
     if htb_user_details["vip"]:
         to_assign.append(guild.get_role(settings.roles.VIP))
@@ -312,7 +312,7 @@ async def process_labs_identification(
         elif position <= 10:
             pos_top = "10"
         if pos_top:
-            to_assign.append(guild.get_role(settings.get_post_or_rank(pos_top)))
+            to_assign.append(guild.get_role(settings.get_post_or_rank(pos_top) or -1))
     if htb_user_details["machines"]:
         to_assign.append(guild.get_role(settings.roles.BOX_CREATOR))
     if htb_user_details["challenges"]:
@@ -321,8 +321,8 @@ async def process_labs_identification(
     # We don't need to remove any roles that are going to be assigned again
     to_remove = list(set(to_remove) - set(to_assign))
     if to_remove:
-        await member.remove_roles(*to_remove, atomic=True)
+        await member.remove_roles(*to_remove, atomic=True)  # type: ignore
     if to_assign:
-        await member.add_roles(*to_assign, atomic=True)
+        await member.add_roles(*to_assign, atomic=True)  # type: ignore
 
     return to_assign
