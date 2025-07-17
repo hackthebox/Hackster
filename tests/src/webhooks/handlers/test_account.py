@@ -33,7 +33,7 @@ class TestAccountHandler:
         )
 
         with patch.object(
-            handler, "handle_account_linked", new_callable=AsyncMock
+            handler, "_handle_account_linked", new_callable=AsyncMock
         ) as mock_handle:
             await handler.handle(body, bot)
             mock_handle.assert_called_once_with(body, bot)
@@ -50,7 +50,7 @@ class TestAccountHandler:
         )
 
         with patch.object(
-            handler, "handle_account_unlinked", new_callable=AsyncMock
+            handler, "_handle_account_unlinked", new_callable=AsyncMock
         ) as mock_handle:
             await handler.handle(body, bot)
             mock_handle.assert_called_once_with(body, bot)
@@ -152,7 +152,7 @@ class TestAccountHandler:
             mock_guild.get_channel.return_value = mock_channel
             bot.guilds = [mock_guild]
             
-            result = await handler.handle_account_linked(body, bot)
+            result = await handler._handle_account_linked(body, bot)
 
             # Verify all method calls
             mock_validate_discord.assert_called_once_with(discord_id)
@@ -197,7 +197,7 @@ class TestAccountHandler:
             side_effect=HTTPException(status_code=400, detail="Invalid Discord ID"),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await handler.handle_account_linked(body, bot)
+                await handler._handle_account_linked(body, bot)
 
             assert exc_info.value.status_code == 400
             assert exc_info.value.detail == "Invalid Discord ID"
@@ -223,7 +223,7 @@ class TestAccountHandler:
             ),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await handler.handle_account_linked(body, bot)
+                await handler._handle_account_linked(body, bot)
 
             assert exc_info.value.status_code == 400
             assert exc_info.value.detail == "Invalid Account ID"
@@ -255,7 +255,7 @@ class TestAccountHandler:
             ),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await handler.handle_account_linked(body, bot)
+                await handler._handle_account_linked(body, bot)
 
             assert exc_info.value.status_code == 400
             assert exc_info.value.detail == "User is not in the Discord server"
@@ -298,7 +298,7 @@ class TestAccountHandler:
             mock_settings.roles.VERIFIED = 99999
             mock_member.remove_roles = AsyncMock()
 
-            result = await handler.handle_account_unlinked(body, bot)
+            result = await handler._handle_account_unlinked(body, bot)
 
             # Verify all method calls
             mock_validate_discord.assert_called_once_with(discord_id)
@@ -329,7 +329,7 @@ class TestAccountHandler:
             side_effect=HTTPException(status_code=400, detail="Invalid Discord ID"),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await handler.handle_account_unlinked(body, bot)
+                await handler._handle_account_unlinked(body, bot)
 
             assert exc_info.value.status_code == 400
             assert exc_info.value.detail == "Invalid Discord ID"
@@ -355,7 +355,7 @@ class TestAccountHandler:
             ),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await handler.handle_account_unlinked(body, bot)
+                await handler._handle_account_unlinked(body, bot)
 
             assert exc_info.value.status_code == 400
             assert exc_info.value.detail == "Invalid Account ID"
@@ -387,7 +387,124 @@ class TestAccountHandler:
             ),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await handler.handle_account_unlinked(body, bot)
+                await handler._handle_account_unlinked(body, bot)
 
             assert exc_info.value.status_code == 400
             assert exc_info.value.detail == "User is not in the Discord server"
+
+    @pytest.mark.asyncio
+    async def test_handle_name_change_success(self, bot):
+        """Test successful name change event."""
+        handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        new_name = "NewNickname"
+        mock_member = helpers.MockMember(id=discord_id)
+        mock_member.edit = AsyncMock()
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.NAME_CHANGE,
+            properties={"discord_id": discord_id, "account_id": account_id, "name": new_name},
+            traits={},
+        )
+        with (
+            patch.object(handler, "validate_discord_id", return_value=discord_id),
+            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_property", return_value=new_name),
+            patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
+        ):
+            result = await handler._handle_name_change(body, bot)
+            mock_member.edit.assert_called_once_with(nick=new_name)
+            assert result == handler.success()
+
+    @pytest.mark.asyncio
+    async def test_handle_name_change_invalid_discord_id(self, bot):
+        """Test name change event with invalid Discord ID."""
+        handler = AccountHandler()
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.NAME_CHANGE,
+            properties={"discord_id": None, "account_id": 987654321, "name": "NewNickname"},
+            traits={},
+        )
+        with patch.object(
+            handler,
+            "validate_discord_id",
+            side_effect=HTTPException(status_code=400, detail="Invalid Discord ID"),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await handler._handle_name_change(body, bot)
+            assert exc_info.value.status_code == 400
+            assert exc_info.value.detail == "Invalid Discord ID"
+
+    @pytest.mark.asyncio
+    async def test_handle_account_banned_success(self, bot):
+        """Test successful account banned event."""
+        handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        expires_at = "2024-12-31T23:59:59"
+        reason = "Violation"
+        notes = "Repeated violations"
+        created_by = "Admin"
+        mock_member = helpers.MockMember(id=discord_id)
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.ACCOUNT_BANNED,
+            properties={
+                "discord_id": discord_id,
+                "account_id": account_id,
+                "expires_at": expires_at,
+                "reason": reason,
+                "notes": notes,
+                "created_by": created_by,
+            },
+            traits={},
+        )
+        with (
+            patch.object(handler, "validate_discord_id", return_value=discord_id),
+            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_property", return_value=expires_at),
+            patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
+            patch("src.webhooks.handlers.account.handle_platform_ban_or_update", new_callable=AsyncMock) as mock_ban,
+            patch("src.webhooks.handlers.account.settings") as mock_settings,
+            patch.object(handler.logger, "debug") as mock_log,
+        ):
+            mock_ban.return_value = {"action": "banned"}
+            mock_settings.channels.BOT_LOGS = 12345
+            mock_settings.channels.VERIFY_LOGS = 54321
+            mock_settings.roles.VERIFIED = 99999
+            mock_settings.guild_ids = [1]
+            bot.guilds = [helpers.MockGuild(id=1)]
+            result = await handler._handle_account_banned(body, bot)
+            mock_ban.assert_awaited()
+            mock_log.assert_called()
+            assert result == handler.success()
+
+    @pytest.mark.asyncio
+    async def test_handle_account_banned_member_not_found(self, bot):
+        """Test account banned event when member is not found in guild."""
+        handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        expires_at = "2024-12-31T23:59:59"
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.ACCOUNT_BANNED,
+            properties={
+                "discord_id": discord_id,
+                "account_id": account_id,
+                "expires_at": expires_at,
+            },
+            traits={},
+        )
+        with (
+            patch.object(handler, "validate_discord_id", return_value=discord_id),
+            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_property", return_value=expires_at),
+            patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=None),
+            patch.object(handler.logger, "warning") as mock_log,
+        ):
+            result = await handler._handle_account_banned(body, bot)
+            mock_log.assert_called()
+            assert result == handler.fail()

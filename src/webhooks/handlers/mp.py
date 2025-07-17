@@ -125,11 +125,25 @@ class MPHandler(BaseHandler):
 
         member = await self.get_guild_member(discord_id, bot)
 
+        rank_id = settings.get_post_or_rank(rank)
+        if not rank_id:
+            err = ValueError(f"Cannot find role for '{rank}'")
+            self.logger.error(
+                err,
+                extra={
+                    "account_id": account_id,
+                    "discord_id": discord_id,
+                    "rank": rank,
+                },
+            )
+            raise err
+
+        rank_role = bot.guilds[0].get_role(rank_id) 
         rank_roles = [
             bot.guilds[0].get_role(int(r)) for r in settings.role_groups["ALL_RANKS"]
         ]  # All rank roles
         new_role = next(
-            (r for r in rank_roles if r and r.name == rank), None
+            (r for r in rank_roles if r and r.id == rank_role.id), None
         )  # Get passed rank as role from rank roles
         old_role = next(
             (r for r in member.roles if r in rank_roles), None
