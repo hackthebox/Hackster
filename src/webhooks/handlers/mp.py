@@ -20,15 +20,15 @@ class MPHandler(BaseHandler):
         HTB Account.
         """
         if body.event == WebhookEvent.HOF_CHANGE:
-            return await self.handle_hof_change(body, bot)
+            return await self._handle_hof_change(body, bot)
         elif body.event == WebhookEvent.RANK_UP:
-            return await self.handle_rank_up(body, bot)
+            return await self._handle_rank_up(body, bot)
         elif body.event == WebhookEvent.SUBSCRIPTION_CHANGE:
-            return await self.handle_subscription_change(body, bot)
+            return await self._handle_subscription_change(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
 
-    async def handle_subscription_change(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_subscription_change(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the subscription change event.
         """
@@ -47,7 +47,7 @@ class MPHandler(BaseHandler):
         await member.add_roles(bot.guilds[0].get_role(role), atomic=True)  # type: ignore
         return self.success()
 
-    async def handle_hof_change(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_hof_change(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the HOF change event.
         """
@@ -115,7 +115,7 @@ class MPHandler(BaseHandler):
             )
             raise err
 
-    async def handle_rank_up(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_rank_up(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the rank up event.
         """

@@ -14,11 +14,11 @@ class AcademyHandler(BaseHandler):
         HTB Account.
         """
         if body.event == WebhookEvent.CERTIFICATE_AWARDED:
-            return await self.handle_certificate_awarded(body, bot)
+            return await self._handle_certificate_awarded(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
 
-    async def handle_certificate_awarded(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_certificate_awarded(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the certificate awarded event.
         """

@@ -17,17 +17,17 @@ class AccountHandler(BaseHandler):
         HTB Account.
         """
         if body.event == WebhookEvent.ACCOUNT_LINKED:
-            return await self.handle_account_linked(body, bot)
+            return await self._handle_account_linked(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_UNLINKED:
-            return await self.handle_account_unlinked(body, bot)
+            return await self._handle_account_unlinked(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_DELETED:
-            return await self.handle_account_deleted(body, bot)
+            return await self._handle_account_deleted(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_BANNED:
-            return await self.handle_account_banned(body, bot)
+            return await self._handle_account_banned(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
 
-    async def handle_account_linked(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_account_linked(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the account linked event.
         """
@@ -67,7 +67,7 @@ class AccountHandler(BaseHandler):
 
         return self.success()
 
-    async def handle_account_unlinked(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_account_unlinked(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the account unlinked event.
         """
@@ -86,7 +86,7 @@ class AccountHandler(BaseHandler):
 
         return self.success()
 
-    async def name_change(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_name_change(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the name change event.
         """
@@ -98,7 +98,7 @@ class AccountHandler(BaseHandler):
         await member.edit(nick=name)
         return self.success()
 
-    async def handle_account_banned(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_account_banned(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the account banned event.
         """
@@ -146,7 +146,7 @@ class AccountHandler(BaseHandler):
 
         return self.success()
 
-    async def handle_account_deleted(self, body: WebhookBody, bot: Bot) -> dict:
+    async def _handle_account_deleted(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the account deleted event.
         """
