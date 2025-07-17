@@ -75,7 +75,25 @@ async def webhook_handler(request: Request) -> Dict[str, Any]:
         logger.warning("Webhook request not handled by platform: %s", body.platform)
         raise HTTPException(status_code=501, detail="Platform not implemented")
 
-    return await handlers.handle(body, bot)
+    try:
+        return await handlers.handle(body, bot)
+    except HTTPException:
+        # Re-raise HTTP exceptions as they already have appropriate status codes
+        raise
+    except Exception as e:
+        # Log the full exception details for debugging
+        logger.error(
+            "Unhandled exception in webhook handler",
+            exc_info=e,
+            extra={
+                "platform": body.platform,
+                "event": body.event,
+                "properties": body.properties,
+                "traits": body.traits,
+            }
+        )
+        # Return a generic 500 error to the client
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 app.mount("/metrics", metrics_app)
