@@ -31,8 +31,12 @@ class AccountHandler(BaseHandler):
         """
         Handles the account linked event.
         """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        account_id = self.validate_account_id(body.properties.get("account_id"))
+        discord_id = self.validate_discord_id(
+            self.get_property_or_trait(body, "discord_id")
+        )
+        account_id = self.validate_account_id(
+            self.get_property_or_trait(body, "account_id")
+        )
 
         member = await self.get_guild_member(discord_id, bot)
         await process_account_identification(
@@ -40,9 +44,21 @@ class AccountHandler(BaseHandler):
             bot,  # type: ignore
             traits=self.merge_properties_and_traits(body.properties, body.traits),
         )
-        await bot.guilds[0].get_channel(settings.channels.VERIFY_LOGS).send(  # type: ignore
-            f"Account linked: {account_id} -> ({member.mention} ({member.id})",
-        )
+
+        # Safely attempt to send verification log
+        try:
+            verify_channel = bot.guilds[0].get_channel(settings.channels.VERIFY_LOGS)
+            if verify_channel:
+                await verify_channel.send(  # type: ignore
+                    f"Account linked: {account_id} -> ({member.mention} ({member.id})",
+                )
+            else:
+                self.logger.warning(
+                    f"Verify logs channel {settings.channels.VERIFY_LOGS} not found"
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to send verification log: {e}")
+            # Don't raise - this is not critical
 
         self.logger.info(
             f"Account {account_id} linked to {member.id}",
@@ -55,29 +71,51 @@ class AccountHandler(BaseHandler):
         """
         Handles the account unlinked event.
         """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        account_id = self.validate_account_id(body.properties.get("account_id"))
+        discord_id = self.validate_discord_id(
+            self.get_property_or_trait(body, "discord_id")
+        )
+        account_id = self.validate_account_id(
+            self.get_property_or_trait(body, "account_id")
+        )
 
         member = await self.get_guild_member(discord_id, bot)
 
-        await member.remove_roles(bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True)  # type: ignore
+        await member.remove_roles(
+            bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True  # type: ignore
+        )  # type: ignore
 
+        return self.success()
+
+    async def name_change(self, body: WebhookBody, bot: Bot) -> dict:
+        """
+        Handles the name change event.
+        """
+        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
+        _ = self.validate_account_id(body.properties.get("account_id"))
+        name = self.validate_property(body.properties.get("name"), "name")
+
+        member = await self.get_guild_member(discord_id, bot)
+        await member.edit(nick=name)
         return self.success()
 
     async def handle_account_banned(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the account banned event.
         """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        account_id = self.validate_account_id(body.properties.get("account_id"))
+        discord_id = self.validate_discord_id(
+            self.get_property_or_trait(body, "discord_id")
+        )
+        account_id = self.validate_account_id(
+            self.get_property_or_trait(body, "account_id")
+        )
         expires_at = self.validate_property(
-            body.properties.get("expires_at"), "expires_at"
+            self.get_property_or_trait(body, "expires_at"), "expires_at"
         )
         reason = body.properties.get("reason")
         notes = body.properties.get("notes")
         created_by = body.properties.get("created_by")
 
-        expires_ts = int(datetime.fromisoformat(expires_at).timestamp())
+        expires_ts = int(datetime.fromisoformat(expires_at).timestamp())  # type: ignore
         extra = {"account_id": account_id, "discord_id": discord_id}
 
         member = await self.get_guild_member(discord_id, bot)
@@ -96,7 +134,7 @@ class AccountHandler(BaseHandler):
             reason=f"Platform Ban - {reason}",
             evidence=notes or "N/A",
             author_name=created_by or "System",
-            expires_at_str=expires_at,
+            expires_at_str=expires_at,  # type: ignore
             log_channel_id=settings.channels.BOT_LOGS,
             logger=self.logger,
             extra_log_data=extra,
@@ -123,6 +161,8 @@ class AccountHandler(BaseHandler):
             )
             return self.fail()
 
-        await member.remove_roles(bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True)  # type: ignore
+        await member.remove_roles(
+            bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True  # type: ignore
+        )  # type: ignore
 
         return self.success()

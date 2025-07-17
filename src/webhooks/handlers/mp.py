@@ -19,34 +19,14 @@ class MPHandler(BaseHandler):
         This function processes different webhook events originating from the
         HTB Account.
         """
-        if body.event == WebhookEvent.NAME_CHANGE:
-            return await self.name_change(body, bot)
-        elif body.event == WebhookEvent.HOF_CHANGE:
+        if body.event == WebhookEvent.HOF_CHANGE:
             return await self.handle_hof_change(body, bot)
         elif body.event == WebhookEvent.RANK_UP:
             return await self.handle_rank_up(body, bot)
         elif body.event == WebhookEvent.SUBSCRIPTION_CHANGE:
             return await self.handle_subscription_change(body, bot)
-        elif body.event == WebhookEvent.CERTIFICATE_AWARDED:
-            return await self.handle_certificate_awarded(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
-
-    async def handle_certificate_awarded(self, body: WebhookBody, bot: Bot) -> dict:
-        """
-        Handles the certificate awarded event.
-        """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        _ = self.validate_account_id(body.properties.get("account_id"))
-        certificate_id = self.validate_property(body.properties.get("certificate_id"), "certificate_id")
-
-        member = await self.get_guild_member(discord_id, bot)
-        certificate_role_id = settings.get_academy_cert_role(int(certificate_id))
-
-        if certificate_role_id:
-            await member.add_roles(bot.guilds[0].get_role(certificate_role_id), atomic=True)  # type: ignore
-
-        return self.success()
 
     async def handle_subscription_change(self, body: WebhookBody, bot: Bot) -> dict:
         """
@@ -67,26 +47,15 @@ class MPHandler(BaseHandler):
         await member.add_roles(bot.guilds[0].get_role(role), atomic=True)  # type: ignore
         return self.success()
 
-    async def name_change(self, body: WebhookBody, bot: Bot) -> dict:
-        """
-        Handles the name change event.
-        """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        _ = self.validate_account_id(body.properties.get("account_id"))
-        name = self.validate_property(body.properties.get("name"), "name")
-
-        member = await self.get_guild_member(discord_id, bot)
-        await member.edit(nick=name)
-        return self.success()
-
     async def handle_hof_change(self, body: WebhookBody, bot: Bot) -> dict:
         """
         Handles the HOF change event.
         """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        account_id = self.validate_account_id(body.properties.get("account_id"))
+        self.logger.info("Handling HOF change event.")
+        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
+        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
         hof_tier: Literal["1", "10"] = self.validate_property(
-            body.properties.get("hof_tier"), "hof_tier"
+            self.get_property_or_trait(body, "hof_tier"), "hof_tier"  # type: ignore
         )
         hof_roles = {
             "1": bot.guilds[0].get_role(settings.roles.RANK_ONE),
@@ -115,7 +84,7 @@ class MPHandler(BaseHandler):
                 await member.remove_roles(member_hof_role, atomic=True)
             await member.add_roles(role_to_grant, atomic=True)
 
-        if hof_tier == "1":
+        if int(hof_tier) == 1:
             # Find existing top 1 user and make them a top 10
             if existing_top_one_user := await self._find_user_with_role(
                 bot, hof_roles["1"]
@@ -130,7 +99,7 @@ class MPHandler(BaseHandler):
             return self.success()
 
         # Just grant top 10 role to member
-        elif hof_tier == "10":
+        elif int(hof_tier) == 10:
             await _swap_hof_roles(member, hof_roles["10"])
             return self.success()
 
@@ -150,9 +119,9 @@ class MPHandler(BaseHandler):
         """
         Handles the rank up event.
         """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        account_id = self.validate_account_id(body.properties.get("account_id"))
-        rank = self.validate_property(body.properties.get("rank"), "rank")
+        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
+        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        rank = self.validate_property(self.get_property_or_trait(body, "rank"), "rank")
 
         member = await self.get_guild_member(discord_id, bot)
 
