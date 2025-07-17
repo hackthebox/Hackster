@@ -1,4 +1,5 @@
 import logging
+import traceback
 from typing import Dict, List, Optional, Any, TypeVar
 
 import aiohttp
@@ -10,6 +11,7 @@ from discord import (
     Member,
     Role,
     User,
+    Guild,
 )
 from discord.ext.commands import GuildNotFound, MemberNotFound
 
@@ -89,35 +91,51 @@ async def send_verification_instructions(
     return await ctx.respond("Please check your DM for instructions.", ephemeral=True)
 
 
-async def get_user_details(account_identifier: str) -> Optional[Dict]:
-    """Get user details from HTB."""
-    acc_id_url = f"{settings.API_URL}/discord/identifier/{account_identifier}?secret={settings.HTB_API_SECRET}"
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(acc_id_url) as r:
+def get_labs_session() -> aiohttp.ClientSession:
+    """Get a session for the HTB Labs API."""
+    return aiohttp.ClientSession(headers={"Authorization": f"Bearer {settings.HTB_API_KEY}"})
+
+
+async def get_user_details(labs_id: int | str) -> dict:
+    """Get user details from HTB."""
+
+    if not labs_id:
+        return {}
+    
+    user_profile_api_url = f"{settings.API_V4_URL}/user/profile/basic/{labs_id}"
+    user_content_api_url = f"{settings.API_V4_URL}/user/profile/content/{labs_id}"
+
+    async with get_labs_session() as session:
+        async with session.get(user_profile_api_url) as r:
             if r.status == 200:
-                response = await r.json()
-            elif r.status == 404:
-                logger.debug(
-                    "Account identifier has been regenerated since last identification. Cannot re-verify."
-                )
-                response = None
+                profile_response = await r.json()
             else:
                 logger.error(
-                    f"Non-OK HTTP status code returned from identifier lookup: {r.status}."
+                    f"Non-OK HTTP status code returned from user details lookup: {r.status}."
                 )
-                response = None
+                profile_response = {}
 
-    return response
+        async with session.get(user_content_api_url) as r:
+            if r.status == 200:
+                content_response = await r.json()
+            else:
+                logger.error(
+                    f"Non-OK HTTP status code returned from user content lookup: {r.status}."
+                )
+                content_response = {}
+
+    profile = profile_response.get("profile", {})
+    profile["content"] = content_response.get("profile", {}).get("content", {})
+    return profile
 
 
 async def get_season_rank(htb_uid: int) -> str | None:
     """Get season rank from HTB."""
-    headers = {"Authorization": f"Bearer {settings.HTB_API_KEY}"}
     season_api_url = f"{settings.API_V4_URL}/season/end/{settings.SEASON_ID}/{htb_uid}"
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(season_api_url, headers=headers) as r:
+    async with get_labs_session() as session:
+        async with session.get(season_api_url) as r:
             if r.status == 200:
                 response = await r.json()
             elif r.status == 404:
@@ -233,7 +251,11 @@ async def process_account_identification(
         bot (Bot): The bot instance.
         traits (dict[str, str] | None): Optional user traits to process.
     """
-    await member.add_roles(member.guild.get_role(settings.roles.VERIFIED), atomic=True)  # type: ignore
+    try:
+        await member.add_roles(member.guild.get_role(settings.roles.VERIFIED), atomic=True)  # type: ignore
+    except Exception as e:
+        logger.error(f"Failed to add VERIFIED role to user {member.id}: {e}")
+        # Don't raise - continue with other operations
 
     nickname_changed = False
 
@@ -248,81 +270,222 @@ async def process_account_identification(
         )
 
     if traits.get("mp_user_id"):
-        htb_user_details = await get_user_details(traits.get("mp_user_id")) or {}  # type: ignore
-        await process_labs_identification(htb_user_details, member, bot)  # type: ignore
+        try:
+            logger.debug(f"MP user ID: {traits.get('mp_user_id', None)}")
+            htb_user_details = await get_user_details(traits.get("mp_user_id", None))
+            if htb_user_details:
+                await process_labs_identification(htb_user_details, member, bot)  # type: ignore
 
-        if not nickname_changed:
-            logger.debug(
-                f"Falling back on HTB username to set nickname for {member.name} with ID {member.id}."
-            ) 
-            await _set_nickname(member, htb_user_details["username"])
+                if not nickname_changed and htb_user_details.get("username"):
+                    logger.debug(
+                        f"Falling back on HTB username to set nickname for {member.name} with ID {member.id}."
+                    ) 
+                    await _set_nickname(member, htb_user_details["username"])
+        except Exception as e:
+            logger.error(f"Failed to process labs identification for user {member.id}: {e}")
+            # Don't raise - this is not critical
 
     if traits.get("banned", False) == True:  # noqa: E712 - explicit bool only, no truthiness
-        await _handle_banned_user(member, bot)
-        return
+        try:
+            logger.debug(f"Handling banned user {member.id}")
+            await _handle_banned_user(member, bot)
+            return
+        except Exception as e:
+            logger.error(f"Failed to handle banned user {member.id}: {e}")
+            logger.exception(traceback.format_exc())
+            # Don't raise - continue processing
 
 
 async def process_labs_identification(
-    htb_user_details: Dict[str, str], user: Optional[Member | User], bot: Bot
+    htb_user_details: dict, user: Optional[Member | User], bot: Bot
 ) -> Optional[List[Role]]:
     """Returns roles to assign if identification was successfully processed."""
-    htb_uid = int(htb_user_details["user_id"])
+    
+    # Resolve member and guild
+    member, guild = await _resolve_member_and_guild(user, bot)
+    
+    # Get roles to remove and assign
+    to_remove = _get_roles_to_remove(member, guild)
+    to_assign = await _process_role_assignments(htb_user_details, guild)
+    
+    # Remove roles that will be reassigned
+    to_remove = list(set(to_remove) - set(to_assign))
+    
+    # Apply role changes
+    await _apply_role_changes(member, to_remove, to_assign)
+    
+    return to_assign
+
+
+async def _resolve_member_and_guild(
+    user: Optional[Member | User], bot: Bot
+) -> tuple[Member, Guild]:
+    """Resolve member and guild from user object."""
     if isinstance(user, Member):
-        member = user
-        guild = member.guild
-    # This will only work if the user and the bot share only one guild.
-    elif isinstance(user, User) and len(user.mutual_guilds) == 1:
+        return user, user.guild
+    
+    if isinstance(user, User) and len(user.mutual_guilds) == 1:
         guild = user.mutual_guilds[0]
         member = await bot.get_member_or_user(guild, user.id)
         if not member:
             raise MemberNotFound(str(user.id))
-    else:
-        raise GuildNotFound(f"Could not identify member {user} in guild.")
+        return member, guild  # type: ignore
+    
+    raise GuildNotFound(f"Could not identify member {user} in guild.")
 
+
+def _get_roles_to_remove(member: Member, guild: Guild) -> list[Role]:
+    """Get existing roles that should be removed."""
     to_remove = []
-    for role in member.roles:  # type: ignore
-        if role.id in (settings.role_groups.get("ALL_RANKS") or []) + (settings.role_groups.get("ALL_POSITIONS") or []):
-            to_remove.append(guild.get_role(role.id))
+    try:
+        all_ranks = settings.role_groups.get("ALL_RANKS", [])
+        all_positions = settings.role_groups.get("ALL_POSITIONS", [])
+        removable_role_ids = all_ranks + all_positions
+        
+        for role in member.roles:
+            if role.id in removable_role_ids:
+                guild_role = guild.get_role(role.id)
+                if guild_role:
+                    to_remove.append(guild_role)
+    except Exception as e:
+        logger.error(f"Error processing existing roles for user {member.id}: {e}")
+    return to_remove
 
+
+async def _process_role_assignments(
+    htb_user_details: dict, guild: Guild
+) -> list[Role]:
+    """Process role assignments based on HTB user details."""
     to_assign = []
-    if htb_user_details["rank"] not in [
-        "Deleted",
-        "Moderator",
-        "Ambassador",
-        "Admin",
-        "Staff",
-    ]:
-        to_assign.append(
-            guild.get_role(settings.get_post_or_rank(htb_user_details["rank"]) or -1)
-        )
-
-    season_rank = await get_season_rank(htb_uid)
-    if isinstance(season_rank, str):
-        to_assign.append(guild.get_role(settings.get_season(season_rank) or -1))
-
-    if htb_user_details["vip"]:
-        to_assign.append(guild.get_role(settings.roles.VIP))
-    if htb_user_details["dedivip"]:
-        to_assign.append(guild.get_role(settings.roles.VIP_PLUS))
-    if htb_user_details["hof_position"] != "unranked":
-        position = int(htb_user_details["hof_position"])
-        pos_top = None
-        if position == 1:
-            pos_top = "1"
-        elif position <= 10:
-            pos_top = "10"
-        if pos_top:
-            to_assign.append(guild.get_role(settings.get_post_or_rank(pos_top) or -1))
-    if htb_user_details["machines"]:
-        to_assign.append(guild.get_role(settings.roles.BOX_CREATOR))
-    if htb_user_details["challenges"]:
-        to_assign.append(guild.get_role(settings.roles.CHALLENGE_CREATOR))
-
-    # We don't need to remove any roles that are going to be assigned again
-    to_remove = list(set(to_remove) - set(to_assign))
-    if to_remove:
-        await member.remove_roles(*to_remove, atomic=True)  # type: ignore
-    if to_assign:
-        await member.add_roles(*to_assign, atomic=True)  # type: ignore
-
+    
+    # Process rank roles
+    to_assign.extend(_process_rank_roles(htb_user_details.get("rank", ""), guild))
+    
+    # Process season rank roles
+    to_assign.extend(await _process_season_rank_roles(htb_user_details.get("id", ""), guild))
+    
+    # Process VIP roles
+    to_assign.extend(_process_vip_roles(htb_user_details, guild))
+    
+    # Process HOF position roles
+    to_assign.extend(_process_hof_position_roles(htb_user_details.get("ranking", "unranked"), guild))
+    
+    # Process creator roles
+    to_assign.extend(_process_creator_roles(htb_user_details.get("content", {}), guild))
+    
     return to_assign
+
+
+def _process_rank_roles(rank: str, guild: Guild) -> list[Role]:
+    """Process rank-based role assignments."""
+    roles = []
+    
+    if rank and rank not in ["Deleted", "Moderator", "Ambassador", "Admin", "Staff"]:
+        role_id = settings.get_post_or_rank(rank)
+        if role_id:
+            role = guild.get_role(role_id)
+            if role:
+                roles.append(role)
+    
+    return roles
+
+
+async def _process_season_rank_roles(mp_user_id: int, guild: Guild) -> list[Role]:
+    """Process season rank role assignments."""
+    roles = []
+    try:
+        season_rank = await get_season_rank(mp_user_id)
+        if isinstance(season_rank, str):
+            season_role_id = settings.get_season(season_rank)
+            if season_role_id:
+                season_role = guild.get_role(season_role_id)
+                if season_role:
+                    roles.append(season_role)
+    except Exception as e:
+        logger.error(f"Error getting season rank for user {mp_user_id}: {e}")
+    return roles
+
+
+def _process_vip_roles(htb_user_details: dict, guild: Guild) -> list[Role]:
+    """Process VIP role assignments."""
+    roles = []
+    try:
+        if htb_user_details.get("isVip", False):
+            vip_role = guild.get_role(settings.roles.VIP)
+            if vip_role:
+                roles.append(vip_role)
+        
+        if htb_user_details.get("isDedicatedVip", False):
+            vip_plus_role = guild.get_role(settings.roles.VIP_PLUS)
+            if vip_plus_role:
+                roles.append(vip_plus_role)
+    except Exception as e:
+        logger.error(f"Error processing VIP roles: {e}")
+    return roles
+
+
+def _process_hof_position_roles(htb_user_ranking: str | int, guild: Guild) -> list[Role]:
+    """Process Hall of Fame position role assignments."""
+    roles = []
+    try:
+        hof_position = htb_user_ranking or "unranked"
+        logger.debug(f"HTB user ranking: {hof_position}")
+        if hof_position != "unranked":
+            position = int(hof_position)
+            pos_top = _get_position_tier(position)
+            
+            if pos_top:
+                pos_role_id = settings.get_post_or_rank(pos_top)
+                if pos_role_id:
+                    pos_role = guild.get_role(pos_role_id)
+                    if pos_role:
+                        roles.append(pos_role)
+    except (ValueError, TypeError) as e:
+        logger.error(f"Error processing HOF position: {e}")
+    return roles
+
+
+def _get_position_tier(position: int) -> Optional[str]:
+    """Get position tier based on HOF position."""
+    if position == 1:
+        return "1"
+    elif position <= 10:
+        return "10"
+    return None
+
+
+def _process_creator_roles(htb_user_content: dict, guild: Guild) -> list[Role]:
+    """Process creator role assignments."""
+    roles = []
+    try:
+        if htb_user_content.get("machines"):
+            box_creator_role = guild.get_role(settings.roles.BOX_CREATOR)
+            if box_creator_role:
+                logger.debug("Adding box creator role to user.")
+                roles.append(box_creator_role)
+        
+        if htb_user_content.get("challenges"):
+            challenge_creator_role = guild.get_role(settings.roles.CHALLENGE_CREATOR)
+            if challenge_creator_role:
+                logger.debug("Adding challenge creator role to user.")
+                roles.append(challenge_creator_role)
+    except Exception as e:
+        logger.error(f"Error processing creator roles: {e}")
+    return roles
+
+
+async def _apply_role_changes(
+    member: Member, to_remove: list[Role], to_assign: list[Role]
+) -> None:
+    """Apply role changes to member."""
+    try:
+        if to_remove:
+            await member.remove_roles(*to_remove, atomic=True)
+    except Exception as e:
+        logger.error(f"Error removing roles from user {member.id}: {e}")
+    
+    try:
+        if to_assign:
+            await member.add_roles(*to_assign, atomic=True)
+    except Exception as e:
+        logger.error(f"Error adding roles to user {member.id}: {e}")
