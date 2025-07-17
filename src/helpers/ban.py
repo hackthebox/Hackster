@@ -302,8 +302,13 @@ async def ban_member_with_epoch(
         moderator_id=author.id,
         date=datetime.now().date(),
     )
+
     ban_id, is_existing = await _get_ban_or_create(member, ban, infraction)
     if is_existing:
+        try:
+            await guild.ban(member, reason=reason, delete_message_seconds=0)
+        except NotFound:
+            pass
         return SimpleResponse(
             message=f"A ban with id: {ban_id} already exists for member {member}",
             delete_after=None,
