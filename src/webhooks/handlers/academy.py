@@ -1,76 +1,50 @@
-import logging
-
 from discord import Bot
-from discord.errors import NotFound
-from fastapi import HTTPException
 
 from src.core import settings
+from src.webhooks.handlers.base import BaseHandler
 from src.webhooks.types import WebhookBody, WebhookEvent
 
-logger = logging.getLogger(__name__)
 
+class AcademyHandler(BaseHandler):
+    async def handle(self, body: WebhookBody, bot: Bot):
+        """
+        Handles incoming webhook events and performs actions accordingly.
 
-async def handler(body: WebhookBody, bot: Bot) -> dict:
-    """
-    Handles incoming webhook events and performs actions accordingly.
+        This function processes different webhook events originating from the
+        HTB Account.
+        """
+        if body.event == WebhookEvent.CERTIFICATE_AWARDED:
+            return await self._handle_certificate_awarded(body, bot)
+        else:
+            raise ValueError(f"Invalid event: {body.event}")
 
-    This function processes different webhook events related to account linking,
-    certificate awarding, and account unlinking. It updates the member's roles
-    based on the received event.
+    async def _handle_certificate_awarded(self, body: WebhookBody, bot: Bot) -> dict:
+        """
+        Handles the certificate awarded event.
+        """
+        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
+        _ = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        certificate_id = self.validate_property(
+            self.get_property_or_trait(body, "certificate_id"), "certificate_id"
+        )
 
-    Args:
-        body (WebhookBody): The data received from the webhook.
-        bot (Bot): The instance of the Discord bot.
+        self.logger.info(f"Handling certificate awarded event for {discord_id} with certificate {certificate_id}")
 
-    Returns:
-        dict: A dictionary with a "success" key indicating whether the operation was successful.
+        member = await self.get_guild_member(discord_id, bot)
+        certificate_role_id = settings.get_academy_cert_role(int(certificate_id))
 
-    Raises:
-        HTTPException: If an error occurs while processing the webhook event.
-    """
-    # TODO: Change it here so we pass the guild instead of the bot  # noqa: T000
-    guild = await bot.fetch_guild(settings.guild_ids[0])
+        if not certificate_role_id:
+            self.logger.warning(f"No certificate role found for certificate {certificate_id}")
+            return self.fail()
 
-    try:
-        discord_id = int(body.data["discord_id"])
-        member = await guild.fetch_member(discord_id)
-    except ValueError as exc:
-        logger.debug("Invalid Discord ID", exc_info=exc)
-        raise HTTPException(status_code=400, detail="Invalid Discord ID") from exc
-    except NotFound as exc:
-        logger.debug("User is not in the Discord server", exc_info=exc)
-        raise HTTPException(status_code=400, detail="User is not in the Discord server") from exc
+        if certificate_role_id:
+            self.logger.info(f"Adding certificate role {certificate_role_id} to member {member.id}")
+            try:
+                await member.add_roles(
+                    bot.guilds[0].get_role(certificate_role_id), atomic=True  # type: ignore
+                )  # type: ignore
+            except Exception as e:
+                self.logger.error(f"Error adding certificate role {certificate_role_id} to member {member.id}: {e}")
+                raise e
 
-    if body.event == WebhookEvent.ACCOUNT_LINKED:
-        roles_to_add = {settings.roles.ACADEMY_USER}
-        roles_to_add.update(settings.get_academy_cert_role(cert["id"]) for cert in body.data["certifications"])
-
-        # Filter out invalid role IDs
-        role_ids_to_add = {role_id for role_id in roles_to_add if role_id is not None}
-        roles_to_add = {guild.get_role(role_id) for role_id in role_ids_to_add}
-
-        await member.add_roles(*roles_to_add, atomic=True)
-    elif body.event == WebhookEvent.CERTIFICATE_AWARDED:
-        cert_id = body.data["certification"]["id"]
-
-        role = settings.get_academy_cert_role(cert_id)
-        if not role:
-            logger.debug(f"Role for certification: {cert_id} does not exist")
-            raise HTTPException(status_code=400, detail=f"Role for certification: {cert_id} does not exist")
-
-        await member.add_roles(role, atomic=True)
-    elif body.event == WebhookEvent.ACCOUNT_UNLINKED:
-        current_role_ids = {role.id for role in member.roles}
-        cert_role_ids = {settings.get_academy_cert_role(cert_id) for _, cert_id in settings.academy_certificates}
-
-        common_role_ids = current_role_ids.intersection(cert_role_ids)
-
-        role_ids_to_remove = {settings.roles.ACADEMY_USER}.union(common_role_ids)
-        roles_to_remove = {guild.get_role(role_id) for role_id in role_ids_to_remove}
-
-        await member.remove_roles(*roles_to_remove, atomic=True)
-    else:
-        logger.debug(f"Event {body.event} not implemented")
-        raise HTTPException(status_code=501, detail=f"Event {body.event} not implemented")
-
-    return {"success": True}
+        return self.success()
