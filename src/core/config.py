@@ -87,6 +87,7 @@ class AcademyCertificates(BaseSettings):
     CERTIFIED_DEFENSIVE_SECURITY_ANALYST = 4
     CERTIFIED_WEB_EXPLOITATION_EXPERT = 5
     CERTIFIED_ACTIVEDIRECTORY_PENTESTING_EXPERT = 6
+    CERTIFIED_JUNIOR_CYBERSECURITY_ASSOCIATE = 7
 
 
 class Roles(BaseSettings):
@@ -135,6 +136,7 @@ class Roles(BaseSettings):
     ACADEMY_CDSA: int
     ACADEMY_CWEE: int
     ACADEMY_CAPE: int
+    ACADEMY_CJCA: int
     # Joinable roles
     UNICTF2022: int
     BIZCTF2022: int
@@ -225,7 +227,8 @@ class Global(BaseSettings):
             self.academy_certificates.CERTIFIED_PENETRATION_TESTING_SPECIALIST: self.roles.ACADEMY_CPTS,
             self.academy_certificates.CERTIFIED_DEFENSIVE_SECURITY_ANALYST: self.roles.ACADEMY_CDSA,
             self.academy_certificates.CERTIFIED_WEB_EXPLOITATION_EXPERT: self.roles.ACADEMY_CWEE,
-            self.academy_certificates.CERTIFIED_ACTIVEDIRECTORY_PENTESTING_EXPERT: self.roles.ACADEMY_CAPE
+            self.academy_certificates.CERTIFIED_ACTIVEDIRECTORY_PENTESTING_EXPERT: self.roles.ACADEMY_CAPE,
+            self.academy_certificates.CERTIFIED_JUNIOR_CYBERSECURITY_ASSOCIATE: self.roles.ACADEMY_CJCA
         }.get(certificate)
 
     def get_post_or_rank(self, what: str) -> Optional[int]:
@@ -260,7 +263,8 @@ class Global(BaseSettings):
             "CBBH": self.roles.ACADEMY_CBBH,
             "CDSA": self.roles.ACADEMY_CDSA,
             "CWEE": self.roles.ACADEMY_CWEE,
-            "CAPE": self.roles.ACADEMY_CAPE
+            "CAPE": self.roles.ACADEMY_CAPE,
+            "CJCA": self.roles.ACADEMY_CJCA
         }.get(what)
 
     class Config:
