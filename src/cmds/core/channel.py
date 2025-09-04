@@ -60,7 +60,7 @@ class ChannelCog(commands.Cog):
         count: Option(int, "How many messages to delete", required=True, default=5),
     ) -> Interaction | WebhookMessage:
         """Removes the past X messages!"""
-        await ctx.channel.purge(limit=count + 1, bulk=True, check=lambda m: m != ctx.message)
+        await ctx.channel.purge(limit=count, bulk=True, check=lambda m: m != ctx.message)
         # Don't delete the command that triggered this deletion
         return await ctx.respond(f"Deleted {count} messages.", ephemeral=True)
 
