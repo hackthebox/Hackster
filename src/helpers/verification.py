@@ -205,7 +205,14 @@ async def process_identification(
                 "role_obj": guild.get_role(settings.roles.CHALLENGE_CREATOR),
             }, )
         to_assign.append(guild.get_role(settings.roles.CHALLENGE_CREATOR))
-
+    if htb_user_details["sherlocks"]:
+        logger.debug(
+            'Getting role "SHERLOCK_CREATOR":', extra={
+                "role_id": settings.roles.SHERLOCK_CREATOR,
+                "role_obj": guild.get_role(settings.roles.SHERLOCK__CREATOR),
+            }, )
+        to_assign.append(guild.get_role(settings.roles.SHERLOCK_CREATOR))
+        
     if member.nick != htb_user_details["user_name"]:
         try:
             await member.edit(nick=htb_user_details["user_name"])
