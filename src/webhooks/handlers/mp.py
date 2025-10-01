@@ -25,6 +25,8 @@ class MPHandler(BaseHandler):
             return await self._handle_rank_up(body, bot)
         elif body.event == WebhookEvent.SUBSCRIPTION_CHANGE:
             return await self._handle_subscription_change(body, bot)
+        elif body.event == WebhookEvent.SEASON_RANK_CHANGE:
+            return await self._handle_season_rank(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
 
