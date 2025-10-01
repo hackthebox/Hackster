@@ -52,10 +52,15 @@ class MPHandler(BaseHandler):
         Handles the HOF change event.
         """
         self.logger.info("Handling HOF change event.")
-        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
-        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        discord_id = self.validate_discord_id(
+            self.get_property_or_trait(body, "discord_id")
+        )
+        account_id = self.validate_account_id(
+            self.get_property_or_trait(body, "account_id")
+        )
         hof_tier: Literal["1", "10"] = self.validate_property(
-            self.get_property_or_trait(body, "hof_tier"), "hof_tier"  # type: ignore
+            self.get_property_or_trait(body, "hof_tier"),
+            "hof_tier",  # type: ignore
         )
         hof_roles = {
             "1": bot.guilds[0].get_role(settings.roles.RANK_ONE),
@@ -119,8 +124,12 @@ class MPHandler(BaseHandler):
         """
         Handles the rank up event.
         """
-        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
-        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        discord_id = self.validate_discord_id(
+            self.get_property_or_trait(body, "discord_id")
+        )
+        account_id = self.validate_account_id(
+            self.get_property_or_trait(body, "account_id")
+        )
         rank = self.validate_property(self.get_property_or_trait(body, "rank"), "rank")
 
         member = await self.get_guild_member(discord_id, bot)
@@ -138,7 +147,7 @@ class MPHandler(BaseHandler):
             )
             raise err
 
-        rank_role = bot.guilds[0].get_role(rank_id) 
+        rank_role = bot.guilds[0].get_role(rank_id)
         rank_roles = [
             bot.guilds[0].get_role(int(r)) for r in settings.role_groups["ALL_RANKS"]
         ]  # All rank roles
@@ -148,6 +157,9 @@ class MPHandler(BaseHandler):
         old_role = next(
             (r for r in member.roles if r in rank_roles), None
         )  # Find existing rank role on user
+
+        if old_role == new_role:
+            return self.success()
 
         if old_role:
             await member.remove_roles(old_role, atomic=True)  # Yeet the old role
@@ -167,6 +179,54 @@ class MPHandler(BaseHandler):
                 },
             )
             raise err
+
+        return self.success()
+
+    async def _handle_season_rank(self, body: WebhookBody, bot: Bot) -> dict:
+        """
+        Handles the season rank event.
+        """
+        discord_id = self.validate_discord_id(
+            self.get_property_or_trait(body, "discord_id")
+        )
+        account_id = self.validate_account_id(
+            self.get_property_or_trait(body, "account_id")
+        )
+        season_rank = self.validate_property(
+            self.get_property_or_trait(body, "season_rank"), "season_rank"
+        )
+
+        season_role = settings.get_season(season_rank)
+        if not season_role:
+            err = ValueError(f"Cannot find role for '{season_rank}'")
+            self.logger.error(
+                err,
+                extra={
+                    "account_id": account_id,
+                    "discord_id": discord_id,
+                    "season_rank": season_rank,
+                },
+            )
+            raise err
+
+        member = await self.get_guild_member(discord_id, bot)
+
+        all_season_roles = [
+            bot.guilds[0].get_role(int(r)) for r in settings.role_groups["ALL_SEASON_RANKS"]
+        ]
+        new_role = next(
+            (r for r in all_season_roles if r and r.id == season_role.id), None
+        )
+        old_role = next((r for r in member.roles if r in all_season_roles), None)
+
+        if old_role == new_role:
+            return self.success()
+
+        if old_role:
+            await member.remove_roles(old_role, atomic=True)
+
+        if new_role:
+            await member.add_roles(new_role, atomic=True)
 
         return self.success()
 
