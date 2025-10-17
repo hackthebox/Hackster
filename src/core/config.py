@@ -82,7 +82,7 @@ class Channels(BaseSettings):
 
 
 class AcademyCertificates(BaseSettings):
-    CERTIFIED_BUG_BOUNTY_HUNTER = 2
+    CERTIFIED_WEB_EXPLOITATION_SPECIALIST = 2
     CERTIFIED_PENETRATION_TESTING_SPECIALIST = 3
     CERTIFIED_DEFENSIVE_SECURITY_ANALYST = 4
     CERTIFIED_WEB_EXPLOITATION_EXPERT = 5
@@ -132,7 +132,7 @@ class Roles(BaseSettings):
     SEASON_BRONZE: int
     # Academy
     ACADEMY_USER: int
-    ACADEMY_CBBH: int
+    ACADEMY_CWES: int
     ACADEMY_CPTS: int
     ACADEMY_CDSA: int
     ACADEMY_CWEE: int
@@ -224,7 +224,7 @@ class Global(BaseSettings):
 
     def get_academy_cert_role(self, certificate: int) -> int:
         return {
-            self.academy_certificates.CERTIFIED_BUG_BOUNTY_HUNTER: self.roles.ACADEMY_CBBH,
+            self.academy_certificates.CERTIFIED_WEB_EXPLOITATION_SPECIALIST: self.roles.ACADEMY_CWES,
             self.academy_certificates.CERTIFIED_PENETRATION_TESTING_SPECIALIST: self.roles.ACADEMY_CPTS,
             self.academy_certificates.CERTIFIED_DEFENSIVE_SECURITY_ANALYST: self.roles.ACADEMY_CDSA,
             self.academy_certificates.CERTIFIED_WEB_EXPLOITATION_EXPERT: self.roles.ACADEMY_CWEE,
@@ -261,7 +261,8 @@ class Global(BaseSettings):
     def get_cert(self, what: str):
         return {
             "CPTS": self.roles.ACADEMY_CPTS,
-            "CBBH": self.roles.ACADEMY_CBBH,
+            "CWES": self.roles.ACADEMY_CWES,
+            "CBBH": self.roles.ACADEMY_CWES,  # For legacy reasons
             "CDSA": self.roles.ACADEMY_CDSA,
             "CWEE": self.roles.ACADEMY_CWEE,
             "CAPE": self.roles.ACADEMY_CAPE,

@@ -213,9 +213,7 @@ class TestMPHandler:
             patch.object(handler, "validate_account_id", return_value=account_id),
             patch.object(handler, "validate_property", return_value=rank),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
-            patch("src.webhooks.handlers.mp.settings") as mock_settings,
         ):
-            mock_settings.role_groups = {"ALL_RANKS": [555]}
             mock_guild = helpers.MockGuild(id=1)
             mock_guild.get_role.return_value = None
             bot.guilds = [mock_guild]
