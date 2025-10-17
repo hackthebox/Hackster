@@ -24,7 +24,7 @@ class AccountHandler(BaseHandler):
             return await self._handle_account_deleted(body, bot)
         elif body.event == WebhookEvent.ACCOUNT_BANNED:
             return await self._handle_account_banned(body, bot)
-        elif body.event == WebhookEvent.NAME_CHANGED:
+        elif body.event == WebhookEvent.NAME_CHANGE:
             return await self._handle_name_change(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
