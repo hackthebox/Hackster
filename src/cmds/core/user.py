@@ -256,7 +256,7 @@ class UserCog(commands.Cog):
         for m in ctx.guild.members:
             if not m.bot:
                 members += 1
-                if len(m.roles) > 1:
+                if len(m.roles) >= 1:
                     verified_members += 1
             else:
                 bots_count += 1
