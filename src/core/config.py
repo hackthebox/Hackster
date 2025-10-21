@@ -119,6 +119,7 @@ class Roles(BaseSettings):
     # Content Creation
     CHALLENGE_CREATOR: int
     BOX_CREATOR: int
+    SHERLOCK_CREATOR: int
 
     # Positions
     RANK_ONE: int
@@ -247,6 +248,7 @@ class Global(BaseSettings):
             "dedivip": self.roles.VIP_PLUS,
             "Challenge Creator": self.roles.CHALLENGE_CREATOR,
             "Box Creator": self.roles.BOX_CREATOR,
+            "Sherlock Creator": self.roles.SHERLOCK_CREATOR,
         }.get(what)
 
     def get_season(self, what: str):
@@ -347,6 +349,7 @@ def load_settings(env_file: str | None = None):
         "ALL_CREATORS": [
             global_settings.roles.BOX_CREATOR,
             global_settings.roles.CHALLENGE_CREATOR,
+            global_settings.roles.SHERLOCK_CREATOR,
         ],
         "ALL_POSITIONS": [
             global_settings.roles.RANK_ONE,

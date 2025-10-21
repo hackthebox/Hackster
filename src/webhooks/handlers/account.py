@@ -33,12 +33,8 @@ class AccountHandler(BaseHandler):
         """
         Handles the account linked event.
         """
-        discord_id = self.validate_discord_id(
-            self.get_property_or_trait(body, "discord_id")
-        )
-        account_id = self.validate_account_id(
-            self.get_property_or_trait(body, "account_id")
-        )
+        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
+        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
 
         member = await self.get_guild_member(discord_id, bot)
         await process_account_identification(
@@ -55,9 +51,7 @@ class AccountHandler(BaseHandler):
                     f"Account linked: {account_id} -> ({member.mention} ({member.id})",
                 )
             else:
-                self.logger.warning(
-                    f"Verify logs channel {settings.channels.VERIFY_LOGS} not found"
-                )
+                self.logger.warning(f"Verify logs channel {settings.channels.VERIFY_LOGS} not found")
         except Exception as e:
             self.logger.error(f"Failed to send verification log: {e}")
             # Don't raise - this is not critical
@@ -73,17 +67,14 @@ class AccountHandler(BaseHandler):
         """
         Handles the account unlinked event.
         """
-        discord_id = self.validate_discord_id(
-            self.get_property_or_trait(body, "discord_id")
-        )
-        account_id = self.validate_account_id(
-            self.get_property_or_trait(body, "account_id")
-        )
+        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
+        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
 
         member = await self.get_guild_member(discord_id, bot)
 
         await member.remove_roles(
-            bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True  # type: ignore
+            bot.guilds[0].get_role(settings.roles.VERIFIED),
+            atomic=True,  # type: ignore
         )  # type: ignore
 
         return self.success()
@@ -104,15 +95,9 @@ class AccountHandler(BaseHandler):
         """
         Handles the account banned event.
         """
-        discord_id = self.validate_discord_id(
-            self.get_property_or_trait(body, "discord_id")
-        )
-        account_id = self.validate_account_id(
-            self.get_property_or_trait(body, "account_id")
-        )
-        expires_at = self.validate_property(
-            self.get_property_or_trait(body, "expires_at"), "expires_at"
-        )
+        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
+        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        expires_at = self.validate_property(self.get_property_or_trait(body, "expires_at"), "expires_at")
         reason = body.properties.get("reason")
         notes = body.properties.get("notes")
         created_by = body.properties.get("created_by")
@@ -122,9 +107,7 @@ class AccountHandler(BaseHandler):
 
         member = await self.get_guild_member(discord_id, bot)
         if not member:
-            self.logger.warning(
-                f"Cannot ban user {discord_id}- not found in guild", extra=extra
-            )
+            self.logger.warning(f"Cannot ban user {discord_id}- not found in guild", extra=extra)
             return self.fail()
 
         # Use the generic ban helper to handle all the complex logic
@@ -142,9 +125,7 @@ class AccountHandler(BaseHandler):
             extra_log_data=extra,
         )
 
-        self.logger.debug(
-            f"Platform ban handling result: {result['action']}", extra=extra
-        )
+        self.logger.debug(f"Platform ban handling result: {result['action']}", extra=extra)
 
         return self.success()
 
@@ -164,7 +145,8 @@ class AccountHandler(BaseHandler):
             return self.fail()
 
         await member.remove_roles(
-            bot.guilds[0].get_role(settings.roles.VERIFIED), atomic=True  # type: ignore
+            bot.guilds[0].get_role(settings.roles.VERIFIED),
+            atomic=True,  # type: ignore
         )  # type: ignore
 
         return self.success()

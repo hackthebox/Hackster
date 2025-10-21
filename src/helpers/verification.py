@@ -473,6 +473,12 @@ def _process_creator_roles(htb_user_content: dict, guild: Guild) -> list[Role]:
             if challenge_creator_role:
                 logger.debug("Adding challenge creator role to user.")
                 roles.append(challenge_creator_role)
+        
+        if htb_user_content.get("sherlocks"):
+            sherlock_creator_role = guild.get_role(settings.roles.SHERLOCK_CREATOR)
+            if sherlock_creator_role:
+                logger.debug("Adding sherlock creator role to user.")
+                roles.append(sherlock_creator_role)
     except Exception as e:
         logger.error(f"Error processing creator roles: {e}")
     return roles
