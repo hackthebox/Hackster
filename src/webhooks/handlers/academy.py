@@ -22,8 +22,7 @@ class AcademyHandler(BaseHandler):
         """
         Handles the certificate awarded event.
         """
-        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
-        _ = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        discord_id, _ = self.validate_common_properties(body)
         certificate_id = self.validate_property(
             self.get_property_or_trait(body, "certificate_id"), "certificate_id"
         )

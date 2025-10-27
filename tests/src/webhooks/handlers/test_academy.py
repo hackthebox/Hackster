@@ -26,8 +26,7 @@ class TestAcademyHandler:
             traits={},
         )
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=certificate_id),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.academy.settings") as mock_settings,
@@ -60,8 +59,7 @@ class TestAcademyHandler:
             traits={},
         )
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=certificate_id),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.academy.settings") as mock_settings,

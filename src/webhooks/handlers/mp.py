@@ -1,10 +1,6 @@
-import discord
-
-from datetime import datetime
 from discord import Bot, Member, Role
 
 from typing import Literal
-from sqlalchemy import select
 
 from src.core import settings
 from src.webhooks.handlers.base import BaseHandler
@@ -34,19 +30,21 @@ class MPHandler(BaseHandler):
         """
         Handles the subscription change event.
         """
-        discord_id = self.validate_discord_id(body.properties.get("discord_id"))
-        _ = self.validate_account_id(body.properties.get("account_id"))
+        discord_id, _ = self.validate_common_properties(body)
         subscription_name = self.validate_property(
             body.properties.get("subscription_name"), "subscription_name"
         )
 
         member = await self.get_guild_member(discord_id, bot)
 
-        role = settings.get_post_or_rank(subscription_name)
-        if not role:
+        subscription_id = settings.get_post_or_rank(subscription_name)
+        if not subscription_id:
             raise ValueError(f"Invalid subscription name: {subscription_name}")
 
-        await member.add_roles(bot.guilds[0].get_role(role), atomic=True)  # type: ignore
+        # Use the base handler's role swapping method
+        role_group = [int(r) for r in settings.role_groups["ALL_LABS_SUBSCRIPTIONS"]]
+        await self.swap_role_in_group(member, subscription_id, role_group, bot)
+
         return self.success()
 
     async def _handle_hof_change(self, body: WebhookBody, bot: Bot) -> dict:
@@ -54,12 +52,7 @@ class MPHandler(BaseHandler):
         Handles the HOF change event.
         """
         self.logger.info("Handling HOF change event.")
-        discord_id = self.validate_discord_id(
-            self.get_property_or_trait(body, "discord_id")
-        )
-        account_id = self.validate_account_id(
-            self.get_property_or_trait(body, "account_id")
-        )
+        discord_id, account_id = self.validate_common_properties(body)
         hof_tier: Literal["1", "10"] = self.validate_property(
             self.get_property_or_trait(body, "hof_tier"),
             "hof_tier",  # type: ignore
@@ -126,12 +119,7 @@ class MPHandler(BaseHandler):
         """
         Handles the rank up event.
         """
-        discord_id = self.validate_discord_id(
-            self.get_property_or_trait(body, "discord_id")
-        )
-        account_id = self.validate_account_id(
-            self.get_property_or_trait(body, "account_id")
-        )
+        discord_id, account_id = self.validate_common_properties(body)
         rank = self.validate_property(self.get_property_or_trait(body, "rank"), "rank")
 
         member = await self.get_guild_member(discord_id, bot)
@@ -149,38 +137,12 @@ class MPHandler(BaseHandler):
             )
             raise err
 
-        rank_role = bot.guilds[0].get_role(rank_id)
-        rank_roles = [
-            bot.guilds[0].get_role(int(r)) for r in settings.role_groups["ALL_RANKS"]
-        ]  # All rank roles
-        new_role = next(
-            (r for r in rank_roles if r and r.id == rank_role.id), None
-        )  # Get passed rank as role from rank roles
-        old_role = next(
-            (r for r in member.roles if r in rank_roles), None
-        )  # Find existing rank role on user
-
-        if old_role == new_role:
-            return self.success()
-
-        if old_role:
-            await member.remove_roles(old_role, atomic=True)  # Yeet the old role
-
-        if new_role:
-            await member.add_roles(new_role, atomic=True)  # Add the new role
-
-        if not new_role:
-            # Why are you passing me BS roles?
-            err = ValueError(f"Cannot find role for '{rank}'")
-            self.logger.error(
-                err,
-                extra={
-                    "account_id": account_id,
-                    "discord_id": discord_id,
-                    "rank": rank,
-                },
-            )
-            raise err
+        # Use the base handler's role swapping method
+        role_group = [int(r) for r in settings.role_groups["ALL_RANKS"]]
+        changes_made = await self.swap_role_in_group(member, rank_id, role_group, bot)
+        
+        if not changes_made:
+            return self.success()  # No changes needed
 
         return self.success()
 
@@ -188,18 +150,13 @@ class MPHandler(BaseHandler):
         """
         Handles the season rank event.
         """
-        discord_id = self.validate_discord_id(
-            self.get_property_or_trait(body, "discord_id")
-        )
-        account_id = self.validate_account_id(
-            self.get_property_or_trait(body, "account_id")
-        )
+        discord_id, account_id = self.validate_common_properties(body)
         season_rank = self.validate_property(
             self.get_property_or_trait(body, "season_rank"), "season_rank"
         )
 
-        season_role = settings.get_season(season_rank)
-        if not season_role:
+        season_role_id = settings.get_season(season_rank)
+        if not season_role_id:
             err = ValueError(f"Cannot find role for '{season_rank}'")
             self.logger.error(
                 err,
@@ -213,30 +170,8 @@ class MPHandler(BaseHandler):
 
         member = await self.get_guild_member(discord_id, bot)
 
-        all_season_roles = [
-            bot.guilds[0].get_role(int(r)) for r in settings.role_groups["ALL_SEASON_RANKS"]
-        ]
-        new_role = next(
-            (r for r in all_season_roles if r and r.id == season_role.id), None
-        )
-        old_role = next((r for r in member.roles if r in all_season_roles), None)
-
-        if old_role == new_role:
-            return self.success()
-
-        if old_role:
-            await member.remove_roles(old_role, atomic=True)
-
-        if new_role:
-            await member.add_roles(new_role, atomic=True)
+        # Use the base handler's role swapping method
+        role_group = [int(r) for r in settings.role_groups["ALL_SEASON_RANKS"]]
+        await self.swap_role_in_group(member, season_role_id, role_group, bot)
 
         return self.success()
-
-    async def _find_user_with_role(self, bot: Bot, role: Role | None) -> Member | None:
-        """
-        Finds the user with the given role.
-        """
-        if not role:
-            return None
-
-        return next((m for m in role.members), None)
