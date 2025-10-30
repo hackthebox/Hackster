@@ -28,7 +28,12 @@ class MessageHandler(commands.Cog):
         # Return if the message was sent by the bot to avoid recursion.
         if ctx.author.bot:
             return
-
+        # When a user types in un-verified-bot-commands, hold their hand in finding the how-to-talk channel so they can verify.
+        if ctx.channel.id == 1430556712313688225:
+            await ctx.reply(
+                "Hello! Welcome to the Hack The Box Discord! In-order to access the full server, please verify your account by following the instructions in <#1432333413980835840>.",
+                mention_author=True,
+            )
         try:
             await self.process_reverification(ctx.author)
         except VerificationError as exc:
