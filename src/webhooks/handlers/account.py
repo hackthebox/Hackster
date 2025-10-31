@@ -33,8 +33,7 @@ class AccountHandler(BaseHandler):
         """
         Handles the account linked event.
         """
-        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
-        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        discord_id, account_id = self.validate_common_properties(body)
 
         member = await self.get_guild_member(discord_id, bot)
         await process_account_identification(
@@ -67,8 +66,7 @@ class AccountHandler(BaseHandler):
         """
         Handles the account unlinked event.
         """
-        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
-        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        discord_id, account_id = self.validate_common_properties(body)
 
         member = await self.get_guild_member(discord_id, bot)
 
@@ -95,8 +93,7 @@ class AccountHandler(BaseHandler):
         """
         Handles the account banned event.
         """
-        discord_id = self.validate_discord_id(self.get_property_or_trait(body, "discord_id"))
-        account_id = self.validate_account_id(self.get_property_or_trait(body, "account_id"))
+        discord_id, account_id = self.validate_common_properties(body)
         expires_at = self.validate_property(self.get_property_or_trait(body, "expires_at"), "expires_at")
         reason = body.properties.get("reason")
         notes = body.properties.get("notes")

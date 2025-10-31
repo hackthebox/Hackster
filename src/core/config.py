@@ -113,8 +113,12 @@ class Roles(BaseSettings):
     HACKER: int
     SCRIPT_KIDDIE: int
     NOOB: int
+
+    # Subscriptions
     VIP: int
     VIP_PLUS: int
+    SILVER_ANNUAL: int
+    GOLD_ANNUAL: int
 
     # Content Creation
     CHALLENGE_CREATOR: int
@@ -249,6 +253,8 @@ class Global(BaseSettings):
             "Challenge Creator": self.roles.CHALLENGE_CREATOR,
             "Box Creator": self.roles.BOX_CREATOR,
             "Sherlock Creator": self.roles.SHERLOCK_CREATOR,
+            "Silver Annual": self.roles.SILVER_ANNUAL,
+            "Gold Annual": self.roles.GOLD_ANNUAL,
         }.get(what)
 
     def get_season(self, what: str):
@@ -336,8 +342,6 @@ def load_settings(env_file: str | None = None):
             global_settings.roles.HACKER,
             global_settings.roles.SCRIPT_KIDDIE,
             global_settings.roles.NOOB,
-            global_settings.roles.VIP,
-            global_settings.roles.VIP_PLUS,
         ],
         "ALL_SEASON_RANKS": [
             global_settings.roles.SEASON_HOLO,
@@ -355,6 +359,14 @@ def load_settings(env_file: str | None = None):
             global_settings.roles.RANK_ONE,
             global_settings.roles.RANK_TEN,
         ],
+        "ALL_LABS_SUBSCRIPTIONS": [
+            global_settings.roles.VIP,
+            global_settings.roles.VIP_PLUS,
+        ],
+        "ALL_ACADEMY_SUBSCRIPTIONS": [
+            global_settings.roles.SILVER_ANNUAL,
+            global_settings.roles.GOLD_ANNUAL,
+        ]
     }
 
     return global_settings

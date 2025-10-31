@@ -38,18 +38,20 @@ class TestMPHandler:
             traits={},
         )
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=subscription_name),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.mp.settings") as mock_settings,
         ):
             mock_settings.get_post_or_rank.return_value = 555
+            mock_settings.role_groups = {"ALL_LABS_SUBSCRIPTIONS": [555, 666, 777]}
+            mock_role = MagicMock()
+            mock_role.id = 555
             mock_guild = helpers.MockGuild(id=1)
-            mock_guild.get_role.return_value = 555
+            mock_guild.get_role.return_value = mock_role
             bot.guilds = [mock_guild]
             result = await handler._handle_subscription_change(body, bot)
-            mock_member.add_roles.assert_awaited()
+            mock_member.add_roles.assert_awaited_once()
             assert result == handler.success()
 
     @pytest.mark.asyncio
@@ -70,8 +72,7 @@ class TestMPHandler:
             traits={},
         )
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=subscription_name),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.mp.settings") as mock_settings,
@@ -103,8 +104,7 @@ class TestMPHandler:
         mock_role_1 = MagicMock()
         mock_role_10 = MagicMock()
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=hof_tier),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.mp.settings") as mock_settings,
@@ -138,8 +138,7 @@ class TestMPHandler:
             traits={},
         )
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=hof_tier),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.mp.settings") as mock_settings,
@@ -173,14 +172,15 @@ class TestMPHandler:
             traits={},
         )
         mock_role = MagicMock()
+        mock_role.id = 555
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=rank),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.mp.settings") as mock_settings,
         ):
-            mock_settings.role_groups = {"ALL_RANKS": [555]}
+            mock_settings.get_post_or_rank.return_value = 555
+            mock_settings.role_groups = {"ALL_RANKS": [555, 666, 777]}
             mock_guild = helpers.MockGuild(id=1)
             mock_guild.get_role.return_value = mock_role
             bot.guilds = [mock_guild]
@@ -209,11 +209,12 @@ class TestMPHandler:
             traits={},
         )
         with (
-            patch.object(handler, "validate_discord_id", return_value=discord_id),
-            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
             patch.object(handler, "validate_property", return_value=rank),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
+            patch("src.webhooks.handlers.mp.settings") as mock_settings,
         ):
+            mock_settings.get_post_or_rank.return_value = None
             mock_guild = helpers.MockGuild(id=1)
             mock_guild.get_role.return_value = None
             bot.guilds = [mock_guild]
