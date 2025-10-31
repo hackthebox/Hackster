@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "Hackster"
-version = "1.4.4"
+version = "1.9.0"
 description = "Awesome hackster created by Hack The Box"
 authors = [
     "dimoschi <dimos@hackthebox.eu>",
