@@ -1,9 +1,11 @@
 ARG APP_NAME=hackster
 ARG PYTHON_VERSION=3.13.9
-ARG POETRY_VERSION=2.1.3
 
 # `python-base` sets up all our shared environment variables
 FROM python:${PYTHON_VERSION}-slim AS python-base
+
+# Poetry version used in this stage
+ARG POETRY_VERSION=2.1.3
 
 # python
 ENV \
