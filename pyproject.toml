@@ -28,6 +28,7 @@ prometheus-client = "^0.16.0"
 toml = "^0.10.2"
 slack-sdk = "^3.27.1"
 hypercorn = "^0.17.3"
+audioop-lts = "^0.2.2"
 
 [tool.poetry.group.dev.dependencies]
 colorlog = "^6.5.0"
