@@ -7,6 +7,10 @@ authors = [
     {name = "makelarisjr", email = "makelarisjr@hackthebox.eu"},
     {name = "0xEmma", email = "emma@hackthebox.eu"},
 ]
+maintainers = [
+    {name = "dimoschi", email = "dimos@hackthebox.eu"},
+    {name = "makelarisjr", email = "makelarisjr@hackthebox.eu"},
+]
 license = "MIT"
 requires-python = ">=3.13"
 dynamic = ["dependencies"]
