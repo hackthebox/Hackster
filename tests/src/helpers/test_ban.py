@@ -37,7 +37,7 @@ class TestBanHelpers:
         bot.get_member_or_user = AsyncMock()
         bot.get_member_or_user.return_value = user
         response = await _check_member(bot, guild, user, author)
-        assert await bot.get_member_or_user.called_once_with(guild, user.id)
+        bot.get_member_or_user.assert_called_once_with(guild, user.id)
         assert response is None
 
     @pytest.mark.asyncio

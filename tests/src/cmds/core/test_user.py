@@ -56,6 +56,40 @@ class TestUserCog:
             ctx.respond.assert_called_once_with("User seems to have already left the server.")
 
 
+    @pytest.mark.asyncio
+    async def test_user_stats(self, ctx, bot):
+        """Test the user_stats command displays correct statistics."""
+        # Create mock members: 3 regular users (2 verified with roles, 1 unverified), 1 bot
+        verified_member1 = helpers.MockMember(id=1, name="Verified1", bot=False)
+        verified_member1.roles = [helpers.MockRole(id=0, name="@everyone"), helpers.MockRole(id=1, name="Verified")]
+
+        verified_member2 = helpers.MockMember(id=2, name="Verified2", bot=False)
+        verified_member2.roles = [helpers.MockRole(id=0, name="@everyone"), helpers.MockRole(id=2, name="Member")]
+
+        unverified_member = helpers.MockMember(id=3, name="Unverified", bot=False)
+        unverified_member.roles = [helpers.MockRole(id=0, name="@everyone")]
+
+        bot_member = helpers.MockMember(id=4, name="BotUser", bot=True)
+
+        ctx.guild.members = [verified_member1, verified_member2, unverified_member, bot_member]
+        ctx.user = helpers.MockMember(id=100, name="Admin")
+        ctx.channel = helpers.MockTextChannel(name="admin-channel")
+
+        cog = user.UserCog(bot)
+        await cog.user_stats.callback(cog, ctx)
+
+        # Verify respond was called with an embed
+        ctx.respond.assert_called_once()
+        call_kwargs = ctx.respond.call_args[1]
+        embed = call_kwargs["embed"]
+
+        # Verify embed fields: 3 members, 2 verified (66.67%), 1 bot
+        assert embed.title == "HackTheBox Discord User Stats"
+        fields = {f.name: f.value for f in embed.fields}
+        assert fields["Members"] == "3"
+        assert fields["Bots"] == "1"
+        assert "66.67%" in fields["Verified Members"]
+
     def test_setup(self, bot):
         """Test the setup method of the cog."""
         # Invoke the command
