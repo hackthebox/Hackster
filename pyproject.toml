@@ -1,13 +1,17 @@
-[tool.poetry]
-name = "Hackster"
+[project]
+name = "hackster"
 version = "1.9.0"
 description = "Awesome hackster created by Hack The Box"
 authors = [
-    "dimoschi <dimos@hackthebox.eu>",
-    "makelarisjr <makelarisjr@hackthebox.eu>",
-    "0xEmma <emma@hackthebox.eu>"
+    {name = "dimoschi", email = "dimos@hackthebox.eu"},
+    {name = "makelarisjr", email = "makelarisjr@hackthebox.eu"},
+    {name = "0xEmma", email = "emma@hackthebox.eu"},
 ]
 license = "MIT"
+requires-python = ">=3.13"
+dynamic = ["dependencies"]
+
+[tool.poetry]
 package-mode = false
 
 [tool.poetry.dependencies]
