@@ -261,7 +261,7 @@ class UserCog(commands.Cog):
             else:
                 bots_count += 1
 
-        percent_verified = round(verified_members / members * 100)
+        percent_verified = round(verified_members / members * 100, 2)
 
         # Create embed
         embed = discord.Embed(title="HackTheBox Discord User Stats")
