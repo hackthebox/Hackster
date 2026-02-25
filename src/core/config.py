@@ -64,8 +64,9 @@ class Channels(BaseSettings):
     BOT_COMMANDS: int
     SPOILER: int
     BOT_LOGS: int
+    MINOR_REVIEW: int = 0
 
-    @validator("DEVLOG", "SR_MOD", "VERIFY_LOGS", "BOT_COMMANDS", "SPOILER", "BOT_LOGS")
+    @validator("DEVLOG", "SR_MOD", "VERIFY_LOGS", "BOT_COMMANDS", "SPOILER", "BOT_LOGS", "MINOR_REVIEW")
     def check_ids_format(cls, v: list[int]) -> list[int]:
         """Validate discord ids format."""
         if not v:
@@ -93,6 +94,7 @@ class AcademyCertificates(BaseSettings):
 class Roles(BaseSettings):
     """The roles settings."""
     VERIFIED: int
+    VERIFIED_MINOR: int
 
     # Moderation
     COMMUNITY_MANAGER: int
@@ -197,6 +199,9 @@ class Global(BaseSettings):
 
     SLACK_FEEDBACK_WEBHOOK: str = ""
     JIRA_WEBHOOK: str = ""
+
+    PARENTAL_CONSENT_CHECK_URL: str | None = None
+    PARENTAL_CONSENT_SECRET: str | None = None
 
     ROOT: Path = None
 

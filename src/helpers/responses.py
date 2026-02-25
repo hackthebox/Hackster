@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+
 class SimpleResponse(object):
     """A simple response object."""
 
@@ -11,6 +12,6 @@ class SimpleResponse(object):
 
     def __str__(self):
         return json.dumps(dict(self), ensure_ascii=False)  # type: ignore
- 
+
     def __repr__(self):
         return self.__str__()

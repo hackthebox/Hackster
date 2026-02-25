@@ -16,7 +16,7 @@ class MessageHandler(commands.Cog):
 
     async def process_reverification(self, member: Member | User) -> None:
         """Re-verifation process for a member.
-        
+
         TODO: Reimplement once it's possible to fetch link state from the HTB Account.
         """
         raise VerificationError("Not implemented")

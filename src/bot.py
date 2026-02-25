@@ -1,18 +1,33 @@
 import logging
 import socket
+from typing import TypeVar
 
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
 from discord import (
-    ApplicationContext, Cog, DiscordException, Embed, Forbidden, Guild, HTTPException, Member, NotFound, User,
+    ApplicationContext,
+    Cog,
+    DiscordException,
+    Embed,
+    Forbidden,
+    Guild,
+    HTTPException,
+    Member,
+    NotFound,
+    User,
 )
 from discord.ext.commands import Bot as DiscordBot
 from discord.ext.commands import (
-    CommandNotFound, CommandOnCooldown, DefaultHelpCommand, MissingAnyRole, MissingPermissions,
-    MissingRequiredArgument, NoPrivateMessage, UserInputError,
+    CommandNotFound,
+    CommandOnCooldown,
+    DefaultHelpCommand,
+    MissingAnyRole,
+    MissingPermissions,
+    MissingRequiredArgument,
+    NoPrivateMessage,
+    UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
-from typing import TypeVar
 
 from src import trace_config
 from src.core import constants, settings
@@ -50,7 +65,7 @@ class Bot(DiscordBot):
         if self.http_session is None:
             logger.debug("Starting the HTTP session")
             self.http_session = ClientSession(
-                connector=TCPConnector(resolver=AsyncResolver(), family=socket.AF_INET), 
+                connector=TCPConnector(resolver=AsyncResolver(), family=socket.AF_INET),
                 trace_configs=[trace_config]
             )
 

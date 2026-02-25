@@ -7,7 +7,7 @@ from discord.errors import NotFound
 from fastapi import HTTPException
 
 from src.webhooks.handlers.base import BaseHandler
-from src.webhooks.types import WebhookBody, Platform, WebhookEvent
+from src.webhooks.types import Platform, WebhookBody, WebhookEvent
 from tests import helpers
 
 

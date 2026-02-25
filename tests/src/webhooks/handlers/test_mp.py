@@ -1,10 +1,12 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi import HTTPException
 
 from src.webhooks.handlers.mp import MPHandler
-from src.webhooks.types import WebhookBody, Platform, WebhookEvent
+from src.webhooks.types import Platform, WebhookBody, WebhookEvent
 from tests import helpers
+
 
 class TestMPHandler:
     @pytest.mark.asyncio
@@ -219,4 +221,4 @@ class TestMPHandler:
             mock_guild.get_role.return_value = None
             bot.guilds = [mock_guild]
             with pytest.raises(ValueError, match="Cannot find role for"):
-                await handler._handle_rank_up(body, bot) 
+                await handler._handle_rank_up(body, bot)

@@ -7,7 +7,7 @@ from discord.errors import NotFound
 from fastapi import HTTPException
 
 from src.webhooks.handlers.account import AccountHandler
-from src.webhooks.types import WebhookBody, Platform, WebhookEvent
+from src.webhooks.types import Platform, WebhookBody, WebhookEvent
 from tests import helpers
 
 
@@ -62,7 +62,7 @@ class TestAccountHandler:
         discord_id = 123456789
         account_id = 987654321
         mock_member = helpers.MockMember(id=discord_id)
-        
+
         body = WebhookBody(
             platform=Platform.ACCOUNT,
             event=WebhookEvent.ACCOUNT_DELETED,
@@ -78,9 +78,9 @@ class TestAccountHandler:
         ):
             mock_settings.roles.VERIFIED = helpers.MockRole(id=99999, name="Verified")
             mock_member.remove_roles = AsyncMock()
-            
+
             result = await handler.handle(body, bot)
-            
+
             # Should succeed and return success
             assert result == handler.success()
 
@@ -144,14 +144,14 @@ class TestAccountHandler:
             patch.object(handler.logger, "info") as mock_log,
         ):
             mock_settings.channels.VERIFY_LOGS = 12345
-            
+
             # Mock the bot's guild structure and channel
             mock_channel = MagicMock()
             mock_channel.send = AsyncMock()
             mock_guild = MagicMock()
             mock_guild.get_channel.return_value = mock_channel
             bot.guilds = [mock_guild]
-            
+
             result = await handler._handle_account_linked(body, bot)
 
             # Verify all method calls
@@ -175,7 +175,7 @@ class TestAccountHandler:
                 f"Account {account_id} linked to {discord_id}",
                 extra={"account_id": account_id, "discord_id": discord_id},
             )
-            
+
             # Should return success
             assert result == handler.success()
 
@@ -307,7 +307,7 @@ class TestAccountHandler:
             mock_member.remove_roles.assert_called_once_with(
                 mock_role, atomic=True
             )
-            
+
             # Should return success
             assert result == handler.success()
 

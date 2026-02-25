@@ -1,15 +1,22 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
+from discord import Member
 from discord.ext import commands, tasks
 from sqlalchemy import select
 
 from src import settings
 from src.bot import Bot
-from src.database.models import Ban, Mute
+from src.database.models import Ban, MinorReport, Mute
 from src.database.session import AsyncSessionLocal
 from src.helpers.ban import unban_member, unmute_member
+from src.helpers.minor_verification import (
+    APPROVED,
+    CONSENT_VERIFIED,
+    assign_minor_role,
+    years_until_18,
+)
 from src.helpers.schedule import schedule
 
 logger = logging.getLogger(__name__)
@@ -28,7 +35,7 @@ class ScheduledTasks(commands.Cog):
         logger.debug("Gathering scheduled tasks...")
         await self.auto_unban()
         await self.auto_unmute()
-        # await asyncio.gather(self.auto_unmute())
+        await self.auto_remove_minor_role()
         logger.debug("Scheduling completed.")
 
     async def auto_unban(self) -> None:
@@ -98,6 +105,80 @@ class ScheduledTasks(commands.Cog):
 
 
         await asyncio.gather(*unmute_tasks)
+
+    async def auto_remove_minor_role(self) -> None:
+        """Remove minor role from users who have reached 18 based on report data."""
+        logger.debug("Checking for minor roles to remove based on age.")
+        now = datetime.now(timezone.utc)
+
+        async with AsyncSessionLocal() as session:
+            result = await session.scalars(
+                select(MinorReport).filter(MinorReport.status.in_([APPROVED, CONSENT_VERIFIED]))
+            )
+            reports = result.all()
+
+        for guild_id in settings.guild_ids:
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                logger.warning(f"Unable to find guild with ID {guild_id} for minor role cleanup.")
+                continue
+
+            for report in reports:
+                # Compute approximate 18th birthday based on suspected age at report time.
+                created_at = report.created_at
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+                years = years_until_18(report.suspected_age)
+                expires_at = created_at + timedelta(days=365 * years)
+                if now < expires_at:
+                    continue
+
+                member: Member | None = await self.bot.get_member_or_user(guild, report.user_id)
+                if not member:
+                    continue
+
+                role_id = settings.roles.VERIFIED_MINOR
+                role = guild.get_role(role_id)
+                if not role or role not in member.roles:
+                    continue
+
+                logger.info(
+                    "Removing minor role from user %s (%s) because they have reached 18.",
+                    member,
+                    member.id,
+                )
+                try:
+                    await member.remove_roles(role, atomic=True)
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to remove minor role from %s (%s): %s", member, member.id, exc
+                    )
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: Member) -> None:
+        """Assign minor role on rejoin if consent is verified and they are still under 18."""
+        async with AsyncSessionLocal() as session:
+            result = await session.scalars(
+                select(MinorReport).filter(
+                    MinorReport.user_id == member.id,
+                    MinorReport.status == CONSENT_VERIFIED,
+                )
+            )
+            report = result.first()
+
+        if not report:
+            return
+
+        now = datetime.now(timezone.utc)
+        created_at = report.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        years = years_until_18(report.suspected_age)
+        expires_at = created_at + timedelta(days=365 * years)
+        if now >= expires_at:
+            return
+
+        await assign_minor_role(member, member.guild)
 
 
 def setup(bot: Bot) -> None:
