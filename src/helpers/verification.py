@@ -191,6 +191,8 @@ async def process_certification(certid: str, name: str):
         cert = "CAPE"
     elif certRawName == "HTB Certified Junior Cybersecurity Associate":
         cert = "CJCA"
+    elif certRawName == "HTB Certified Wi-Fi Pentesting Expert":
+        cert = "CWPE"
     else:
         cert = False
     return cert
