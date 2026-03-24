@@ -118,10 +118,17 @@ class BanDecisionView(View):
             user_id = ban.user_id
 
         member = await self.bot.get_member_or_user(interaction.guild, user_id)
-        member_name = member.display_name if member else str(user_id)
 
-        if member:
-            await unban_member(interaction.guild, member)
+        if member is None:
+            # If member can't be found, we'll alert the actioner and early return
+            await interaction.followup.send(
+                f"User {str(user_id)} could not be found in the server.",
+            )
+            return
+
+        member_name = member.display_name
+
+        await unban_member(interaction.guild, member)
 
         await interaction.followup.send(
             f"Ban for {member_name} has been denied and the member will be unbanned.",
