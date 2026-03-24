@@ -28,6 +28,9 @@ class AcademyHandler(BaseHandler):
         certificate_id = self.validate_property(
             self.get_property_or_trait(body, "certificate_id"), "certificate_id"
         )
+        certificate_name = self.validate_property(
+            self.get_property_or_trait(body, "certificate_name"), "certificate_name"
+        )
 
         self.logger.info(f"Handling certificate awarded event for {discord_id} with certificate {certificate_id}")
 
@@ -47,6 +50,18 @@ class AcademyHandler(BaseHandler):
             except Exception as e:
                 self.logger.error(f"Error adding certificate role {certificate_role_id} to member {member.id}: {e}")
                 raise e
+
+        # Safely attempt to send verification log
+        try:
+            verify_channel = bot.guilds[0].get_channel(settings.channels.VERIFY_LOGS)
+            if verify_channel:
+                await verify_channel.send(  # type: ignore
+                    f"Certification linked: {certificate_name} with Certificate ID: {certificate_id} -> {member.mention} ({member.id})",
+                )
+            else:
+                self.logger.warning(f"Verify logs channel {settings.channels.VERIFY_LOGS} not found")
+        except Exception as e:
+            self.logger.error(f"Failed to send verification log: {e}")
 
         return self.success()
 

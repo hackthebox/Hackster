@@ -21,12 +21,13 @@ class TestAcademyHandler:
                 "discord_id": discord_id,
                 "account_id": account_id,
                 "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
             },
             traits={},
         )
         with (
             patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
-            patch.object(handler, "validate_property", return_value=certificate_id),
+            patch.object(handler, "validate_property", side_effect=[certificate_id, "Test Certificate"]),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.academy.settings") as mock_settings,
             patch.object(handler.logger, "info") as mock_log,
@@ -54,12 +55,13 @@ class TestAcademyHandler:
                 "discord_id": discord_id,
                 "account_id": account_id,
                 "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
             },
             traits={},
         )
         with (
             patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
-            patch.object(handler, "validate_property", return_value=certificate_id),
+            patch.object(handler, "validate_property", side_effect=[certificate_id, "Test Certificate"]),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.academy.settings") as mock_settings,
             patch.object(handler.logger, "warning") as mock_log,
@@ -84,12 +86,13 @@ class TestAcademyHandler:
                 "discord_id": discord_id,
                 "account_id": account_id,
                 "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
             },
             traits={},
         )
         with (
             patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
-            patch.object(handler, "validate_property", return_value=certificate_id),
+            patch.object(handler, "validate_property", side_effect=[certificate_id, "Test Certificate"]),
             patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
             patch("src.webhooks.handlers.academy.settings") as mock_settings,
             patch.object(handler.logger, "error") as mock_log,
