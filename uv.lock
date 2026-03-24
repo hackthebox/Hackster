@@ -540,15 +540,15 @@ wheels = [
 
 [[package]]
 name = "flake8-bugbear"
-version = "23.12.2"
+version = "24.12.12"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "flake8" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/fa/fede86c46ba912f2ebd4067de4279be50ecc550f43d470a9f233c6de79a4/flake8-bugbear-23.12.2.tar.gz", hash = "sha256:32b2903e22331ae04885dae25756a32a8c666c85142e933f43512a70f342052a", size = 61699, upload-time = "2023-12-02T22:59:16.899Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/25/48ba712ff589b0149f21135234f9bb45c14d6689acc6151b5e2ff8ac2ae9/flake8_bugbear-24.12.12.tar.gz", hash = "sha256:46273cef0a6b6ff48ca2d69e472f41420a42a46e24b2a8972e4f0d6733d12a64", size = 82907, upload-time = "2024-12-12T16:49:26.307Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/77/087de3a265b00d3197ffc90424da6c22180a24578460ee43cc8b97556bc0/flake8_bugbear-23.12.2-py3-none-any.whl", hash = "sha256:83324bad4d90fee4bf64dd69c61aff94debf8073fbd807c8b6a36eec7a2f0719", size = 31564, upload-time = "2023-12-02T22:59:15.269Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/21/0a875f75fbe4008bd171e2fefa413536258fe6b4cfaaa087986de74588f4/flake8_bugbear-24.12.12-py3-none-any.whl", hash = "sha256:1b6967436f65ca22a42e5373aaa6f2d87966ade9aa38d4baf2a1be550767545e", size = 36664, upload-time = "2024-12-12T16:49:23.584Z" },
 ]
 
 [[package]]
@@ -799,7 +799,7 @@ requires-dist = [
     { name = "bcrypt", specifier = ">=4.0.1,<5.0.0" },
     { name = "fastapi", specifier = ">=0.120.3,<0.121.0" },
     { name = "hypercorn", specifier = ">=0.17.3,<0.18.0" },
-    { name = "prometheus-client", specifier = ">=0.16.0,<0.17.0" },
+    { name = "prometheus-client", specifier = ">=0.16.0,<1.0.0" },
     { name = "py-cord", specifier = ">=2.4.1,<3.0.0" },
     { name = "pydantic", extras = ["dotenv"], specifier = ">=1.10.7,<2.0.0" },
     { name = "pymysql", specifier = ">=1.1.1,<2.0.0" },
@@ -818,7 +818,7 @@ dev = [
     { name = "coverage", specifier = ">=7.2,<8.0.0" },
     { name = "flake8", specifier = ">=6.0,<7.0.0" },
     { name = "flake8-annotations", specifier = ">=3.0,<4.0.0" },
-    { name = "flake8-bugbear", specifier = ">=23.3,<24.0.0" },
+    { name = "flake8-bugbear", specifier = ">=23.3,<26.0.0" },
     { name = "flake8-docstrings", specifier = ">=1.6.0,<2.0.0" },
     { name = "flake8-isort", specifier = ">=6.0,<7.0.0" },
     { name = "flake8-string-format", specifier = ">=0.3.0,<0.4.0" },
@@ -826,8 +826,8 @@ dev = [
     { name = "flake8-todo", specifier = ">=0.7,<0.8.0" },
     { name = "ipdb", specifier = ">=0.13.13,<0.14.0" },
     { name = "ipython", specifier = ">=8.12.0,<9.0.0" },
-    { name = "pep8-naming", specifier = ">=0.13,<0.14.0" },
-    { name = "pre-commit", specifier = ">=3.2,<4.0.0" },
+    { name = "pep8-naming", specifier = ">=0.13,<1.0.0" },
+    { name = "pre-commit", specifier = ">=3.2,<5.0.0" },
     { name = "pytest", specifier = ">=7.1.2,<8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.21,<0.22.0" },
     { name = "pytest-mock", specifier = ">=3.10.0,<4.0.0" },
@@ -1152,14 +1152,14 @@ wheels = [
 
 [[package]]
 name = "pep8-naming"
-version = "0.13.3"
+version = "0.15.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "flake8" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/c0/0db8b2867395a9a137e86af8bdf5a566e41d9c6453e509cd3042419ae29e/pep8-naming-0.13.3.tar.gz", hash = "sha256:1705f046dfcd851378aac3be1cd1551c7c1e5ff363bacad707d43007877fa971", size = 16129, upload-time = "2022-12-19T20:45:27.158Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8d/59/c32862134635ba231d45f1711035550dc38246396c27269a4cde4bfe18d2/pep8_naming-0.15.1.tar.gz", hash = "sha256:f6f4a499aba2deeda93c1f26ccc02f3da32b035c8b2db9696b730ef2c9639d29", size = 17640, upload-time = "2025-05-05T20:43:12.555Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/48/9533518e0394fb858ac2b4b55fe18f24aa33c87c943f691336ec842d9728/pep8_naming-0.13.3-py3-none-any.whl", hash = "sha256:1a86b8c71a03337c97181917e2b472f0f5e4ccb06844a0d6f0a33522549e7a80", size = 8490, upload-time = "2022-12-19T20:45:25.132Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/78/25281540f1121acaa78926f599a17ce102b8971bc20b096fa7fb6b5b59c1/pep8_naming-0.15.1-py3-none-any.whl", hash = "sha256:eb63925e7fd9e028c7f7ee7b1e413ec03d1ee5de0e627012102ee0222c273c86", size = 9561, upload-time = "2025-05-05T20:43:11.626Z" },
 ]
 
 [[package]]
@@ -1194,7 +1194,7 @@ wheels = [
 
 [[package]]
 name = "pre-commit"
-version = "3.8.0"
+version = "4.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cfgv" },
@@ -1203,9 +1203,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "virtualenv" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/64/10/97ee2fa54dff1e9da9badbc5e35d0bbaef0776271ea5907eccf64140f72f/pre_commit-3.8.0.tar.gz", hash = "sha256:8bb6494d4a20423842e198980c9ecf9f96607a07ea29549e180eef9ae80fe7af", size = 177815, upload-time = "2024-07-28T19:59:01.538Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/40/f1/6d86a29246dfd2e9b6237f0b5823717f60cad94d47ddc26afa916d21f525/pre_commit-4.5.1.tar.gz", hash = "sha256:eb545fcff725875197837263e977ea257a402056661f09dae08e4b149b030a61", size = 198232, upload-time = "2025-12-16T21:14:33.552Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/92/caae8c86e94681b42c246f0bca35c059a2f0529e5b92619f6aba4cf7e7b6/pre_commit-3.8.0-py2.py3-none-any.whl", hash = "sha256:9a90a53bf82fdd8778d58085faf8d83df56e40dfe18f45b19446e26bf1b3a63f", size = 204643, upload-time = "2024-07-28T19:58:59.335Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/19/fd3ef348460c80af7bb4669ea7926651d1f95c23ff2df18b9d24bab4f3fa/pre_commit-4.5.1-py2.py3-none-any.whl", hash = "sha256:3b3afd891e97337708c1674210f8eba659b52a38ea5f822ff142d10786221f77", size = 226437, upload-time = "2025-12-16T21:14:32.409Z" },
 ]
 
 [[package]]
@@ -1219,11 +1219,11 @@ wheels = [
 
 [[package]]
 name = "prometheus-client"
-version = "0.16.0"
+version = "0.24.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d0/55/9e34c73e1e490b105b4cd13d08497b1f7cb086a260e4161b7b7c2928b196/prometheus_client-0.16.0.tar.gz", hash = "sha256:a03e35b359f14dd1630898543e2120addfdeacd1a6069c1367ae90fd93ad3f48", size = 117546, upload-time = "2023-01-23T22:09:27.191Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f0/58/a794d23feb6b00fc0c72787d7e87d872a6730dd9ed7c7b3e954637d8f280/prometheus_client-0.24.1.tar.gz", hash = "sha256:7e0ced7fbbd40f7b84962d5d2ab6f17ef88a72504dcf7c0b40737b43b2a461f9", size = 85616, upload-time = "2026-01-14T15:26:26.965Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/8e/6a546e439b4366ab9eab0a736876eb1e1916dd93b4a1fa560ef711d24f8c/prometheus_client-0.16.0-py3-none-any.whl", hash = "sha256:0836af6eb2c8f4fed712b2f279f6c0a8bbab29f9f4aa15276b91c7cb0d1616ab", size = 122464, upload-time = "2023-01-23T22:09:24.404Z" },
+    { url = "https://files.pythonhosted.org/packages/74/c3/24a2f845e3917201628ecaba4f18bab4d18a337834c1df2a159ee9d22a42/prometheus_client-0.24.1-py3-none-any.whl", hash = "sha256:150db128af71a5c2482b36e588fc8a6b95e498750da4b17065947c16070f4055", size = 64057, upload-time = "2026-01-14T15:26:24.42Z" },
 ]
 
 [[package]]
