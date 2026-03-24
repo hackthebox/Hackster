@@ -166,7 +166,7 @@ class MockGuild(CustomMockMixin, mock.Mock, HashableMixin):
 
 
 # Create a Role instance to get a realistic Mock of `discord.Role`
-role_data = {'name': 'role', 'id': 1}
+role_data = {'name': 'role', 'id': 1, 'colors': {'primary_color': 0}}
 # noinspection PyTypeChecker
 role_instance = discord.Role(guild=guild_instance, state=mock.MagicMock(), data=role_data)
 

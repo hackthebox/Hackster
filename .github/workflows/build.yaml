@@ -4,10 +4,32 @@ on:
   push:
     paths:
       - Dockerfile.base
-      - poetry.lock
+      - uv.lock
   workflow_dispatch:
 
 jobs:
+  sync-requirements:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+
+      - name: Export requirements.txt for Dependabot
+        run: |
+          uv export --frozen --no-hashes -o requirements.txt
+          if ! git diff --quiet requirements.txt; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add requirements.txt
+            git commit -m "Update requirements.txt from uv.lock"
+            git push
+          fi
+
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -17,20 +39,20 @@ jobs:
       DOCKER_IMAGE: ghcr.io/hackthebox/hackster:base
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Login to ghcr.io
-        uses: docker/login-action@v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           push: true
           context: .
