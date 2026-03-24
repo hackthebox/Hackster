@@ -70,7 +70,7 @@ flake8==6.1.0
     #   flake8-tidy-imports
     #   pep8-naming
 flake8-annotations==3.2.0
-flake8-bugbear==23.12.2
+flake8-bugbear==24.12.12
 flake8-docstrings==1.7.0
 flake8-isort==6.1.2
 flake8-string-format==0.3.0
@@ -131,7 +131,7 @@ packaging==26.0
     #   pytest
 parso==0.8.6
     # via jedi
-pep8-naming==0.13.3
+pep8-naming==0.15.1
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
 platformdirs==4.9.4
@@ -140,10 +140,10 @@ platformdirs==4.9.4
     #   virtualenv
 pluggy==1.6.0
     # via pytest
-pre-commit==3.8.0
+pre-commit==4.5.1
 priority==2.0.0
     # via hypercorn
-prometheus-client==0.16.0
+prometheus-client==0.24.1
     # via hackster
 prompt-toolkit==3.0.52
     # via ipython
