@@ -4,12 +4,27 @@ import socket
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
 from discord import (
-    ApplicationContext, Cog, DiscordException, Embed, Forbidden, Guild, HTTPException, Member, NotFound, User,
+    ApplicationContext,
+    Cog,
+    DiscordException,
+    Embed,
+    Forbidden,
+    Guild,
+    HTTPException,
+    Member,
+    NotFound,
+    User,
 )
 from discord.ext.commands import Bot as DiscordBot
 from discord.ext.commands import (
-    CommandNotFound, CommandOnCooldown, DefaultHelpCommand, MissingAnyRole, MissingPermissions,
-    MissingRequiredArgument, NoPrivateMessage, UserInputError,
+    CommandNotFound,
+    CommandOnCooldown,
+    DefaultHelpCommand,
+    MissingAnyRole,
+    MissingPermissions,
+    MissingRequiredArgument,
+    NoPrivateMessage,
+    UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
 from typing import TypeVar
@@ -50,13 +65,15 @@ class Bot(DiscordBot):
         if self.http_session is None:
             logger.debug("Starting the HTTP session")
             self.http_session = ClientSession(
-                connector=TCPConnector(resolver=AsyncResolver(), family=socket.AF_INET), 
-                trace_configs=[trace_config]
+                connector=TCPConnector(resolver=AsyncResolver(), family=socket.AF_INET),
+                trace_configs=[trace_config],
             )
 
         name = f"{self.user} (ID: {self.user.id})"
         devlog_msg = f"Connected {constants.emojis.partying_face}"
-        self.loop.create_task(self.send_log(devlog_msg, colour=constants.colours.bright_green))
+        self.loop.create_task(
+            self.send_log(devlog_msg, colour=constants.colours.bright_green)
+        )
 
         logger.info(f"Started bot as {name}")
         print("Loading ScheduledTasks cog...")
@@ -65,6 +82,17 @@ class Bot(DiscordBot):
             print("ScheduledTasks cog loaded!")
         except Exception as e:
             print(f"Failed to load ScheduledTasks cog: {e}")
+
+        await self._register_persistent_views()
+
+    async def _register_persistent_views(self) -> None:
+        """Re-register persistent UI views so buttons survive bot restarts."""
+        from src.views.bandecisionview import register_ban_views
+
+        try:
+            await register_ban_views(self)
+        except Exception:
+            logger.exception("Failed to register persistent ban decision views")
 
     async def on_application_command(self, ctx: ApplicationContext) -> None:
         """A global handler cog."""
@@ -77,14 +105,18 @@ class Bot(DiscordBot):
             embed.add_field(name="Channel", value=ctx.channel.name, inline=True)
         await ctx.guild.get_channel(settings.channels.BOT_LOGS).send(embed=embed)
 
-    async def on_application_command_error(self, ctx: ApplicationContext, error: DiscordException) -> None:
+    async def on_application_command_error(
+        self, ctx: ApplicationContext, error: DiscordException
+    ) -> None:
         """A global error handler cog."""
         message = None
         if isinstance(error, CommandNotFound):
             return
         if isinstance(error, MissingRequiredArgument):
-            message = f"Parameter '{error.param.name}' is required, but missing. Type `{ctx.clean_prefix}help " \
-                      f"{ctx.invoked_with}` for help."
+            message = (
+                f"Parameter '{error.param.name}' is required, but missing. Type `{ctx.clean_prefix}help "
+                f"{ctx.invoked_with}` for help."
+            )
         elif isinstance(error, MissingPermissions):
             message = "You are missing the required permissions to run this command."
         elif isinstance(error, MissingAnyRole):
@@ -120,7 +152,9 @@ class Bot(DiscordBot):
         super().add_cog(cog, override=override)
         logger.debug(f"Cog loaded: {cog.qualified_name}")
 
-    async def send_log(self, description: str = None, colour: int = None, embed: Embed = None) -> None:
+    async def send_log(
+        self, description: str = None, colour: int = None, embed: Embed = None
+    ) -> None:
         """Send an embed message to the devlog channel."""
         devlog = self.get_channel(settings.channels.DEVLOG)
 
@@ -159,27 +193,46 @@ class Bot(DiscordBot):
         try:
             return await guild.fetch_member(id_)
         except Forbidden as exc:
-            logger.warning(f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc)
+            logger.warning(
+                f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
+            )
         except NotFound as exc:
             logger.warning(f"Could not find guild member with id: {id_}", exc_info=exc)
             try:
                 return await self.get_or_fetch_user(id_)
             except Forbidden as exc:
-                logger.warning(f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc)
+                logger.warning(
+                    f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
+                )
             except NotFound as exc:
-                logger.warning(f"Could not find guild member with id: {id_}", exc_info=exc)
+                logger.warning(
+                    f"Could not find guild member with id: {id_}", exc_info=exc
+                )
             except HTTPException as exc:
-                logger.error(f"Discord error while fetching guild member with id: {id_}", exc_info=exc)
+                logger.error(
+                    f"Discord error while fetching guild member with id: {id_}",
+                    exc_info=exc,
+                )
         except HTTPException as exc:
-            logger.error(f"Discord error while fetching guild member with id: {id_}", exc_info=exc)
+            logger.error(
+                f"Discord error while fetching guild member with id: {id_}",
+                exc_info=exc,
+            )
             try:
                 return await self.get_or_fetch_user(id_)
             except Forbidden as exc:
-                logger.warning(f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc)
+                logger.warning(
+                    f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
+                )
             except NotFound as exc:
-                logger.warning(f"Could not find guild member with id: {id_}", exc_info=exc)
+                logger.warning(
+                    f"Could not find guild member with id: {id_}", exc_info=exc
+                )
             except HTTPException as exc:
-                logger.error(f"Discord error while fetching guild member with id: {id_}", exc_info=exc)
+                logger.error(
+                    f"Discord error while fetching guild member with id: {id_}",
+                    exc_info=exc,
+                )
 
         return None
 

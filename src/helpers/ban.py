@@ -39,7 +39,10 @@ class BanCodes(Enum):
 
 
 async def _check_member(
-    bot: Bot, guild: Guild, member: Member | User, author: Member | ClientUser | None = None
+    bot: Bot,
+    guild: Guild,
+    member: Member | User,
+    author: Member | ClientUser | None = None,
 ) -> SimpleResponse | None:
     if isinstance(member, Member):
         if member_is_staff(member):
@@ -70,7 +73,9 @@ async def get_ban(member: Member | User) -> Ban | None:
 
 
 async def update_ban(ban: Ban) -> None:
-    logger.info(f"Updating ban {ban.id} for user {ban.user_id} with expiration {ban.unban_time}")
+    logger.info(
+        f"Updating ban {ban.id} for user {ban.user_id} with expiration {ban.unban_time}"
+    )
     async with AsyncSessionLocal() as session:
         session.add(ban)
         await session.commit()
@@ -156,7 +161,7 @@ async def handle_platform_ban_or_update(
     extra_log_data: dict | None = None,
 ) -> dict:
     """Handle platform ban by either creating new ban, updating existing ban, or taking no action.
-    
+
     Args:
         bot: The Discord bot instance
         guild: The guild to ban the member from
@@ -169,30 +174,44 @@ async def handle_platform_ban_or_update(
         log_channel_id: Channel ID for logging ban actions
         logger: Logger instance for recording events
         extra_log_data: Additional data to include in log entries
-        
+
     Returns:
         dict with 'action' key indicating what was done: 'unbanned', 'extended', 'no_action', 'updated', 'created'
     """
     if extra_log_data is None:
         extra_log_data = {}
-    
+
     expires_dt = datetime.fromtimestamp(expires_timestamp)
-    
+
     existing_ban = await get_ban(member)
     if not existing_ban:
         # No existing ban, create new one
         await ban_member_with_epoch(
-            bot, guild, member, expires_timestamp, reason, evidence, needs_approval=False
+            bot,
+            guild,
+            member,
+            expires_timestamp,
+            reason,
+            evidence,
+            needs_approval=False,
         )
         await _send_ban_notice(
-            guild, member, reason, author_name, expires_at_str, guild.get_channel(log_channel_id)  # type: ignore
+            guild,
+            member,
+            reason,
+            author_name,
+            expires_at_str,
+            guild.get_channel(log_channel_id),  # type: ignore
         )
-        logger.info(f"Created new platform ban for user {member.id} until {expires_at_str}", extra=extra_log_data)
+        logger.info(
+            f"Created new platform ban for user {member.id} until {expires_at_str}",
+            extra=extra_log_data,
+        )
         return {"action": "created"}
-    
+
     # Existing ban found - determine what to do based on ban type and timing
     is_platform_ban = existing_ban.reason.startswith("Platform Ban")
-    
+
     if is_platform_ban:
         # Platform bans have authority over other platform bans
         if expires_dt < datetime.now():
@@ -202,7 +221,7 @@ async def handle_platform_ban_or_update(
             await guild.get_channel(log_channel_id).send(msg)  # type: ignore
             logger.info(msg, extra=extra_log_data)
             return {"action": "unbanned"}
-        
+
         if existing_ban.unban_time < expires_timestamp:
             # Extend the existing platform ban
             existing_ban.unban_time = expires_timestamp
@@ -226,11 +245,17 @@ async def handle_platform_ban_or_update(
             existing_ban.unban_time = expires_timestamp
             existing_ban.reason = f"Platform Ban: {reason}"  # Update reason to indicate platform authority
             await update_ban(existing_ban)
-            logger.info(f"Updated existing ban for user {member.id} until {expires_at_str}.", extra=extra_log_data)
+            logger.info(
+                f"Updated existing ban for user {member.id} until {expires_at_str}.",
+                extra=extra_log_data,
+            )
             return {"action": "updated"}
-    
+
     # Default case (shouldn't reach here, but for safety)
-    logger.warning(f"Unexpected case in platform ban handling for user {member.id}", extra=extra_log_data)
+    logger.warning(
+        f"Unexpected case in platform ban handling for user {member.id}",
+        extra=extra_log_data,
+    )
     return {"action": "no_action"}
 
 
@@ -245,7 +270,7 @@ async def ban_member_with_epoch(
     needs_approval: bool = True,
 ) -> SimpleResponse:
     """Ban a member from the guild until a specific epoch time.
-    
+
     Args:
         bot: The Discord bot instance
         guild: The guild to ban the member from
@@ -255,7 +280,7 @@ async def ban_member_with_epoch(
         evidence: Evidence supporting the ban
         author: The member issuing the ban (defaults to bot user)
         needs_approval: Whether the ban requires approval
-        
+
     Returns:
         SimpleResponse with the result of the ban operation, or None if no response needed
     """
@@ -273,8 +298,7 @@ async def ban_member_with_epoch(
     current_time = datetime.now(tz=timezone.utc).timestamp()
     if unban_epoch_time <= current_time:
         return SimpleResponse(
-            message="Unban time must be in the future",
-            delete_after=15
+            message="Unban time must be in the future", delete_after=15
         )
 
     end_date: str = datetime.fromtimestamp(unban_epoch_time, tz=timezone.utc).strftime(
@@ -283,7 +307,7 @@ async def ban_member_with_epoch(
 
     if author is None:
         author = bot.user
-    
+
     # Author should never be None at this point
     if author is None:
         raise ValueError("Author cannot be None")
@@ -374,7 +398,7 @@ async def ban_member_with_epoch(
             f"Evidence: {evidence}",
         )
         embed.set_thumbnail(url=f"{settings.HTB_URL}/images/logo600.png")
-        view = BanDecisionView(ban_id, bot, guild, member, end_date, reason)
+        view = BanDecisionView(ban_id, bot)
         await guild.get_channel(settings.channels.SR_MOD).send(embed=embed, view=view)  # type: ignore
 
     return await _create_ban_response(
@@ -393,7 +417,7 @@ async def ban_member(
     needs_approval: bool = True,
 ) -> SimpleResponse:
     """Ban a member from the guild using a duration.
-    
+
     Args:
         bot: The Discord bot instance
         guild: The guild to ban the member from
@@ -403,7 +427,7 @@ async def ban_member(
         evidence: Evidence supporting the ban
         author: The member issuing the ban (defaults to bot user)
         needs_approval: Whether the ban requires approval
-        
+
     Returns:
         SimpleResponse with the result of the ban operation, or None if no response needed
     """
@@ -516,7 +540,7 @@ async def mute_member(
 
     if author is None:
         author = bot.user
-    
+
     # Author should never be None at this point
     if author is None:
         raise ValueError("Author cannot be None")
