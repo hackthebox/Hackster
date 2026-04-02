@@ -16,6 +16,12 @@ jobs:
         with:
           ref: main
           fetch-depth: 0  # Need full history for tag operations
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Extract version from tag
         id: version
@@ -41,9 +47,6 @@ jobs:
       - name: Commit, push, and move tag
         if: steps.changes.outputs.changed == 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
           # Commit version bump
           git add pyproject.toml
           git commit -m "🔖 Bump version to ${{ steps.version.outputs.version }}"
