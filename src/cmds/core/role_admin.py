@@ -6,6 +6,7 @@ from discord.ext import commands
 from discord.ext.commands import has_any_role
 
 from src.bot import Bot
+from src.cmds.core.admin import admin  # Import the admin group from admin.py
 from src.core import settings
 from src.database.models.dynamic_role import RoleCategory
 
@@ -13,25 +14,18 @@ logger = logging.getLogger(__name__)
 
 CATEGORY_CHOICES = [c.value for c in RoleCategory]
 
+# Create the role subgroup under the admin group
+role = admin.create_subgroup(
+    "role",
+    "Manage dynamic Discord roles",
+)
+
 
 class RoleAdminCog(commands.Cog):
     """Admin commands for managing dynamic Discord roles."""
 
     def __init__(self, bot: Bot):
         self.bot = bot
-
-    # Top-level admin group
-    admin = discord.SlashCommandGroup(
-        "admin",
-        "Bot administration commands",
-        guild_ids=settings.guild_ids,
-    )
-
-    # Nested role group under admin
-    role = admin.create_subgroup(
-        "role",
-        "Manage dynamic Discord roles",
-    )
 
     @role.command(description="Add a new dynamic role.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"))
