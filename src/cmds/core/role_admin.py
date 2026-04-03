@@ -20,13 +20,20 @@ class RoleAdminCog(commands.Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
 
-    role_admin = discord.SlashCommandGroup(
-        "role-admin",
-        "Manage dynamic Discord roles",
+    # Top-level admin group
+    admin = discord.SlashCommandGroup(
+        "admin",
+        "Bot administration commands",
         guild_ids=settings.guild_ids,
     )
 
-    @role_admin.command(description="Add a new dynamic role.")
+    # Nested role group under admin
+    role = admin.create_subgroup(
+        "role",
+        "Manage dynamic Discord roles",
+    )
+
+    @role.command(description="Add a new dynamic role.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"))
     async def add(
         self,
@@ -59,7 +66,7 @@ class RoleAdminCog(commands.Cog):
             ephemeral=True,
         )
 
-    @role_admin.command(description="Remove a dynamic role.")
+    @role.command(description="Remove a dynamic role.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"))
     async def remove(
         self,
@@ -78,7 +85,7 @@ class RoleAdminCog(commands.Cog):
             return await ctx.respond(f"Removed dynamic role: `{category}/{key}`", ephemeral=True)
         return await ctx.respond(f"No role found for `{category}/{key}`", ephemeral=True)
 
-    @role_admin.command(description="Update a dynamic role's Discord role.")
+    @role.command(description="Update a dynamic role's Discord role.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"))
     async def update(
         self,
@@ -101,7 +108,7 @@ class RoleAdminCog(commands.Cog):
             )
         return await ctx.respond(f"No role found for `{category}/{key}`", ephemeral=True)
 
-    @role_admin.command(description="List configured dynamic roles.")
+    @role.command(description="List configured dynamic roles.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
     async def list(
         self,
@@ -135,7 +142,7 @@ class RoleAdminCog(commands.Cog):
 
         return await ctx.respond(embed=embed, ephemeral=True)
 
-    @role_admin.command(description="Force reload dynamic roles from database.")
+    @role.command(description="Force reload dynamic roles from database.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"))
     async def reload(self, ctx: ApplicationContext) -> Interaction | WebhookMessage:
         """Force reload the role manager cache from the database."""
