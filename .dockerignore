@@ -7,6 +7,6 @@
 !resources
 !alembic.ini
 !pyproject.toml
-!poetry.lock
+!uv.lock
 !startup.sh
 !.env

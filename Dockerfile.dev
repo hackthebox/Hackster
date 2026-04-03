@@ -16,7 +16,7 @@ COPY src ./src
 COPY resources ./resources
 COPY startup.sh ./startup.sh
 COPY pyproject.toml ./pyproject.toml
-COPY poetry.lock ./poetry.lock
+COPY uv.lock ./uv.lock
 RUN chmod +x ./startup.sh
 
 ENV PYTHONPATH=$APP_PATH
