@@ -90,6 +90,177 @@ class TestUserCog:
         assert fields["Bots"] == "1"
         assert "66.67%" in fields["Verified Members"]
 
+    # ── _match_role tests ──────────────────────────────────────────────
+
+    def test_match_role_no_role_manager(self, bot):
+        """Test _match_role when role_manager is None."""
+        bot.role_manager = None
+        cog = user.UserCog(bot)
+        role_id, err = cog._match_role("anything")
+        assert role_id is None
+        assert "don't know what role" in err
+
+    def test_match_role_no_match(self, bot):
+        """Test _match_role when no joinable role matches."""
+        bot.role_manager.get_joinable_roles = lambda: {"Alpha": (111, "Alpha desc")}
+        cog = user.UserCog(bot)
+        role_id, err = cog._match_role("zzz_nonexistent")
+        assert role_id is None
+        assert "don't know what role" in err
+
+    def test_match_role_single_match(self, bot):
+        """Test _match_role with exactly one match."""
+        bot.role_manager.get_joinable_roles = lambda: {"PenTesting": (222, "Pen desc")}
+        cog = user.UserCog(bot)
+        role_id, err = cog._match_role("pentest")
+        assert role_id == 222
+        assert err is None
+
+    def test_match_role_multiple_matches(self, bot):
+        """Test _match_role when multiple roles match."""
+        bot.role_manager.get_joinable_roles = lambda: {
+            "Red Team": (111, "desc"),
+            "Red Alert": (222, "desc"),
+        }
+        cog = user.UserCog(bot)
+        role_id, err = cog._match_role("Red")
+        assert role_id is None
+        assert "multiple roles" in err.lower()
+
+    # ── join command tests ───────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_join_empty_role_name_shows_list(self, ctx, bot):
+        """Test /join with empty role name shows the joinable roles embed."""
+        bot.role_manager.get_joinable_roles = lambda: {"Alpha": (111, "Alpha desc")}
+        cog = user.UserCog(bot)
+        await cog.join.callback(cog, ctx, role_name="")
+
+        ctx.respond.assert_awaited_once()
+        call_kwargs = ctx.respond.call_args[1]
+        embed = call_kwargs["embed"]
+        assert embed.author.name == "Join-able Roles"
+
+    @pytest.mark.asyncio
+    async def test_join_whitespace_role_name_shows_list(self, ctx, bot):
+        """Test /join with whitespace-only role name shows the joinable roles embed."""
+        bot.role_manager.get_joinable_roles = lambda: {}
+        cog = user.UserCog(bot)
+        await cog.join.callback(cog, ctx, role_name="   ")
+
+        ctx.respond.assert_awaited_once()
+        call_kwargs = ctx.respond.call_args[1]
+        assert "embed" in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_join_unknown_role(self, ctx, bot):
+        """Test /join with an unknown role name returns an error."""
+        bot.role_manager.get_joinable_roles = lambda: {"Alpha": (111, "Alpha desc")}
+        cog = user.UserCog(bot)
+        await cog.join.callback(cog, ctx, role_name="zzz_no_match")
+
+        ctx.respond.assert_awaited_once()
+        assert "don't know what role" in ctx.respond.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_join_success(self, ctx, bot):
+        """Test /join successfully adds the role."""
+        guild_role = helpers.MockRole(id=111, name="Alpha")
+        ctx.guild.get_role = lambda rid: guild_role if rid == 111 else None
+        ctx.user = helpers.MockMember()
+        ctx.user.add_roles = AsyncMock()
+        bot.role_manager.get_joinable_roles = lambda: {"Alpha": (111, "Alpha desc")}
+
+        cog = user.UserCog(bot)
+        await cog.join.callback(cog, ctx, role_name="Alpha")
+
+        ctx.user.add_roles.assert_awaited_once_with(guild_role)
+        ctx.respond.assert_awaited_once()
+        assert "Welcome to Alpha" in ctx.respond.call_args[0][0]
+
+    # ── leave command tests ──────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_leave_unknown_role(self, ctx, bot):
+        """Test /leave with an unknown role name returns an error."""
+        bot.role_manager.get_joinable_roles = lambda: {"Alpha": (111, "Alpha desc")}
+        cog = user.UserCog(bot)
+        await cog.leave.callback(cog, ctx, role_name="zzz_no_match")
+
+        ctx.respond.assert_awaited_once()
+        assert "don't know what role" in ctx.respond.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_leave_success(self, ctx, bot):
+        """Test /leave successfully removes the role."""
+        guild_role = helpers.MockRole(id=111, name="Alpha")
+        ctx.guild.get_role = lambda rid: guild_role if rid == 111 else None
+        ctx.user = helpers.MockMember()
+        ctx.user.remove_roles = AsyncMock()
+        bot.role_manager.get_joinable_roles = lambda: {"Alpha": (111, "Alpha desc")}
+
+        cog = user.UserCog(bot)
+        await cog.leave.callback(cog, ctx, role_name="Alpha")
+
+        ctx.user.remove_roles.assert_awaited_once_with(guild_role)
+        ctx.respond.assert_awaited_once()
+        assert "left Alpha" in ctx.respond.call_args[0][0]
+
+    # ── joinable_role_autocomplete tests ─────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_joinable_role_autocomplete_no_role_manager(self):
+        """Test autocomplete returns empty list when role_manager is None."""
+        ac_ctx = helpers.MockContext()
+        ac_ctx.bot = helpers.MockBot()
+        ac_ctx.bot.role_manager = None
+        ac_ctx.value = "test"
+
+        result = await user.joinable_role_autocomplete(ac_ctx)
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_joinable_role_autocomplete_filters(self):
+        """Test autocomplete filters results based on typed value."""
+        ac_ctx = helpers.MockContext()
+        ac_ctx.bot = helpers.MockBot()
+        ac_ctx.bot.role_manager.get_joinable_roles = lambda: {
+            "Red Team": (1, "desc"),
+            "Blue Team": (2, "desc"),
+            "Red Alert": (3, "desc"),
+        }
+        ac_ctx.value = "red"
+
+        result = await user.joinable_role_autocomplete(ac_ctx)
+        assert "Red Team" in result
+        assert "Red Alert" in result
+        assert "Blue Team" not in result
+
+    @pytest.mark.asyncio
+    async def test_joinable_role_autocomplete_empty_value(self):
+        """Test autocomplete returns all roles when value is empty."""
+        ac_ctx = helpers.MockContext()
+        ac_ctx.bot = helpers.MockBot()
+        ac_ctx.bot.role_manager.get_joinable_roles = lambda: {
+            "Alpha": (1, "desc"),
+            "Beta": (2, "desc"),
+        }
+        ac_ctx.value = ""
+
+        result = await user.joinable_role_autocomplete(ac_ctx)
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_joinable_role_autocomplete_none_value(self):
+        """Test autocomplete handles None value gracefully."""
+        ac_ctx = helpers.MockContext()
+        ac_ctx.bot = helpers.MockBot()
+        ac_ctx.bot.role_manager.get_joinable_roles = lambda: {"Alpha": (1, "desc")}
+        ac_ctx.value = None
+
+        result = await user.joinable_role_autocomplete(ac_ctx)
+        assert len(result) == 1
+
     def test_setup(self, bot):
         """Test the setup method of the cog."""
         # Invoke the command
