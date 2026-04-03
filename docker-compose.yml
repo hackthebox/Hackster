@@ -11,8 +11,8 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      start_period: 10s
+      test: ["CMD-SHELL", "mariadb-admin -uroot -prootpassword ping || exit 1"]
+      start_period: 30s
       interval: 10s
       timeout: 5s
       retries: 3
