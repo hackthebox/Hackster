@@ -46,22 +46,27 @@ class AcademyHandler(BaseHandler):
                     bot.guilds[0].get_role(certificate_role_id), atomic=True  # type: ignore
                 )  # type: ignore
 
-                # Safely attempt to send verification log only after role addition
-                verify_channel = bot.guilds[0].get_channel(settings.channels.VERIFY_LOGS)
-                if verify_channel:
-                    message = f"Certification linked: {certificate_name} with Certificate ID: {certificate_id} -> {member.mention} ({member.id})"
-                    if not certificate_name:
-                        message = f"Certification linked: Certificate ID: {certificate_id} -> {member.mention} ({member.id})"
-
-                    await verify_channel.send(  # type: ignore
-                        message,
-                    )
-                else:
-                    self.logger.warning(f"Verify logs channel {settings.channels.VERIFY_LOGS} not found")
-
             except Exception as e:
                 self.logger.error(f"Error adding certificate role {certificate_role_id} to member {member.id}: {e}")
                 raise e
+
+        # Safely attempt to send verification log only after role addition
+        try:
+            verify_channel = bot.guilds[0].get_channel(settings.channels.VERIFY_LOGS)
+            if verify_channel:
+                message = f"Certification linked: {certificate_name} with Certificate ID: {certificate_id} -> {member.mention} ({member.id})"
+                if not certificate_name:
+                    message = f"Certification linked: Certificate ID: {certificate_id} -> {member.mention} ({member.id})"
+
+                await verify_channel.send(  # type: ignore
+                    message,
+                )
+            else:
+                self.logger.warning(f"Verify logs channel {settings.channels.VERIFY_LOGS} not found")
+        except Exception as e:
+            self.logger.error(f"Failed to send certificate verification log: {e}")
+            raise e
+
 
         return self.success()
 

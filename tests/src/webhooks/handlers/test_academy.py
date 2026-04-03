@@ -153,6 +153,45 @@ class TestAcademyHandler:
             mock_channel.send.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_handle_certificate_awarded_no_verify_channel(self, bot):
+        handler = AcademyHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        certificate_id = 42
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
+        body = WebhookBody(
+            platform=Platform.ACADEMY,
+            event=WebhookEvent.CERTIFICATE_AWARDED,
+            properties={
+                "discord_id": discord_id,
+                "account_id": account_id,
+                "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
+            },
+            traits={},
+        )
+        with (
+            patch.object(handler, "validate_common_properties", return_value=(discord_id, account_id)),
+            patch.object(handler, "validate_property", side_effect=[certificate_id]),
+            patch.object(handler, "get_guild_member", new_callable=AsyncMock, return_value=mock_member),
+            patch("src.webhooks.handlers.academy.settings") as mock_settings,
+            patch.object(handler.logger, "warning") as mock_log,
+        ):
+            mock_settings.get_academy_cert_role.return_value = 555
+            mock_settings.channels.VERIFY_LOGS = 777
+            mock_guild = helpers.MockGuild(id=1)
+            mock_guild.get_role.return_value = MagicMock()
+            # Return None for get_channel to trigger the missing branch
+            mock_guild.get_channel.return_value = None
+            bot.guilds = [mock_guild]
+            
+            result = await handler._handle_certificate_awarded(body, bot)
+            
+            mock_member.add_roles.assert_awaited()
+            mock_log.assert_called_with("Verify logs channel 777 not found")
+            assert result == handler.success()
+
+    @pytest.mark.asyncio
     async def test_handle_subscription_change_success(self, bot):
         handler = AcademyHandler()
         discord_id = 123456789
