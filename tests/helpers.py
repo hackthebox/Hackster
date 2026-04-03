@@ -166,7 +166,7 @@ class MockGuild(CustomMockMixin, mock.Mock, HashableMixin):
 
 
 # Create a Role instance to get a realistic Mock of `discord.Role`
-role_data = {'name': 'role', 'id': 1}
+role_data = {'name': 'role', 'id': 1, 'colors': {'primary_color': 0}}
 # noinspection PyTypeChecker
 role_instance = discord.Role(guild=guild_instance, state=mock.MagicMock(), data=role_data)
 
@@ -277,6 +277,58 @@ def _get_mock_loop() -> mock.Mock:
     return loop
 
 
+class MockRoleManager:
+    """A mock RoleManager that returns sensible defaults for all lookups."""
+
+    def __init__(self):
+        self._loaded = True
+
+    def get_role_id(self, category, key):
+        return None
+
+    def get_cert_role_id(self, cert_abbrev):
+        return None
+
+    def get_academy_cert_role(self, certificate_id):
+        return None
+
+    def get_cert_abbrev_by_full_name(self, full_name):
+        return None
+
+    def get_rank_role_id(self, rank_name):
+        return None
+
+    def get_season_role_id(self, tier):
+        return None
+
+    def get_post_or_rank(self, what):
+        return None
+
+    def get_group_ids(self, category):
+        return []
+
+    def get_joinable_roles(self):
+        return {}
+
+    async def reload(self):
+        pass
+
+    async def load(self):
+        pass
+
+    async def add_role(self, **kwargs):
+        return None
+
+    async def remove_role(self, category, key):
+        return False
+
+    async def update_role(self, category, key, discord_role_id):
+        return None
+
+    async def list_roles(self, category=None):
+        return []
+
+
 class MockBot(CustomMockMixin, mock.MagicMock):
     """
     A MagicMock subclass to mock Bot objects.
@@ -292,6 +344,7 @@ class MockBot(CustomMockMixin, mock.MagicMock):
 
         self.loop = _get_mock_loop()
         self.http_session = mock.create_autospec(spec=ClientSession, spec_set=True)
+        self.role_manager = MockRoleManager()
 
 
 # Create a TextChannel instance to get a realistic MagicMock of `discord.TextChannel`

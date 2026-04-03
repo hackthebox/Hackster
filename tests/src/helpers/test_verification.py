@@ -7,6 +7,7 @@ import pytest
 
 from src.core import settings
 from src.helpers.verification import get_user_details, process_labs_identification
+from tests.helpers import MockRoleManager
 
 
 class TestGetUserDetails(unittest.IsolatedAsyncioTestCase):
@@ -75,6 +76,32 @@ class TestGetUserDetails(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result, {"content": {}})
 
 
+# Test role IDs used by the role manager mock
+_SHERLOCK_ROLE_ID = 100
+_CHALLENGE_ROLE_ID = 200
+_BOX_ROLE_ID = 300
+_HACKER_ROLE_ID = 400
+
+
+def _make_test_role_manager():
+    """Create a role manager that returns test role IDs for creator and rank lookups."""
+    rm = MockRoleManager()
+    rm.get_role_id = lambda cat, key: {
+        ("creator", "Sherlock Creator"): _SHERLOCK_ROLE_ID,
+        ("creator", "Challenge Creator"): _CHALLENGE_ROLE_ID,
+        ("creator", "Box Creator"): _BOX_ROLE_ID,
+    }.get((cat, key))
+    rm.get_post_or_rank = lambda what: {
+        "Hacker": _HACKER_ROLE_ID,
+    }.get(what)
+    rm.get_group_ids = lambda cat: {
+        "rank": [_HACKER_ROLE_ID],
+        "position": [],
+    }.get(cat, [])
+    rm.get_season_role_id = lambda tier: None
+    return rm
+
+
 class TestProcessLabsIdentification(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         """Set up test fixtures."""
@@ -90,13 +117,16 @@ class TestProcessLabsIdentification(unittest.IsolatedAsyncioTestCase):
         self.box_role = MagicMock(spec=discord.Role)
         self.rank_role = MagicMock(spec=discord.Role)
 
-        # Set up guild.get_role to return appropriate roles
+        # Set up guild.get_role to return appropriate roles by test IDs
         self.guild.get_role.side_effect = lambda role_id: {
-            settings.roles.SHERLOCK_CREATOR: self.sherlock_role,
-            settings.roles.CHALLENGE_CREATOR: self.challenge_role,
-            settings.roles.BOX_CREATOR: self.box_role,
-            settings.roles.HACKER: self.rank_role,
+            _SHERLOCK_ROLE_ID: self.sherlock_role,
+            _CHALLENGE_ROLE_ID: self.challenge_role,
+            _BOX_ROLE_ID: self.box_role,
+            _HACKER_ROLE_ID: self.rank_role,
         }.get(role_id)
+
+        # Set up role manager on bot
+        self.bot.role_manager = _make_test_role_manager()
 
     @pytest.mark.asyncio
     async def test_process_identification_with_sherlocks(self):
@@ -115,15 +145,13 @@ class TestProcessLabsIdentification(unittest.IsolatedAsyncioTestCase):
             "ranking": "unranked",
         }
 
-        # Mock the member edit method
         self.member.edit = AsyncMock()
-        self.member.nick = "test_user"  # Same as username, so no edit needed
+        self.member.nick = "test_user"
 
         result = await process_labs_identification(htb_user_details, self.member, self.bot)
 
-        # Verify that the Sherlock creator role is in the result
         self.assertIn(self.sherlock_role, result)
-        self.guild.get_role.assert_any_call(settings.roles.SHERLOCK_CREATOR)
+        self.guild.get_role.assert_any_call(_SHERLOCK_ROLE_ID)
 
     @pytest.mark.asyncio
     async def test_process_identification_with_challenges_and_sherlocks(self):
@@ -142,17 +170,15 @@ class TestProcessLabsIdentification(unittest.IsolatedAsyncioTestCase):
             "ranking": "unranked",
         }
 
-        # Mock the member edit method
         self.member.edit = AsyncMock()
         self.member.nick = "test_user"
 
         result = await process_labs_identification(htb_user_details, self.member, self.bot)
 
-        # Verify that both roles are in the result
         self.assertIn(self.sherlock_role, result)
         self.assertIn(self.challenge_role, result)
-        self.guild.get_role.assert_any_call(settings.roles.SHERLOCK_CREATOR)
-        self.guild.get_role.assert_any_call(settings.roles.CHALLENGE_CREATOR)
+        self.guild.get_role.assert_any_call(_SHERLOCK_ROLE_ID)
+        self.guild.get_role.assert_any_call(_CHALLENGE_ROLE_ID)
 
     @pytest.mark.asyncio
     async def test_process_identification_without_sherlocks(self):
@@ -171,17 +197,14 @@ class TestProcessLabsIdentification(unittest.IsolatedAsyncioTestCase):
             "ranking": "unranked",
         }
 
-        # Mock the member edit method
         self.member.edit = AsyncMock()
         self.member.nick = "test_user"
 
         result = await process_labs_identification(htb_user_details, self.member, self.bot)
 
-        # Verify that the Sherlock creator role is not in the result
         self.assertNotIn(self.sherlock_role, result)
-        # Verify get_role was not called for Sherlock creator
         calls = [call[0][0] for call in self.guild.get_role.call_args_list]
-        self.assertNotIn(settings.roles.SHERLOCK_CREATOR, calls)
+        self.assertNotIn(_SHERLOCK_ROLE_ID, calls)
 
     @pytest.mark.asyncio
     async def test_process_identification_all_creator_roles(self):
@@ -200,18 +223,15 @@ class TestProcessLabsIdentification(unittest.IsolatedAsyncioTestCase):
             "ranking": "unranked",
         }
 
-        # Mock the member edit method
         self.member.edit = AsyncMock()
         self.member.nick = "test_user"
 
         result = await process_labs_identification(htb_user_details, self.member, self.bot)
 
-        # Verify that all three creator roles are in the result
         self.assertIn(self.sherlock_role, result)
         self.assertIn(self.challenge_role, result)
         self.assertIn(self.box_role, result)
 
-        # Verify all get_role calls were made
-        self.guild.get_role.assert_any_call(settings.roles.SHERLOCK_CREATOR)
-        self.guild.get_role.assert_any_call(settings.roles.CHALLENGE_CREATOR)
-        self.guild.get_role.assert_any_call(settings.roles.BOX_CREATOR)
+        self.guild.get_role.assert_any_call(_SHERLOCK_ROLE_ID)
+        self.guild.get_role.assert_any_call(_CHALLENGE_ROLE_ID)
+        self.guild.get_role.assert_any_call(_BOX_ROLE_ID)
