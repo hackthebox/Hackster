@@ -13,6 +13,7 @@ import os
 import sys
 
 from dotenv import dotenv_values
+from sqlalchemy.dialects.mysql import insert
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -97,11 +98,25 @@ JOINABLE_SEED_DATA = [
 ]
 
 
+async def _upsert_role(session, values: dict) -> None:
+    """Insert or update a dynamic role using MariaDB upsert."""
+    stmt = insert(DynamicRole).values(values)
+    # On duplicate key, update all fields except the unique key (key, category)
+    stmt = stmt.on_duplicate_key_update(
+        discord_role_id=stmt.inserted.discord_role_id,
+        display_name=stmt.inserted.display_name,
+        description=stmt.inserted.description,
+        cert_full_name=stmt.inserted.cert_full_name,
+        cert_integer_id=stmt.inserted.cert_integer_id,
+    )
+    await session.execute(stmt)
+
+
 async def seed(env_file: str) -> None:
     env_values = dotenv_values(env_file)
     logger.info(f"Loaded env from {env_file} ({len(env_values)} values)")
 
-    created = 0
+    upserted = 0
     skipped = 0
 
     async with AsyncSessionLocal() as session:
@@ -114,16 +129,18 @@ async def seed(env_file: str) -> None:
                 skipped += 1
                 continue
 
-            role = DynamicRole()
-            role.key = key
-            role.discord_role_id = int(role_id_str)
-            role.category = category
-            role.display_name = display_name
-            for k, v in extra.items():
-                setattr(role, k, v)
+            values = {
+                "key": key,
+                "discord_role_id": int(role_id_str),
+                "category": category,
+                "display_name": display_name,
+                "description": None,
+                "cert_full_name": extra.get("cert_full_name"),
+                "cert_integer_id": extra.get("cert_integer_id"),
+            }
 
-            session.add(role)
-            created += 1
+            await _upsert_role(session, values)
+            upserted += 1
             logger.info(f"  {category.value}/{key} = {role_id_str}")
 
         # Seed joinable roles
@@ -135,20 +152,23 @@ async def seed(env_file: str) -> None:
                 skipped += 1
                 continue
 
-            role = DynamicRole()
-            role.key = key
-            role.discord_role_id = int(role_id_str)
-            role.category = RoleCategory.JOINABLE
-            role.display_name = display_name
-            role.description = description
+            values = {
+                "key": key,
+                "discord_role_id": int(role_id_str),
+                "category": RoleCategory.JOINABLE,
+                "display_name": display_name,
+                "description": description,
+                "cert_full_name": None,
+                "cert_integer_id": None,
+            }
 
-            session.add(role)
-            created += 1
+            await _upsert_role(session, values)
+            upserted += 1
             logger.info(f"  joinable/{key} = {role_id_str}")
 
         await session.commit()
 
-    logger.info(f"Seeding complete: {created} created, {skipped} skipped")
+    logger.info(f"Seeding complete: {upserted} upserted, {skipped} skipped")
 
 
 if __name__ == "__main__":
