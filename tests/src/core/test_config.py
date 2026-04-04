@@ -4,37 +4,32 @@ from src.core import settings
 
 
 class TestConfig(unittest.TestCase):
-    def test_sherlock_creator_role_in_all_creators(self):
-        """Test that SHERLOCK_CREATOR role is included in ALL_CREATORS group."""
-        all_creators = settings.role_groups.get("ALL_CREATORS", [])
-        self.assertIn(settings.roles.SHERLOCK_CREATOR, all_creators)
-        self.assertIn(settings.roles.CHALLENGE_CREATOR, all_creators)
-        self.assertIn(settings.roles.BOX_CREATOR, all_creators)
+    def test_core_roles_required(self):
+        """Test that core roles are still loaded from env vars."""
+        self.assertIsNotNone(settings.roles.VERIFIED)
+        self.assertIsInstance(settings.roles.VERIFIED, int)
+        self.assertIsNotNone(settings.roles.ADMINISTRATOR)
+        self.assertIsInstance(settings.roles.ADMINISTRATOR, int)
 
-    def test_get_post_or_rank_sherlock_creator(self):
-        """Test that get_post_or_rank returns correct role for Sherlock Creator."""
-        result = settings.get_post_or_rank("Sherlock Creator")
-        self.assertEqual(result, settings.roles.SHERLOCK_CREATOR)
+    def test_core_role_groups_present(self):
+        """Test that core role groups are populated."""
+        self.assertIn("ALL_ADMINS", settings.role_groups)
+        self.assertIn("ALL_MODS", settings.role_groups)
+        self.assertIn("ALL_HTB_STAFF", settings.role_groups)
+        self.assertIn("ALL_SR_MODS", settings.role_groups)
+        self.assertIn("ALL_HTB_SUPPORT", settings.role_groups)
 
-    def test_get_post_or_rank_other_creators(self):
-        """Test that get_post_or_rank works for all creator types."""
-        test_cases = [
-            ("Challenge Creator", settings.roles.CHALLENGE_CREATOR),
-            ("Box Creator", settings.roles.BOX_CREATOR),
-            ("Sherlock Creator", settings.roles.SHERLOCK_CREATOR),
-        ]
+    def test_dynamic_role_groups_removed(self):
+        """Test that dynamic role groups are no longer in settings."""
+        self.assertNotIn("ALL_RANKS", settings.role_groups)
+        self.assertNotIn("ALL_SEASON_RANKS", settings.role_groups)
+        self.assertNotIn("ALL_CREATORS", settings.role_groups)
+        self.assertNotIn("ALL_POSITIONS", settings.role_groups)
 
-        for role_name, expected_role in test_cases:
-            with self.subTest(role_name=role_name):
-                result = settings.get_post_or_rank(role_name)
-                self.assertEqual(result, expected_role)
-
-    def test_get_post_or_rank_invalid_role(self):
-        """Test that get_post_or_rank returns None for invalid role."""
-        result = settings.get_post_or_rank("Invalid Role")
-        self.assertIsNone(result)
-
-    def test_sherlock_creator_role_configured(self):
-        """Test that SHERLOCK_CREATOR role is properly configured."""
-        self.assertIsNotNone(settings.roles.SHERLOCK_CREATOR)
-        self.assertIsInstance(settings.roles.SHERLOCK_CREATOR, int)
+    def test_dynamic_roles_are_optional(self):
+        """Test that dynamic role fields default to None when env vars are missing."""
+        # These should be Optional[int] = None if not in env
+        # In test env they may still be set via .test.env, so just check the field exists
+        self.assertTrue(hasattr(settings.roles, "OMNISCIENT"))
+        self.assertTrue(hasattr(settings.roles, "VIP"))
+        self.assertTrue(hasattr(settings.roles, "BOX_CREATOR"))

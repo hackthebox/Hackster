@@ -2,7 +2,6 @@ from discord import Bot, Member, Role
 
 from typing import Literal
 
-from src.core import settings
 from src.webhooks.handlers.base import BaseHandler
 from src.webhooks.types import WebhookBody, WebhookEvent
 
@@ -37,12 +36,11 @@ class MPHandler(BaseHandler):
 
         member = await self.get_guild_member(discord_id, bot)
 
-        subscription_id = settings.get_post_or_rank(subscription_name)
+        subscription_id = bot.role_manager.get_post_or_rank(subscription_name)
         if not subscription_id:
             raise ValueError(f"Invalid subscription name: {subscription_name}")
 
-        # Use the base handler's role swapping method
-        role_group = [int(r) for r in settings.role_groups["ALL_LABS_SUBSCRIPTIONS"]]
+        role_group = bot.role_manager.get_group_ids("subscription_labs")
         await self.swap_role_in_group(member, subscription_id, role_group, bot)
 
         return self.success()
@@ -57,9 +55,12 @@ class MPHandler(BaseHandler):
             self.get_property_or_trait(body, "hof_tier"),
             "hof_tier",  # type: ignore
         )
+
+        rank_one_id = bot.role_manager.get_role_id("position", "1")
+        rank_ten_id = bot.role_manager.get_role_id("position", "10")
         hof_roles = {
-            "1": bot.guilds[0].get_role(settings.roles.RANK_ONE),
-            "10": bot.guilds[0].get_role(settings.roles.RANK_TEN),
+            "1": bot.guilds[0].get_role(rank_one_id) if rank_one_id else None,
+            "10": bot.guilds[0].get_role(rank_ten_id) if rank_ten_id else None,
         }
 
         member = await self.get_guild_member(discord_id, bot)
@@ -124,7 +125,7 @@ class MPHandler(BaseHandler):
 
         member = await self.get_guild_member(discord_id, bot)
 
-        rank_id = settings.get_post_or_rank(rank)
+        rank_id = bot.role_manager.get_post_or_rank(rank)
         if not rank_id:
             err = ValueError(f"Cannot find role for '{rank}'")
             self.logger.error(
@@ -137,10 +138,9 @@ class MPHandler(BaseHandler):
             )
             raise err
 
-        # Use the base handler's role swapping method
-        role_group = [int(r) for r in settings.role_groups["ALL_RANKS"]]
+        role_group = bot.role_manager.get_group_ids("rank")
         changes_made = await self.swap_role_in_group(member, rank_id, role_group, bot)
-        
+
         if not changes_made:
             return self.success()  # No changes needed
 
@@ -155,7 +155,7 @@ class MPHandler(BaseHandler):
             self.get_property_or_trait(body, "season_rank"), "season_rank"
         )
 
-        season_role_id = settings.get_season(season_rank)
+        season_role_id = bot.role_manager.get_season_role_id(season_rank)
         if not season_role_id:
             err = ValueError(f"Cannot find role for '{season_rank}'")
             self.logger.error(
@@ -170,8 +170,7 @@ class MPHandler(BaseHandler):
 
         member = await self.get_guild_member(discord_id, bot)
 
-        # Use the base handler's role swapping method
-        role_group = [int(r) for r in settings.role_groups["ALL_SEASON_RANKS"]]
+        role_group = bot.role_manager.get_group_ids("season")
         await self.swap_role_in_group(member, season_role_id, role_group, bot)
 
         return self.success()

@@ -33,24 +33,21 @@ class AcademyHandler(BaseHandler):
         self.logger.info(f"Handling certificate awarded event for {discord_id} with certificate {certificate_id}")
 
         member = await self.get_guild_member(discord_id, bot)
-        certificate_role_id = settings.get_academy_cert_role(int(certificate_id))
+        certificate_role_id = bot.role_manager.get_academy_cert_role(int(certificate_id))
 
         if not certificate_role_id:
             self.logger.warning(f"No certificate role found for certificate {certificate_id}")
             return self.fail()
 
-        if certificate_role_id:
-            self.logger.info(f"Adding certificate role {certificate_role_id} to member {member.id}")
-            try:
-                await member.add_roles(
-                    bot.guilds[0].get_role(certificate_role_id), atomic=True  # type: ignore
-                )  # type: ignore
+        self.logger.info(f"Adding certificate role {certificate_role_id} to member {member.id}")
+        try:
+            await member.add_roles(
+                bot.guilds[0].get_role(certificate_role_id), atomic=True  # type: ignore
+            )  # type: ignore
+        except Exception as e:
+            self.logger.error(f"Error adding certificate role {certificate_role_id} to member {member.id}: {e}")
+            raise e
 
-            except Exception as e:
-                self.logger.error(f"Error adding certificate role {certificate_role_id} to member {member.id}: {e}")
-                raise e
-
-        # Safely attempt to send verification log only after role addition
         try:
             verify_channel = bot.guilds[0].get_channel(settings.channels.VERIFY_LOGS)
             if verify_channel:
@@ -67,7 +64,6 @@ class AcademyHandler(BaseHandler):
             self.logger.error(f"Failed to send certificate verification log: {e}")
             raise e
 
-
         return self.success()
 
     async def _handle_subscription_change(self, body: WebhookBody, bot: Bot) -> dict:
@@ -80,13 +76,12 @@ class AcademyHandler(BaseHandler):
         self.logger.info(f"Handling subscription change event for {discord_id} with plan {plan}")
 
         member = await self.get_guild_member(discord_id, bot)
-        subscription_role_id = settings.get_post_or_rank(plan)
+        subscription_role_id = bot.role_manager.get_post_or_rank(plan)
         if not subscription_role_id:
             self.logger.warning(f"No subscription role found for plan {plan}")
             return self.fail()
 
-        # Use the base handler's role swapping method
-        role_group = [int(r) for r in settings.role_groups["ALL_ACADEMY_SUBSCRIPTIONS"]]
+        role_group = bot.role_manager.get_group_ids("subscription_academy")
         await self.swap_role_in_group(member, subscription_role_id, role_group, bot)
 
         return self.success()
