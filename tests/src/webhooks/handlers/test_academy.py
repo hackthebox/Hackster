@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.webhooks.handlers.academy import AcademyHandler
 from src.webhooks.types import WebhookBody, Platform, WebhookEvent
@@ -21,7 +21,47 @@ class TestAcademyHandler:
         discord_id = 123456789
         account_id = 987654321
         certificate_id = 42
-        mock_member = helpers.MockMember(id=discord_id)
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
+        mock_member.add_roles = AsyncMock()
+        body = WebhookBody(
+            platform=Platform.ACADEMY,
+            event=WebhookEvent.CERTIFICATE_AWARDED,
+            properties={
+                "discord_id": discord_id,
+                "account_id": account_id,
+                "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
+            },
+            traits={},
+        )
+        handler.validate_common_properties = MagicMock(return_value=(discord_id, account_id))
+        handler.validate_property = MagicMock(return_value=certificate_id)
+        handler.get_guild_member = AsyncMock(return_value=mock_member)
+
+        bot.role_manager = _make_role_manager(get_academy_cert_role=lambda cid: 555)
+
+        with patch("src.webhooks.handlers.academy.settings") as mock_settings:
+            mock_settings.channels.VERIFY_LOGS = 777
+            mock_guild = helpers.MockGuild(id=1)
+            mock_guild.get_role.return_value = MagicMock()
+            mock_channel = AsyncMock()
+            mock_guild.get_channel.return_value = mock_channel
+            bot.guilds = [mock_guild]
+
+            result = await handler._handle_certificate_awarded(body, bot)
+            mock_member.add_roles.assert_awaited()
+            mock_channel.send.assert_awaited_once_with(
+                "Certification linked: Test Certificate with Certificate ID: 42 -> @123456789 (123456789)"
+            )
+            assert result == handler.success()
+
+    @pytest.mark.asyncio
+    async def test_handle_certificate_awarded_success_no_name(self, bot):
+        handler = AcademyHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        certificate_id = 42
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
         mock_member.add_roles = AsyncMock()
         body = WebhookBody(
             platform=Platform.ACADEMY,
@@ -37,16 +77,22 @@ class TestAcademyHandler:
         handler.validate_property = MagicMock(return_value=certificate_id)
         handler.get_guild_member = AsyncMock(return_value=mock_member)
 
-        bot.role_manager = _make_role_manager(
-            get_academy_cert_role=lambda cid: 555,
-        )
-        mock_guild = helpers.MockGuild(id=1)
-        mock_guild.get_role.return_value = 555
-        bot.guilds = [mock_guild]
+        bot.role_manager = _make_role_manager(get_academy_cert_role=lambda cid: 555)
 
-        result = await handler._handle_certificate_awarded(body, bot)
-        mock_member.add_roles.assert_awaited()
-        assert result == handler.success()
+        with patch("src.webhooks.handlers.academy.settings") as mock_settings:
+            mock_settings.channels.VERIFY_LOGS = 777
+            mock_guild = helpers.MockGuild(id=1)
+            mock_guild.get_role.return_value = MagicMock()
+            mock_channel = AsyncMock()
+            mock_guild.get_channel.return_value = mock_channel
+            bot.guilds = [mock_guild]
+
+            result = await handler._handle_certificate_awarded(body, bot)
+            mock_member.add_roles.assert_awaited()
+            mock_channel.send.assert_awaited_once_with(
+                "Certification linked: Certificate ID: 42 -> @123456789 (123456789)"
+            )
+            assert result == handler.success()
 
     @pytest.mark.asyncio
     async def test_handle_certificate_awarded_no_role(self, bot):
@@ -54,7 +100,7 @@ class TestAcademyHandler:
         discord_id = 123456789
         account_id = 987654321
         certificate_id = 42
-        mock_member = helpers.MockMember(id=discord_id)
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
         body = WebhookBody(
             platform=Platform.ACADEMY,
             event=WebhookEvent.CERTIFICATE_AWARDED,
@@ -62,6 +108,7 @@ class TestAcademyHandler:
                 "discord_id": discord_id,
                 "account_id": account_id,
                 "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
             },
             traits={},
         )
@@ -80,7 +127,7 @@ class TestAcademyHandler:
         discord_id = 123456789
         account_id = 987654321
         certificate_id = 42
-        mock_member = helpers.MockMember(id=discord_id)
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
         mock_member.add_roles = AsyncMock(side_effect=Exception("add_roles error"))
         body = WebhookBody(
             platform=Platform.ACADEMY,
@@ -89,6 +136,7 @@ class TestAcademyHandler:
                 "discord_id": discord_id,
                 "account_id": account_id,
                 "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
             },
             traits={},
         )
@@ -97,12 +145,58 @@ class TestAcademyHandler:
         handler.get_guild_member = AsyncMock(return_value=mock_member)
 
         bot.role_manager = _make_role_manager(get_academy_cert_role=lambda cid: 555)
-        mock_guild = helpers.MockGuild(id=1)
-        mock_guild.get_role.return_value = 555
-        bot.guilds = [mock_guild]
 
-        with pytest.raises(Exception, match="add_roles error"):
-            await handler._handle_certificate_awarded(body, bot)
+        with patch("src.webhooks.handlers.academy.settings") as mock_settings:
+            mock_settings.channels.VERIFY_LOGS = 777
+            mock_guild = helpers.MockGuild(id=1)
+            mock_guild.get_role.return_value = MagicMock()
+            mock_channel = AsyncMock()
+            mock_guild.get_channel.return_value = mock_channel
+            bot.guilds = [mock_guild]
+
+            with pytest.raises(Exception, match="add_roles error"):
+                await handler._handle_certificate_awarded(body, bot)
+
+    @pytest.mark.asyncio
+    async def test_handle_certificate_awarded_no_verify_channel(self, bot):
+        handler = AcademyHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        certificate_id = 42
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
+        mock_member.add_roles = AsyncMock()
+        body = WebhookBody(
+            platform=Platform.ACADEMY,
+            event=WebhookEvent.CERTIFICATE_AWARDED,
+            properties={
+                "discord_id": discord_id,
+                "account_id": account_id,
+                "certificate_id": certificate_id,
+                "certificate_name": "Test Certificate",
+            },
+            traits={},
+        )
+        handler.validate_common_properties = MagicMock(return_value=(discord_id, account_id))
+        handler.validate_property = MagicMock(return_value=certificate_id)
+        handler.get_guild_member = AsyncMock(return_value=mock_member)
+
+        bot.role_manager = _make_role_manager(get_academy_cert_role=lambda cid: 555)
+
+        with (
+            patch("src.webhooks.handlers.academy.settings") as mock_settings,
+            patch.object(handler.logger, "warning") as mock_log,
+        ):
+            mock_settings.channels.VERIFY_LOGS = 777
+            mock_guild = helpers.MockGuild(id=1)
+            mock_guild.get_role.return_value = MagicMock()
+            mock_guild.get_channel.return_value = None
+            bot.guilds = [mock_guild]
+
+            result = await handler._handle_certificate_awarded(body, bot)
+
+            mock_member.add_roles.assert_awaited()
+            mock_log.assert_called_with("Verify logs channel 777 not found")
+            assert result == handler.success()
 
     @pytest.mark.asyncio
     async def test_handle_subscription_change_success(self, bot):
@@ -110,7 +204,7 @@ class TestAcademyHandler:
         discord_id = 123456789
         account_id = 987654321
         plan = "Silver Annual"
-        mock_member = helpers.MockMember(id=discord_id)
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
         mock_member.roles = []
         mock_member.add_roles = AsyncMock()
         mock_member.remove_roles = AsyncMock()
@@ -148,7 +242,7 @@ class TestAcademyHandler:
         discord_id = 123456789
         account_id = 987654321
         plan = "invalid_plan"
-        mock_member = helpers.MockMember(id=discord_id)
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
         body = WebhookBody(
             platform=Platform.ACADEMY,
             event=WebhookEvent.SUBSCRIPTION_CHANGE,
@@ -178,7 +272,7 @@ class TestAcademyHandler:
 
         old_role = MagicMock()
         old_role.id = 666
-        mock_member = helpers.MockMember(id=discord_id)
+        mock_member = helpers.MockMember(id=discord_id, name="123456789")
         mock_member.roles = [old_role]
         mock_member.add_roles = AsyncMock()
         mock_member.remove_roles = AsyncMock()
