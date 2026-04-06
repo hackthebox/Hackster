@@ -30,9 +30,15 @@ class VerifyCog(commands.Cog):
         if not certid.startswith("HTBCERT-"):
             await ctx.respond("CertID must start with HTBCERT-", ephemeral=True)
             return
-        cert = await process_certification(certid, fullname)
+        cert = await process_certification(certid, fullname, self.bot.role_manager)
         if cert:
-            to_add = settings.get_cert(cert)
+            to_add = self.bot.role_manager.get_cert_role_id(cert)
+            if not to_add:
+                await ctx.respond(
+                    "This certification role is not yet configured. Please contact an admin.",
+                    ephemeral=True,
+                )
+                return
             await ctx.author.add_roles(ctx.guild.get_role(to_add))
             await ctx.respond(f"Added {cert}!", ephemeral=True)
         else:

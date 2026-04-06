@@ -158,8 +158,17 @@ async def get_season_rank(htb_uid: int) -> str | None:
     return rank
 
 
-async def process_certification(certid: str, name: str):
-    """Process certifications."""
+async def process_certification(certid: str, name: str, role_manager):
+    """Process certifications.
+
+    Args:
+        certid: The certificate ID string (e.g. "HTBCERT-xxxx").
+        name: The full name on the certificate.
+        role_manager: RoleManager instance for cert name lookups.
+
+    Returns:
+        str | False: The cert abbreviation (e.g. "CPTS") or False if not found.
+    """
     cert_api_url = f"{settings.API_V4_URL}/certificate/lookup"
     params = {"id": certid, "name": name}
     async with aiohttp.ClientSession() as session:
@@ -174,27 +183,19 @@ async def process_certification(certid: str, name: str):
                 )
                 response = {}
     try:
-        certRawName = response["certificates"][0]["name"]
-    except IndexError:
+        cert_raw_name = response["certificates"][0]["name"]
+    except (IndexError, KeyError):
         return False
-    if certRawName == "HTB Certified Bug Bounty Hunter":
-        cert = "CBBH"
-    elif certRawName == "HTB Certified Web Exploitation Specialist":
-        cert = "CBBH"
-    elif certRawName == "HTB Certified Penetration Testing Specialist":
-        cert = "CPTS"
-    elif certRawName == "HTB Certified Defensive Security Analyst":
-        cert = "CDSA"
-    elif certRawName == "HTB Certified Web Exploitation Expert":
-        cert = "CWEE"
-    elif certRawName == "HTB Certified Active Directory Pentesting Expert":
-        cert = "CAPE"
-    elif certRawName == "HTB Certified Junior Cybersecurity Associate":
-        cert = "CJCA"
-    elif certRawName == "HTB Certified Wi-Fi Pentesting Expert":
-        cert = "CWPE"
-    else:
-        cert = False
+
+    # Look up cert abbreviation from the DB via full platform name
+    cert = role_manager.get_cert_abbrev_by_full_name(cert_raw_name)
+    if not cert:
+        # Handle legacy "Bug Bounty Hunter" name (renamed to CWES on the platform)
+        if "Bug Bounty Hunter" in cert_raw_name:
+            cert = "CBBH"
+        else:
+            logger.warning(f"Unknown certificate name: {cert_raw_name}")
+            return False
     return cert
 
 
@@ -306,20 +307,21 @@ async def process_labs_identification(
     htb_user_details: dict, user: Optional[Member | User], bot: Bot
 ) -> Optional[List[Role]]:
     """Returns roles to assign if identification was successfully processed."""
-    
+
     # Resolve member and guild
     member, guild = await _resolve_member_and_guild(user, bot)
-    
+    role_manager = bot.role_manager
+
     # Get roles to remove and assign
-    to_remove = _get_roles_to_remove(member, guild)
-    to_assign = await _process_role_assignments(htb_user_details, guild)
-    
+    to_remove = _get_roles_to_remove(member, guild, role_manager)
+    to_assign = await _process_role_assignments(htb_user_details, guild, role_manager)
+
     # Remove roles that will be reassigned
     to_remove = list(set(to_remove) - set(to_assign))
-    
+
     # Apply role changes
     await _apply_role_changes(member, to_remove, to_assign)
-    
+
     return to_assign
 
 
@@ -340,12 +342,12 @@ async def _resolve_member_and_guild(
     raise GuildNotFound(f"Could not identify member {user} in guild.")
 
 
-def _get_roles_to_remove(member: Member, guild: Guild) -> list[Role]:
+def _get_roles_to_remove(member: Member, guild: Guild, role_manager) -> list[Role]:
     """Get existing roles that should be removed."""
     to_remove = []
     try:
-        all_ranks = settings.role_groups.get("ALL_RANKS", [])
-        all_positions = settings.role_groups.get("ALL_POSITIONS", [])
+        all_ranks = role_manager.get_group_ids("rank") if role_manager else []
+        all_positions = role_manager.get_group_ids("position") if role_manager else []
         removable_role_ids = all_ranks + all_positions
         
         for role in member.roles:
@@ -359,35 +361,35 @@ def _get_roles_to_remove(member: Member, guild: Guild) -> list[Role]:
 
 
 async def _process_role_assignments(
-    htb_user_details: dict, guild: Guild
+    htb_user_details: dict, guild: Guild, role_manager
 ) -> list[Role]:
     """Process role assignments based on HTB user details."""
     to_assign = []
-    
+
     # Process rank roles
-    to_assign.extend(_process_rank_roles(htb_user_details.get("rank", ""), guild))
-    
+    to_assign.extend(_process_rank_roles(htb_user_details.get("rank", ""), guild, role_manager))
+
     # Process season rank roles
-    to_assign.extend(await _process_season_rank_roles(htb_user_details.get("id", ""), guild))
-    
+    to_assign.extend(await _process_season_rank_roles(htb_user_details.get("id", ""), guild, role_manager))
+
     # Process VIP roles
-    to_assign.extend(_process_vip_roles(htb_user_details, guild))
-    
+    to_assign.extend(_process_vip_roles(htb_user_details, guild, role_manager))
+
     # Process HOF position roles
-    to_assign.extend(_process_hof_position_roles(htb_user_details.get("ranking", "unranked"), guild))
-    
+    to_assign.extend(_process_hof_position_roles(htb_user_details.get("ranking", "unranked"), guild, role_manager))
+
     # Process creator roles
-    to_assign.extend(_process_creator_roles(htb_user_details.get("content", {}), guild))
-    
+    to_assign.extend(_process_creator_roles(htb_user_details.get("content", {}), guild, role_manager))
+
     return to_assign
 
 
-def _process_rank_roles(rank: str, guild: Guild) -> list[Role]:
+def _process_rank_roles(rank: str, guild: Guild, role_manager) -> list[Role]:
     """Process rank-based role assignments."""
     roles = []
-    
+
     if rank and rank not in ["Deleted", "Moderator", "Ambassador", "Admin", "Staff"]:
-        role_id = settings.get_post_or_rank(rank)
+        role_id = role_manager.get_post_or_rank(rank) if role_manager else None
         if role_id:
             role = guild.get_role(role_id)
             if role:
@@ -396,13 +398,13 @@ def _process_rank_roles(rank: str, guild: Guild) -> list[Role]:
     return roles
 
 
-async def _process_season_rank_roles(mp_user_id: int, guild: Guild) -> list[Role]:
+async def _process_season_rank_roles(mp_user_id: int, guild: Guild, role_manager) -> list[Role]:
     """Process season rank role assignments."""
     roles = []
     try:
         season_rank = await get_season_rank(mp_user_id)
         if isinstance(season_rank, str):
-            season_role_id = settings.get_season(season_rank)
+            season_role_id = role_manager.get_season_role_id(season_rank) if role_manager else None
             if season_role_id:
                 season_role = guild.get_role(season_role_id)
                 if season_role:
@@ -412,17 +414,19 @@ async def _process_season_rank_roles(mp_user_id: int, guild: Guild) -> list[Role
     return roles
 
 
-def _process_vip_roles(htb_user_details: dict, guild: Guild) -> list[Role]:
+def _process_vip_roles(htb_user_details: dict, guild: Guild, role_manager) -> list[Role]:
     """Process VIP role assignments."""
     roles = []
     try:
         if htb_user_details.get("isVip", False):
-            vip_role = guild.get_role(settings.roles.VIP)
+            vip_id = role_manager.get_role_id("subscription_labs", "vip") if role_manager else None
+            vip_role = guild.get_role(vip_id) if vip_id else None
             if vip_role:
                 roles.append(vip_role)
-        
+
         if htb_user_details.get("isDedicatedVip", False):
-            vip_plus_role = guild.get_role(settings.roles.VIP_PLUS)
+            vip_plus_id = role_manager.get_role_id("subscription_labs", "dedivip") if role_manager else None
+            vip_plus_role = guild.get_role(vip_plus_id) if vip_plus_id else None
             if vip_plus_role:
                 roles.append(vip_plus_role)
     except Exception as e:
@@ -430,7 +434,7 @@ def _process_vip_roles(htb_user_details: dict, guild: Guild) -> list[Role]:
     return roles
 
 
-def _process_hof_position_roles(htb_user_ranking: str | int, guild: Guild) -> list[Role]:
+def _process_hof_position_roles(htb_user_ranking: str | int, guild: Guild, role_manager) -> list[Role]:
     """Process Hall of Fame position role assignments."""
     roles = []
     try:
@@ -439,9 +443,9 @@ def _process_hof_position_roles(htb_user_ranking: str | int, guild: Guild) -> li
         if hof_position != "unranked":
             position = int(hof_position)
             pos_top = _get_position_tier(position)
-            
+
             if pos_top:
-                pos_role_id = settings.get_post_or_rank(pos_top)
+                pos_role_id = role_manager.get_post_or_rank(pos_top) if role_manager else None
                 if pos_role_id:
                     pos_role = guild.get_role(pos_role_id)
                     if pos_role:
@@ -460,24 +464,27 @@ def _get_position_tier(position: int) -> Optional[str]:
     return None
 
 
-def _process_creator_roles(htb_user_content: dict, guild: Guild) -> list[Role]:
+def _process_creator_roles(htb_user_content: dict, guild: Guild, role_manager) -> list[Role]:
     """Process creator role assignments."""
     roles = []
     try:
         if htb_user_content.get("machines"):
-            box_creator_role = guild.get_role(settings.roles.BOX_CREATOR)
+            box_id = role_manager.get_role_id("creator", "Box Creator") if role_manager else None
+            box_creator_role = guild.get_role(box_id) if box_id else None
             if box_creator_role:
                 logger.debug("Adding box creator role to user.")
                 roles.append(box_creator_role)
-        
+
         if htb_user_content.get("challenges"):
-            challenge_creator_role = guild.get_role(settings.roles.CHALLENGE_CREATOR)
+            challenge_id = role_manager.get_role_id("creator", "Challenge Creator") if role_manager else None
+            challenge_creator_role = guild.get_role(challenge_id) if challenge_id else None
             if challenge_creator_role:
                 logger.debug("Adding challenge creator role to user.")
                 roles.append(challenge_creator_role)
-        
+
         if htb_user_content.get("sherlocks"):
-            sherlock_creator_role = guild.get_role(settings.roles.SHERLOCK_CREATOR)
+            sherlock_id = role_manager.get_role_id("creator", "Sherlock Creator") if role_manager else None
+            sherlock_creator_role = guild.get_role(sherlock_id) if sherlock_id else None
             if sherlock_creator_role:
                 logger.debug("Adding sherlock creator role to user.")
                 roles.append(sherlock_creator_role)

@@ -6,6 +6,8 @@ from typing import Any, Optional
 import toml
 from pydantic import BaseSettings, validator
 
+# AcademyCertificates is removed; cert mappings are now in the dynamic_role DB table.
+
 
 class Bot(BaseSettings):
     """The API settings."""
@@ -86,21 +88,14 @@ class Channels(BaseSettings):
         env_prefix = "CHANNEL_"
 
 
-class AcademyCertificates(BaseSettings):
-    CERTIFIED_WEB_EXPLOITATION_SPECIALIST = 2
-    CERTIFIED_PENETRATION_TESTING_SPECIALIST = 3
-    CERTIFIED_DEFENSIVE_SECURITY_ANALYST = 4
-    CERTIFIED_WEB_EXPLOITATION_EXPERT = 5
-    CERTIFIED_ACTIVEDIRECTORY_PENTESTING_EXPERT = 6
-    CERTIFIED_JUNIOR_CYBERSECURITY_ASSOCIATE = 7
-    CERTIFIED_WIFI_PENTESTING_EXPERT=8
-
-
 class Roles(BaseSettings):
-    """The roles settings."""
-    VERIFIED: int
+    """The roles settings.
 
-    # Moderation
+    Core roles (required): used in decorators at import time for permission checks.
+    Dynamic roles (optional): managed via DB, kept here as fallback during transition.
+    """
+    # ── Core roles (required, used in decorators) ────────────────────
+    VERIFIED: int
     COMMUNITY_MANAGER: int
     COMMUNITY_TEAM: int
     ADMINISTRATOR: int
@@ -110,54 +105,54 @@ class Roles(BaseSettings):
     HTB_STAFF: int
     HTB_SUPPORT: int
     MUTED: int
-
-    # Ranks
-    OMNISCIENT: int
-    GURU: int
-    ELITE_HACKER: int
-    PRO_HACKER: int
-    HACKER: int
-    SCRIPT_KIDDIE: int
-    NOOB: int
-
-    # Subscriptions
-    VIP: int
-    VIP_PLUS: int
-    SILVER_ANNUAL: int
-    GOLD_ANNUAL: int
-
-    # Content Creation
-    CHALLENGE_CREATOR: int
-    BOX_CREATOR: int
-    SHERLOCK_CREATOR: int
-
-    # Positions
-    RANK_ONE: int
-    RANK_TEN: int
-
-    # Season Tiers:
-    SEASON_HOLO: int
-    SEASON_PLATINUM: int
-    SEASON_RUBY: int
-    SEASON_SILVER: int
-    SEASON_BRONZE: int
-    # Academy
     ACADEMY_USER: int
-    ACADEMY_CWES: int
-    ACADEMY_CPTS: int
-    ACADEMY_CDSA: int
-    ACADEMY_CWEE: int
-    ACADEMY_CAPE: int
-    ACADEMY_CJCA: int
-    ACADEMY_CWPE: int
+
+    # ── Dynamic roles (optional, DB-backed, env var fallback) ────────
+    # Ranks
+    OMNISCIENT: Optional[int] = None
+    GURU: Optional[int] = None
+    ELITE_HACKER: Optional[int] = None
+    PRO_HACKER: Optional[int] = None
+    HACKER: Optional[int] = None
+    SCRIPT_KIDDIE: Optional[int] = None
+    NOOB: Optional[int] = None
+    # Subscriptions
+    VIP: Optional[int] = None
+    VIP_PLUS: Optional[int] = None
+    SILVER_ANNUAL: Optional[int] = None
+    GOLD_ANNUAL: Optional[int] = None
+    # Content Creation
+    CHALLENGE_CREATOR: Optional[int] = None
+    BOX_CREATOR: Optional[int] = None
+    SHERLOCK_CREATOR: Optional[int] = None
+    # Positions
+    RANK_ONE: Optional[int] = None
+    RANK_TEN: Optional[int] = None
+    # Season Tiers
+    SEASON_HOLO: Optional[int] = None
+    SEASON_PLATINUM: Optional[int] = None
+    SEASON_RUBY: Optional[int] = None
+    SEASON_SILVER: Optional[int] = None
+    SEASON_BRONZE: Optional[int] = None
+    # Academy Certs
+    ACADEMY_CWES: Optional[int] = None
+    ACADEMY_CPTS: Optional[int] = None
+    ACADEMY_CDSA: Optional[int] = None
+    ACADEMY_CWEE: Optional[int] = None
+    ACADEMY_CAPE: Optional[int] = None
+    ACADEMY_CJCA: Optional[int] = None
+    ACADEMY_CWPE: Optional[int] = None
     # Joinable roles
-    UNICTF2022: int
-    BIZCTF2022: int
-    NOAH_GANG: int
-    BUDDY_GANG: int
-    RED_TEAM: int
-    BLUE_TEAM: int
-    @validator("*", pre=True, each_item=True)
+    UNICTF2022: Optional[int] = None
+    BIZCTF2022: Optional[int] = None
+    NOAH_GANG: Optional[int] = None
+    BUDDY_GANG: Optional[int] = None
+    RED_TEAM: Optional[int] = None
+    BLUE_TEAM: Optional[int] = None
+
+    @validator("VERIFIED", "COMMUNITY_MANAGER", "COMMUNITY_TEAM", "ADMINISTRATOR",
+               "SR_MODERATOR", "MODERATOR", "JR_MODERATOR", "HTB_STAFF", "HTB_SUPPORT",
+               "MUTED", "ACADEMY_USER", pre=True, each_item=True)
     def check_length(cls, value: str | int) -> str | int:
         value_str = str(value)
         if not 17 <= len(value_str) <= 20:
@@ -180,10 +175,6 @@ class Global(BaseSettings):
     roles: Roles = None
     HTB_API_KEY: str
 
-    # Collections are defined using lowercase
-    academy_certificates: AcademyCertificates = AcademyCertificates()
-
-    roles_to_join: dict[str, tuple[int | str, str]] = {}
     role_groups: dict[str, list[int | str]] = {}
 
     guild_ids: list[int]
@@ -234,57 +225,8 @@ class Global(BaseSettings):
             assert len(str(discord_id)) > 17, "Discord ids must have a length of 19."
         return v
 
-    def get_academy_cert_role(self, certificate: int) -> int:
-        return {
-            self.academy_certificates.CERTIFIED_WEB_EXPLOITATION_SPECIALIST: self.roles.ACADEMY_CWES,
-            self.academy_certificates.CERTIFIED_PENETRATION_TESTING_SPECIALIST: self.roles.ACADEMY_CPTS,
-            self.academy_certificates.CERTIFIED_DEFENSIVE_SECURITY_ANALYST: self.roles.ACADEMY_CDSA,
-            self.academy_certificates.CERTIFIED_WEB_EXPLOITATION_EXPERT: self.roles.ACADEMY_CWEE,
-            self.academy_certificates.CERTIFIED_ACTIVEDIRECTORY_PENTESTING_EXPERT: self.roles.ACADEMY_CAPE,
-            self.academy_certificates.CERTIFIED_JUNIOR_CYBERSECURITY_ASSOCIATE: self.roles.ACADEMY_CJCA,
-            self.academy_certificates.CERTIFIED_WIFI_PENTESTING_EXPERT: self.roles.ACADEMY_CWPE
-        }.get(certificate)
-
-    def get_post_or_rank(self, what: str) -> Optional[int]:
-        return {
-            "1": self.roles.RANK_ONE,
-            "10": self.roles.RANK_TEN,
-            "Omniscient": self.roles.OMNISCIENT,
-            "Guru": self.roles.GURU,
-            "Elite Hacker": self.roles.ELITE_HACKER,
-            "Pro Hacker": self.roles.PRO_HACKER,
-            "Hacker": self.roles.HACKER,
-            "Script Kiddie": self.roles.SCRIPT_KIDDIE,
-            "Noob": self.roles.NOOB,
-            "vip": self.roles.VIP,
-            "dedivip": self.roles.VIP_PLUS,
-            "Challenge Creator": self.roles.CHALLENGE_CREATOR,
-            "Box Creator": self.roles.BOX_CREATOR,
-            "Sherlock Creator": self.roles.SHERLOCK_CREATOR,
-            "Silver Annual": self.roles.SILVER_ANNUAL,
-            "Gold Annual": self.roles.GOLD_ANNUAL,
-        }.get(what)
-
-    def get_season(self, what: str):
-        return {
-            "Holo": self.roles.SEASON_HOLO,
-            "Platinum": self.roles.SEASON_PLATINUM,
-            "Ruby": self.roles.SEASON_RUBY,
-            "Silver": self.roles.SEASON_SILVER,
-            "Bronze": self.roles.SEASON_BRONZE,
-        }.get(what)
-
-    def get_cert(self, what: str):
-        return {
-            "CPTS": self.roles.ACADEMY_CPTS,
-            "CWES": self.roles.ACADEMY_CWES,
-            "CBBH": self.roles.ACADEMY_CWES,  # For legacy reasons
-            "CDSA": self.roles.ACADEMY_CDSA,
-            "CWEE": self.roles.ACADEMY_CWEE,
-            "CAPE": self.roles.ACADEMY_CAPE,
-            "CJCA": self.roles.ACADEMY_CJCA,
-            "CWPE": self.roles.ACADEMY_CWPE
-        }.get(what)
+    # Helper methods (get_post_or_rank, get_season, get_cert, get_academy_cert_role)
+    # have been moved to RoleManager (src/services/role_manager.py).
 
     class Config:
         """The Pydantic settings configuration."""
@@ -299,37 +241,9 @@ def load_settings(env_file: str | None = None):
     global_settings.channels = Channels(_env_file=env_file)
     global_settings.roles = Roles(_env_file=env_file)
 
-    global_settings.roles_to_join = {
-        "Cyber Apocalypse": (
-            global_settings.roles.UNICTF2022,
-            "Pinged for CTF Announcements",
-        ),
-        "Business CTF": (
-            global_settings.roles.UNICTF2022,
-            "Pinged for CTF Announcements",
-        ),
-        "University CTF": (
-            global_settings.roles.UNICTF2022,
-            "Pinged for CTF Announcements",
-        ),
-        "Noah Gang": (
-            global_settings.roles.NOAH_GANG,
-            "Get pinged when Fugl posts pictures of his cute bird",
-        ),
-        "Buddy Gang": (
-            global_settings.roles.BUDDY_GANG,
-            "Get pinged when Legacyy posts pictures of his cute dog",
-        ),
-        "Red Team": (
-            global_settings.roles.RED_TEAM,
-            "Red team fans. Also gives access to the Red and Blue team channels",
-        ),
-        "Blue Team": (
-            global_settings.roles.BLUE_TEAM,
-            "Blue team fans. Also gives access to the Red and Blue team channels",
-        ),
-    }
-
+    # Core role groups (used in decorators at import time for permission checks).
+    # Dynamic role groups (ALL_RANKS, ALL_SEASON_RANKS, etc.) are now served by
+    # RoleManager.get_group_ids() from the database.
     global_settings.role_groups = {
         "ALL_ADMINS": [
             global_settings.roles.ADMINISTRATOR,
@@ -343,39 +257,6 @@ def load_settings(env_file: str | None = None):
         ],
         "ALL_HTB_STAFF": [global_settings.roles.HTB_STAFF],
         "ALL_HTB_SUPPORT": [global_settings.roles.HTB_SUPPORT],
-        "ALL_RANKS": [
-            global_settings.roles.OMNISCIENT,
-            global_settings.roles.GURU,
-            global_settings.roles.ELITE_HACKER,
-            global_settings.roles.PRO_HACKER,
-            global_settings.roles.HACKER,
-            global_settings.roles.SCRIPT_KIDDIE,
-            global_settings.roles.NOOB,
-        ],
-        "ALL_SEASON_RANKS": [
-            global_settings.roles.SEASON_HOLO,
-            global_settings.roles.SEASON_PLATINUM,
-            global_settings.roles.SEASON_RUBY,
-            global_settings.roles.SEASON_SILVER,
-            global_settings.roles.SEASON_BRONZE,
-        ],
-        "ALL_CREATORS": [
-            global_settings.roles.BOX_CREATOR,
-            global_settings.roles.CHALLENGE_CREATOR,
-            global_settings.roles.SHERLOCK_CREATOR,
-        ],
-        "ALL_POSITIONS": [
-            global_settings.roles.RANK_ONE,
-            global_settings.roles.RANK_TEN,
-        ],
-        "ALL_LABS_SUBSCRIPTIONS": [
-            global_settings.roles.VIP,
-            global_settings.roles.VIP_PLUS,
-        ],
-        "ALL_ACADEMY_SUBSCRIPTIONS": [
-            global_settings.roles.SILVER_ANNUAL,
-            global_settings.roles.GOLD_ANNUAL,
-        ]
     }
 
     return global_settings

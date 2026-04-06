@@ -53,6 +53,7 @@ class Bot(DiscordBot):
             mock (bool): Whether to mock the client or not.
         """
         super().__init__(**kwargs)
+        self.role_manager = None
         if not mock:
             logger.debug("HTTP session will be initialized in an asynchronous context")
             self.http_session = None
@@ -74,6 +75,13 @@ class Bot(DiscordBot):
         self.loop.create_task(
             self.send_log(devlog_msg, colour=constants.colours.bright_green)
         )
+
+        # Refresh dynamic roles cache on (re)connect
+        if self.role_manager:
+            try:
+                await self.role_manager.reload()
+            except Exception:
+                logger.warning("Failed to reload dynamic roles on reconnect, keeping previous cache", exc_info=True)
 
         logger.info(f"Started bot as {name}")
         print("Loading ScheduledTasks cog...")

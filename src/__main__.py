@@ -1,11 +1,18 @@
+import asyncio
 import logging
 
 from src.bot import bot
 from src.core import settings
+from src.services.role_manager import RoleManager
 from src.utils.extensions import walk_extensions
 from src.webhooks.server import serve
 
 logger = logging.getLogger(__name__)
+
+# Load dynamic roles from DB BEFORE starting servers (eliminates race condition).
+role_manager = RoleManager(fallback_roles=settings.roles)
+asyncio.get_event_loop().run_until_complete(role_manager.load())
+bot.role_manager = role_manager
 
 # Load all cogs extensions.
 for ext in walk_extensions():
