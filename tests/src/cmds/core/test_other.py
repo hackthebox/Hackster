@@ -101,7 +101,7 @@ class TestOther:
         # Command should respond with a string.
         assert isinstance(content, str)
 
-        assert content == "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
+        assert content == "https://help.hackthebox.com/en/articles/13645526-contacting-academy-support"
 
     @pytest.mark.asyncio
     async def test_support_urls_different(self, bot, ctx):
