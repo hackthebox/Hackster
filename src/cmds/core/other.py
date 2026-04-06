@@ -142,7 +142,7 @@ class OtherCog(commands.Cog):
         """A simple reply providing a link to the support desk article on how to get support."""
         if platform == "academy":
             return await ctx.respond(
-                "https://help.hackthebox.com/en/articles/5987511-contacting-academy-support"
+                "https://help.hackthebox.com/en/articles/13645526-contacting-academy-support"
             )
         return await ctx.respond(
             "https://help.hackthebox.com/en/articles/5986762-contacting-htb-support"
