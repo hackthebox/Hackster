@@ -2,16 +2,36 @@ import os
 import re
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# AcademyCertificates is removed; cert mappings are now in the dynamic_role DB table.
+
+def _validate_discord_snowflake(value: int | str) -> int:
+    if isinstance(value, int):
+        discord_id = value
+    elif isinstance(value, str) and value.isdigit():
+        discord_id = int(value)
+    else:
+        raise ValueError("Discord IDs must be base-10 integer snowflakes.")
+
+    if not 0 < discord_id < 2**64:
+        raise ValueError("Discord IDs must be positive unsigned 64-bit snowflakes.")
+
+    return discord_id
 
 
-class Bot(BaseSettings):
-    """The API settings."""
+def _validate_non_zero_channel_id(value: int) -> int:
+    if not value:
+        return value
+    if len(str(value)) <= 17:
+        raise ValueError("Discord IDs must have a length of 19.")
+    return value
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="BOT_", extra="ignore")
+
+class BotSettings(BaseModel):
+    """Discord bot settings."""
+
+    model_config = ConfigDict(extra="forbid")
 
     NAME: str = "Hackster"
     TOKEN: str
@@ -20,18 +40,17 @@ class Bot(BaseSettings):
     @field_validator("TOKEN")
     @classmethod
     def check_token_format(cls, value: str) -> str:
-        """Validate discord tokens format."""
+        """Validate Discord token format."""
         pattern = re.compile(r".{26}\..{6}\..{38}")
-        assert pattern.fullmatch(
-            value
-        ), f"Discord token must follow >> {pattern.pattern} << pattern."
+        if not pattern.fullmatch(value):
+            raise ValueError(f"Discord token must follow >> {pattern.pattern} << pattern.")
         return value
 
 
-class Database(BaseSettings):
-    """The database settings."""
+class DatabaseSettings(BaseModel):
+    """Database settings."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="MYSQL_", extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     HOST: str = "localhost"
     PORT: int = 3306
@@ -39,20 +58,19 @@ class Database(BaseSettings):
     USER: str = "bot"
     PASSWORD: str = ""
     CHARSET: str = "utf8mb4"
+    ASYNC: bool | None = None
 
     def assemble_db_connection(self) -> str:
-        connection_string = (
+        return (
             f"mariadb+asyncmy://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
-            f"{self.DATABASE}?charset="
-            f"{self.CHARSET}"
+            f"{self.DATABASE}?charset={self.CHARSET}"
         )
-        return connection_string
 
 
-class Channels(BaseSettings):
-    """Channel ids."""
+class ChannelsSettings(BaseModel):
+    """Channel IDs."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="CHANNEL_", extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     DEVLOG: int = 0
     SR_MOD: int
@@ -75,24 +93,19 @@ class Channels(BaseSettings):
     )
     @classmethod
     def check_ids_format(cls, value: int) -> int:
-        """Validate discord ids format."""
-        if not value:
-            return value
-
-        assert len(str(value)) > 17, "Discord ids must have a length of 19."
-        return value
+        """Validate Discord IDs format."""
+        return _validate_non_zero_channel_id(value)
 
 
-class Roles(BaseSettings):
-    """The roles settings.
+class RolesSettings(BaseModel):
+    """Role settings.
 
     Core roles (required): used in decorators at import time for permission checks.
     Dynamic roles (optional): managed via DB, kept here as fallback during transition.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="ROLE_", extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
-    # Core roles (required, used in decorators)
     VERIFIED: int
     COMMUNITY_MANAGER: int
     COMMUNITY_TEAM: int
@@ -105,7 +118,6 @@ class Roles(BaseSettings):
     MUTED: int
     ACADEMY_USER: int
 
-    # Dynamic roles (optional, DB-backed, env var fallback)
     OMNISCIENT: int | None = None
     GURU: int | None = None
     ELITE_HACKER: int | None = None
@@ -120,8 +132,15 @@ class Roles(BaseSettings):
     CHALLENGE_CREATOR: int | None = None
     BOX_CREATOR: int | None = None
     SHERLOCK_CREATOR: int | None = None
+    APRIL_ROLE_1: int | None = None
+    APRIL_ROLE_2: int | None = None
+    RANK_FIVE: int | None = None
+    RANK_TWENTY_FIVE: int | None = None
+    RANK_FIFTY: int | None = None
+    RANK_HUNDRED: int | None = None
     RANK_ONE: int | None = None
     RANK_TEN: int | None = None
+    ACADEMY_CBBH: int | None = None
     SEASON_HOLO: int | None = None
     SEASON_PLATINUM: int | None = None
     SEASON_RUBY: int | None = None
@@ -165,28 +184,31 @@ class Roles(BaseSettings):
 
 
 class Global(BaseSettings):
-    """The app settings."""
+    """Application settings."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_nested_delimiter="__",
+        extra="forbid",
+        populate_by_name=True,
+    )
 
-    bot: Bot | None = None
-    database: Database | None = None
-    channels: Channels | None = None
-    roles: Roles | None = None
+    bot: BotSettings = Field(validation_alias="BOT")
+    database: DatabaseSettings = Field(validation_alias="DATABASE")
+    channels: ChannelsSettings = Field(validation_alias="CHANNEL")
+    roles: RolesSettings = Field(validation_alias="ROLE")
+
     HTB_API_KEY: str
-
-    role_groups: dict[str, list[int | str]] = Field(default_factory=dict)
-
     guild_ids: list[int]
     dev_guild_ids: list[int] = Field(default_factory=list)
+    APRIL_FLAG_1: str = ""
+    APRIL_FLAG_2: str = ""
 
     SENTRY_DSN: str | None = None
     LOG_LEVEL: str | int = "INFO"
     DEBUG: bool = False
 
     HTB_URL: str = "https://labs.hackthebox.com"
-    API_URL: str = f"{HTB_URL}/api"
-    API_V4_URL: str = f"{API_URL}/v4"
     HTB_API_SECRET: str | None = None
 
     START_WEBHOOK_SERVER: bool = False
@@ -194,12 +216,12 @@ class Global(BaseSettings):
     WEBHOOK_TOKEN: str = ""
 
     SLACK_FEEDBACK_WEBHOOK: str = ""
+    SLACK_WEBHOOK: str = ""
     JIRA_WEBHOOK: str = ""
+    JIRA_SPOILER_WEBHOOK: str = ""
 
     ROOT: Path | None = None
-
     VERSION: str = "unknown"
-
     SEASON_ID: int = 0
 
     @field_validator("guild_ids", "dev_guild_ids", mode="before")
@@ -207,55 +229,35 @@ class Global(BaseSettings):
     def check_ids_format(cls, value: list[int | str] | int | str) -> list[int | str] | int:
         """Validate Discord snowflakes and accept string-form IDs from env sources."""
         if isinstance(value, list):
-            return [cls._validate_discord_id(item) for item in value]
-        return cls._validate_discord_id(value)
+            return [_validate_discord_snowflake(item) for item in value]
+        return _validate_discord_snowflake(value)
 
-    @staticmethod
-    def _validate_discord_id(value: int | str) -> int:
-        if isinstance(value, int):
-            discord_id = value
-        elif isinstance(value, str) and value.isdigit():
-            discord_id = int(value)
-        else:
-            raise ValueError("Discord IDs must be base-10 integer snowflakes.")
+    @property
+    def API_URL(self) -> str:
+        return f"{self.HTB_URL}/api"
 
-        if not 0 < discord_id < 2**64:
-            raise ValueError("Discord IDs must be positive unsigned 64-bit snowflakes.")
+    @property
+    def API_V4_URL(self) -> str:
+        return f"{self.API_URL}/v4"
 
-        return discord_id
-
-    # Helper methods (get_post_or_rank, get_season, get_cert, get_academy_cert_role)
-    # have been moved to RoleManager (src/services/role_manager.py).
-
-
-def load_settings(env_file: str | None = None):
-    global_settings = Global(_env_file=env_file)
-    global_settings.bot = Bot(_env_file=env_file)
-    global_settings.database = Database(_env_file=env_file)
-    global_settings.channels = Channels(_env_file=env_file)
-    global_settings.roles = Roles(_env_file=env_file)
-
-    # Core role groups (used in decorators at import time for permission checks).
-    # Dynamic role groups (ALL_RANKS, ALL_SEASON_RANKS, etc.) are now served by
-    # RoleManager.get_group_ids() from the database.
-    global_settings.role_groups = {
-        "ALL_ADMINS": [
-            global_settings.roles.ADMINISTRATOR,
-            global_settings.roles.COMMUNITY_MANAGER,
-        ],
-        "ALL_SR_MODS": [global_settings.roles.SR_MODERATOR],
-        "ALL_MODS": [
-            global_settings.roles.SR_MODERATOR,
-            global_settings.roles.MODERATOR,
-            global_settings.roles.JR_MODERATOR,
-        ],
-        "ALL_HTB_STAFF": [global_settings.roles.HTB_STAFF],
-        "ALL_HTB_SUPPORT": [global_settings.roles.HTB_SUPPORT],
-    }
-
-    return global_settings
+    @property
+    def role_groups(self) -> dict[str, list[int]]:
+        return {
+            "ALL_ADMINS": [
+                self.roles.ADMINISTRATOR,
+                self.roles.COMMUNITY_MANAGER,
+            ],
+            "ALL_SR_MODS": [self.roles.SR_MODERATOR],
+            "ALL_MODS": [
+                self.roles.SR_MODERATOR,
+                self.roles.MODERATOR,
+                self.roles.JR_MODERATOR,
+            ],
+            "ALL_HTB_STAFF": [self.roles.HTB_STAFF],
+            "ALL_HTB_SUPPORT": [self.roles.HTB_SUPPORT],
+        }
 
 
-settings = load_settings(
-    os.environ.get("ENV_PATH") if os.environ.get("BOT_ENVIRONMENT") else ".test.env"
+settings = Global(
+    _env_file=os.environ.get("ENV_PATH") if os.environ.get("BOT_ENVIRONMENT") else ".test.env"
 )

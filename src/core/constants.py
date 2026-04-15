@@ -1,7 +1,8 @@
-from pydantic import BaseModel
+from dataclasses import dataclass, field
 
 
-class Colours(BaseModel):
+@dataclass(frozen=True, slots=True)
+class Colours:
     """Colour codes."""
 
     blue: int = 0x0279FD
@@ -21,7 +22,8 @@ class Colours(BaseModel):
     yellow: int = 0xF8E500
 
 
-class Emojis(BaseModel):
+@dataclass(frozen=True, slots=True)
+class Emojis:
     """Emoji codes."""
 
     arrow_left: str = "\u2B05"  # ⬅
@@ -32,20 +34,21 @@ class Emojis(BaseModel):
     track_previous: str = "\u23EE"  # ⏮
 
 
-class Pagination(BaseModel):
+@dataclass(frozen=True, slots=True)
+class Pagination:
     """Pagination default settings."""
 
     max_size: int = 500
     timeout: int = 300  # In seconds
 
 
-class Constants(BaseModel):
-    """The app constants."""
+@dataclass(frozen=True, slots=True)
+class Constants:
+    """Application constants."""
 
-    colours: Colours = Colours()
-    emojis: Emojis = Emojis()
-    pagination: Pagination = Pagination()
-
+    colours: Colours = field(default_factory=Colours)
+    emojis: Emojis = field(default_factory=Emojis)
+    pagination: Pagination = field(default_factory=Pagination)
     low_latency: int = 200
     high_latency: int = 400
 
