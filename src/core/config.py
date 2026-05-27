@@ -196,6 +196,10 @@ class Global(BaseSettings):
     SLACK_FEEDBACK_WEBHOOK: str = ""
     JIRA_WEBHOOK: str = ""
 
+    # Feedback service ingest (POST /api/ingest/discord)
+    FEEDBACK_SERVICE_URL: str = ""
+    FEEDBACK_SERVICE_API_KEY: str = ""
+
     ROOT: Path = None
 
     VERSION: str = "unknown"
