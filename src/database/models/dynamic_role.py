@@ -18,6 +18,7 @@ class RoleCategory(str, enum.Enum):
     POSITION = "position"
     ACADEMY_CERT = "academy_cert"
     JOINABLE = "joinable"
+    XP_RANK = "xp_rank"
 
 
 class DynamicRole(Base):

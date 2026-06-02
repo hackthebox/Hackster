@@ -26,6 +26,8 @@ class AccountHandler(BaseHandler):
             return await self._handle_account_banned(body, bot)
         elif body.event == WebhookEvent.NAME_CHANGE:
             return await self._handle_name_change(body, bot)
+        elif body.event == WebhookEvent.XP_RANK_CHANGE:
+            return await self._handle_xp_rank_change(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
 
@@ -124,6 +126,31 @@ class AccountHandler(BaseHandler):
 
         self.logger.debug(f"Platform ban handling result: {result['action']}", extra=extra)
 
+        return self.success()
+
+    async def _handle_xp_rank_change(self, body: WebhookBody, bot: Bot) -> dict:
+        """
+        Handles the XP-system rank change event.
+        """
+        discord_id, account_id = self.validate_common_properties(body)
+        xp_rank = self.validate_property(
+            self.get_property_or_trait(body, "xp_rank"), "xp_rank"
+        )
+        role_id = bot.role_manager.get_xp_rank_role_id(xp_rank)
+        if not role_id:
+            err = ValueError(f"Cannot find role for XP rank '{xp_rank}'")
+            self.logger.error(
+                err,
+                extra={
+                    "account_id": account_id,
+                    "discord_id": discord_id,
+                    "xp_rank": xp_rank,
+                },
+            )
+            raise err
+        member = await self.get_guild_member(discord_id, bot)
+        role_group = bot.role_manager.get_group_ids("xp_rank")
+        await self.swap_role_in_group(member, role_id, role_group, bot)
         return self.success()
 
     async def _handle_account_deleted(self, body: WebhookBody, bot: Bot) -> dict:

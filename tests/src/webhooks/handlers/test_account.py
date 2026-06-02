@@ -11,6 +11,14 @@ from src.webhooks.types import WebhookBody, Platform, WebhookEvent
 from tests import helpers
 
 
+def _make_role_manager(**overrides):
+    """Create a MockRoleManager with optional method overrides."""
+    rm = helpers.MockRoleManager()
+    for attr, val in overrides.items():
+        setattr(rm, attr, val if callable(val) else lambda *a, v=val, **kw: v)
+    return rm
+
+
 class TestAccountHandler:
     """Test the `AccountHandler` class."""
 
@@ -480,6 +488,118 @@ class TestAccountHandler:
             mock_ban.assert_awaited()
             mock_log.assert_called()
             assert result == handler.success()
+
+    @pytest.mark.asyncio
+    async def test_handle_xp_rank_change_event(self, bot):
+        """Test handle method routes XP_RANK_CHANGE event correctly."""
+        handler = AccountHandler()
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.XP_RANK_CHANGE,
+            properties={"discord_id": 123456789, "account_id": 987654321, "xp_rank": "Skilled"},
+            traits={},
+        )
+
+        with patch.object(
+            handler, "_handle_xp_rank_change", new_callable=AsyncMock
+        ) as mock_handle:
+            await handler.handle(body, bot)
+            mock_handle.assert_called_once_with(body, bot)
+
+    @pytest.mark.asyncio
+    async def test_handle_xp_rank_change_assign_from_none(self, bot):
+        """Member with no XP role gets the new role added, nothing removed."""
+        handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        xp_rank = "Skilled"
+        mock_member = helpers.MockMember(id=discord_id)
+        mock_member.roles = []
+        mock_member.add_roles = AsyncMock()
+        mock_member.remove_roles = AsyncMock()
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.XP_RANK_CHANGE,
+            properties={"discord_id": discord_id, "account_id": account_id, "xp_rank": xp_rank},
+            traits={},
+        )
+        handler.validate_common_properties = MagicMock(return_value=(discord_id, account_id))
+        handler.validate_property = MagicMock(return_value=xp_rank)
+        handler.get_guild_member = AsyncMock(return_value=mock_member)
+
+        role_555 = MagicMock(id=555)
+        role_666 = MagicMock(id=666)
+        bot.role_manager = _make_role_manager(
+            get_xp_rank_role_id=lambda rank: 555,
+            get_group_ids=lambda cat: [555, 666],
+        )
+        mock_guild = helpers.MockGuild(id=1)
+        mock_guild.get_role.side_effect = lambda rid: {555: role_555, 666: role_666}.get(rid)
+        bot.guilds = [mock_guild]
+
+        result = await handler._handle_xp_rank_change(body, bot)
+        mock_member.add_roles.assert_awaited_once_with(role_555, atomic=True)
+        mock_member.remove_roles.assert_not_awaited()
+        assert result == handler.success()
+
+    @pytest.mark.asyncio
+    async def test_handle_xp_rank_change_swap_existing(self, bot):
+        """Member with another XP role has it removed and the new one added."""
+        handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        xp_rank = "Skilled"
+        role_555 = MagicMock(id=555)
+        role_666 = MagicMock(id=666)
+        mock_member = helpers.MockMember(id=discord_id)
+        mock_member.roles = [role_666]
+        mock_member.add_roles = AsyncMock()
+        mock_member.remove_roles = AsyncMock()
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.XP_RANK_CHANGE,
+            properties={"discord_id": discord_id, "account_id": account_id, "xp_rank": xp_rank},
+            traits={},
+        )
+        handler.validate_common_properties = MagicMock(return_value=(discord_id, account_id))
+        handler.validate_property = MagicMock(return_value=xp_rank)
+        handler.get_guild_member = AsyncMock(return_value=mock_member)
+
+        bot.role_manager = _make_role_manager(
+            get_xp_rank_role_id=lambda rank: 555,
+            get_group_ids=lambda cat: [555, 666],
+        )
+        mock_guild = helpers.MockGuild(id=1)
+        mock_guild.get_role.side_effect = lambda rid: {555: role_555, 666: role_666}.get(rid)
+        bot.guilds = [mock_guild]
+
+        result = await handler._handle_xp_rank_change(body, bot)
+        mock_member.remove_roles.assert_awaited_once_with(role_666, atomic=True)
+        mock_member.add_roles.assert_awaited_once_with(role_555, atomic=True)
+        assert result == handler.success()
+
+    @pytest.mark.asyncio
+    async def test_handle_xp_rank_change_unknown_rank(self, bot):
+        """Unknown XP rank (no role configured) raises ValueError."""
+        handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        xp_rank = "Nonexistent"
+        mock_member = helpers.MockMember(id=discord_id)
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.XP_RANK_CHANGE,
+            properties={"discord_id": discord_id, "account_id": account_id, "xp_rank": xp_rank},
+            traits={},
+        )
+        handler.validate_common_properties = MagicMock(return_value=(discord_id, account_id))
+        handler.validate_property = MagicMock(return_value=xp_rank)
+        handler.get_guild_member = AsyncMock(return_value=mock_member)
+
+        bot.role_manager = _make_role_manager(get_xp_rank_role_id=lambda rank: None)
+
+        with pytest.raises(ValueError, match="Cannot find role for"):
+            await handler._handle_xp_rank_change(body, bot)
 
     @pytest.mark.asyncio
     async def test_handle_account_banned_member_not_found(self, bot):

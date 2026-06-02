@@ -168,6 +168,10 @@ class RoleManager:
         """Get season tier role (Holo, Platinum, etc.)."""
         return self.get_role_id(RoleCategory.SEASON.value, tier)
 
+    def get_xp_rank_role_id(self, rank_name: str) -> Optional[int]:
+        """Get XP-system rank role by tier name (Beginner, Apprentice, ...)."""
+        return self.get_role_id(RoleCategory.XP_RANK.value, rank_name)
+
     # ── Cross-category lookup ────────────────────────────────────────
 
     def get_post_or_rank(self, what: str) -> Optional[int]:

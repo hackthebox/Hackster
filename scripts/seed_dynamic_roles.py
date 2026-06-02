@@ -54,6 +54,14 @@ SEED_DATA = [
     ("SEASON_RUBY", RoleCategory.SEASON, "Ruby", "Ruby", {}),
     ("SEASON_SILVER", RoleCategory.SEASON, "Silver", "Silver", {}),
     ("SEASON_BRONZE", RoleCategory.SEASON, "Bronze", "Bronze", {}),
+    # XP-system ranks (one role per tier, grades I/II/III collapsed)
+    ("XP_BEGINNER", RoleCategory.XP_RANK, "Beginner", "Beginner", {}),
+    ("XP_APPRENTICE", RoleCategory.XP_RANK, "Apprentice", "Apprentice", {}),
+    ("XP_SKILLED", RoleCategory.XP_RANK, "Skilled", "Skilled", {}),
+    ("XP_PROFESSIONAL", RoleCategory.XP_RANK, "Professional", "Professional", {}),
+    ("XP_MASTER", RoleCategory.XP_RANK, "Master", "Master", {}),
+    ("XP_PRODIGY", RoleCategory.XP_RANK, "Prodigy", "Prodigy", {}),
+    ("XP_GRANDMASTER", RoleCategory.XP_RANK, "Grandmaster", "Grandmaster", {}),
     # Academy Certs (with cert_full_name and cert_integer_id)
     ("ACADEMY_CWES", RoleCategory.ACADEMY_CERT, "CWES", "Certified Web Exploitation Specialist", {
         "cert_full_name": "HTB Certified Web Exploitation Specialist",
