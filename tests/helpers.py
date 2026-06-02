@@ -304,6 +304,9 @@ class MockRoleManager:
     def get_xp_rank_role_id(self, rank_name):
         return None
 
+    def get_xp_grade_role_id(self, grade):
+        return None
+
     def get_post_or_rank(self, what):
         return None
 

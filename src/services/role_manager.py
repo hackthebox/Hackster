@@ -172,6 +172,10 @@ class RoleManager:
         """Get XP-system rank role by tier name (Beginner, Apprentice, ...)."""
         return self.get_role_id(RoleCategory.XP_RANK.value, rank_name)
 
+    def get_xp_grade_role_id(self, grade: str) -> Optional[int]:
+        """Get XP-system grade role by grade (I, II, III)."""
+        return self.get_role_id(RoleCategory.XP_GRADE.value, grade)
+
     # ── Cross-category lookup ────────────────────────────────────────
 
     def get_post_or_rank(self, what: str) -> Optional[int]:

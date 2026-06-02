@@ -62,6 +62,10 @@ SEED_DATA = [
     ("XP_MASTER", RoleCategory.XP_RANK, "Master", "Master", {}),
     ("XP_PRODIGY", RoleCategory.XP_RANK, "Prodigy", "Prodigy", {}),
     ("XP_GRANDMASTER", RoleCategory.XP_RANK, "Grandmaster", "Grandmaster", {}),
+    # XP-system grades (mutually exclusive with each other, independent of tiers)
+    ("XP_GRADE_I", RoleCategory.XP_GRADE, "I", "Grade I", {}),
+    ("XP_GRADE_II", RoleCategory.XP_GRADE, "II", "Grade II", {}),
+    ("XP_GRADE_III", RoleCategory.XP_GRADE, "III", "Grade III", {}),
     # Academy Certs (with cert_full_name and cert_integer_id)
     ("ACADEMY_CWES", RoleCategory.ACADEMY_CERT, "CWES", "Certified Web Exploitation Specialist", {
         "cert_full_name": "HTB Certified Web Exploitation Specialist",
