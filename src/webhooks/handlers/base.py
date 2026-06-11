@@ -74,6 +74,27 @@ class BaseHandler(ABC):
 
         return property
 
+    def validate_non_empty_string(self, value: str | None, name: str) -> str:
+        """
+        Validates a string property is present and not blank.
+
+        Args:
+            value (str | None): The string to validate.
+            name (str): The name of the property.
+
+        Returns:
+            str: The validated string.
+
+        Raises:
+            HTTPException: If the value is None or blank (400)
+        """
+        if value is None or not str(value).strip():
+            msg = f"Invalid {name}"
+            self.logger.debug(msg)
+            raise HTTPException(status_code=400, detail=msg)
+
+        return str(value)
+
     def validate_discord_id(self, discord_id: str | int | None) -> int | str:
         """
         Validates the Discord ID. See validate_property function.

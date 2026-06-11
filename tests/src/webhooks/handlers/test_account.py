@@ -495,6 +495,7 @@ class TestAccountHandler:
                 "discord_id": discord_id,
                 "account_id": account_id,
                 "expires_at": expires_at,
+                "notes": "Repeated violations",
             },
             traits={},
         )
@@ -508,3 +509,31 @@ class TestAccountHandler:
             result = await handler._handle_account_banned(body, bot)
             mock_log.assert_called()
             assert result == handler.fail()
+
+    @pytest.mark.asyncio
+    async def test_handle_account_banned_missing_notes(self, bot):
+        """Test account banned event rejects missing notes."""
+        handler = AccountHandler()
+        discord_id = 123456789
+        account_id = 987654321
+        expires_at = "2024-12-31T23:59:59"
+        body = WebhookBody(
+            platform=Platform.ACCOUNT,
+            event=WebhookEvent.ACCOUNT_BANNED,
+            properties={
+                "discord_id": discord_id,
+                "account_id": account_id,
+                "expires_at": expires_at,
+            },
+            traits={},
+        )
+        with (
+            patch.object(handler, "validate_discord_id", return_value=discord_id),
+            patch.object(handler, "validate_account_id", return_value=account_id),
+            patch.object(handler, "validate_property", return_value=expires_at),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await handler._handle_account_banned(body, bot)
+
+            assert exc_info.value.status_code == 400
+            assert exc_info.value.detail == "Invalid notes"
