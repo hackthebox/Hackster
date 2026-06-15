@@ -96,7 +96,7 @@ class AccountHandler(BaseHandler):
         discord_id, account_id = self.validate_common_properties(body)
         expires_at = self.validate_property(self.get_property_or_trait(body, "expires_at"), "expires_at")
         reason = body.properties.get("reason")
-        notes = body.properties.get("notes")
+        notes = self.validate_non_empty_string(body.properties.get("notes"), "notes")
         created_by = body.properties.get("created_by")
 
         expires_ts = int(datetime.fromisoformat(expires_at).timestamp())  # type: ignore
@@ -114,7 +114,7 @@ class AccountHandler(BaseHandler):
             member=member,
             expires_timestamp=expires_ts,
             reason=f"Platform Ban - {reason}",
-            evidence=notes or "N/A",
+            evidence=notes,
             author_name=created_by or "System",
             expires_at_str=expires_at,  # type: ignore
             log_channel_id=settings.channels.BOT_LOGS,
