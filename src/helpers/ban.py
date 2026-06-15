@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 EVIDENCE_REQUIRED_MESSAGE = "Evidence is required."
 
 
-def validate_evidence(evidence: str) -> SimpleResponse | None:
+def validate_evidence(evidence: str | None) -> SimpleResponse | None:
     """Return an error response when evidence is missing or blank."""
-    if not evidence or not evidence.strip():
+    if not isinstance(evidence, str) or not evidence.strip():
         return SimpleResponse(message=EVIDENCE_REQUIRED_MESSAGE, delete_after=15)
     return None
 
