@@ -88,12 +88,12 @@ class BaseHandler(ABC):
         Raises:
             HTTPException: If the value is None or blank (400)
         """
-        if value is None or not str(value).strip():
+        if not isinstance(value, str) or not value.strip():
             msg = f"Invalid {name}"
             self.logger.debug(msg)
             raise HTTPException(status_code=400, detail=msg)
 
-        return str(value)
+        return value.strip()
 
     def validate_discord_id(self, discord_id: str | int | None) -> int | str:
         """
