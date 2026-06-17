@@ -16,9 +16,6 @@ from src.helpers.minor_verification import get_minor_review_reviewer_ids, invali
 
 logger = logging.getLogger(__name__)
 
-# Initial reviewer IDs (one-time seed when table is empty)
-DEFAULT_REVIEWER_IDS = (561210274653274133, 96269737343844352, 484040243818004491)
-
 
 class MinorReviewersCog(discord.Cog):
     """Admin commands to add/remove/list minor report reviewers."""
@@ -104,37 +101,6 @@ class MinorReviewersCog(discord.Cog):
         lines = [f"<@{uid}> ({uid})" for uid in ids]
         return await ctx.respond(
             "**Minor report reviewers:**\n" + "\n".join(lines),
-            ephemeral=True,
-        )
-
-    @minor_reviewers.command(
-        name="seed",
-        description="Seed initial reviewers (only if list is empty). One-time setup.",
-    )
-    @has_any_role(*settings.role_groups.get("ALL_ADMINS"))
-    async def seed(self, ctx: ApplicationContext) -> ApplicationContext | WebhookMessage:
-        """Add default reviewer IDs if the table is empty."""
-        async with AsyncSessionLocal() as session:
-            stmt = select(MinorReviewReviewer).limit(1)
-            result = await session.scalars(stmt)
-            if result.first():
-                return await ctx.respond(
-                    "Reviewers already configured. Use add/remove to change.",
-                    ephemeral=True,
-                )
-            now = datetime.now(timezone.utc)
-            for uid in DEFAULT_REVIEWER_IDS:
-                session.add(
-                    MinorReviewReviewer(
-                        user_id=uid,
-                        added_by=ctx.user.id,
-                        created_at=now,
-                    )
-                )
-            await session.commit()
-        invalidate_reviewer_ids_cache()
-        return await ctx.respond(
-            f"Seeded {len(DEFAULT_REVIEWER_IDS)} initial reviewer(s). Use `/minor_reviewers list` to see them.",
             ephemeral=True,
         )
 

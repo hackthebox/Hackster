@@ -174,9 +174,6 @@ class TestFlagMinorCog:
         ctx.guild.get_role = lambda id: verified_role if id == 123 else minor_role if id == 456 else None
         bot.get_member_or_user.return_value = user
 
-        status_edit = AsyncMock()
-        ctx.respond.return_value = MagicMock(edit=status_edit)
-
         with (
             patch("src.cmds.core.flag_minor.get_htb_user_id_for_discord", new_callable=AsyncMock),
             patch("src.cmds.core.flag_minor.check_parental_consent", new_callable=AsyncMock) as consent_mock,
@@ -191,8 +188,8 @@ class TestFlagMinorCog:
             cog = flag_minor.FlagMinorCog(bot)
             await cog.flag_minor.callback(cog, ctx, user, 15, "Evidence")
 
-            status_edit.assert_called_once()
-            assert "not configured" in status_edit.call_args[1].get("content", "").lower()
+            ctx.edit.assert_called_once()
+            assert "not configured" in ctx.edit.call_args[1].get("content", "").lower()
 
     @pytest.mark.asyncio
     async def test_flag_minor_review_channel_not_found(self, ctx, bot):
@@ -204,9 +201,6 @@ class TestFlagMinorCog:
         ctx.guild.get_role = lambda id: verified_role if id == 123 else minor_role if id == 456 else None
         ctx.guild.get_channel = MagicMock(return_value=None)
         bot.get_member_or_user.return_value = user
-
-        status_edit = AsyncMock()
-        ctx.respond.return_value = MagicMock(edit=status_edit)
 
         with (
             patch("src.cmds.core.flag_minor.get_htb_user_id_for_discord", new_callable=AsyncMock),
@@ -222,8 +216,8 @@ class TestFlagMinorCog:
             cog = flag_minor.FlagMinorCog(bot)
             await cog.flag_minor.callback(cog, ctx, user, 15, "Evidence")
 
-            status_edit.assert_called_once()
-            assert "not found" in status_edit.call_args[1].get("content", "").lower()
+            ctx.edit.assert_called_once()
+            assert "not found" in ctx.edit.call_args[1].get("content", "").lower()
 
     def test_setup(self, bot):
         """Test the setup method of the cog."""

@@ -7,22 +7,65 @@ from src.core import settings
 
 
 class TestConfig(unittest.TestCase):
+    @staticmethod
+    def minimal_settings(**overrides):
+        payload = {
+            "bot": {
+                "TOKEN": "ODk3MTVyNDOb50MDAxODE0NTC4.YWRgYg.hqWNRybjyk1j2h3h42vEoc8feoNqR0ubBCYwxo",
+            },
+            "database": {
+                "HOST": "localhost",
+                "PORT": 3306,
+                "DATABASE": "bot",
+                "USER": "bot",
+                "PASSWORD": "secret",
+            },
+            "channels": {
+                "SR_MOD": 1127695218900993410,
+                "VERIFY_LOGS": 1012769518828339331,
+                "BOT_COMMANDS": 1276953350848588101,
+                "SPOILER": 2769521890099371011,
+                "BOT_LOGS": 1105517088266788925,
+            },
+            "roles": {
+                "VERIFIED": 1333333333333333337,
+                "COMMUNITY_MANAGER": 7839345151011276950,
+                "COMMUNITY_TEAM": 845823057817153850,
+                "ADMINISTRATOR": 7839345141011276950,
+                "SR_MODERATOR": 7629466271011276950,
+                "MODERATOR": 7629466261011276950,
+                "JR_MODERATOR": 7629466221011276950,
+                "HTB_STAFF": 7629466201011276950,
+                "HTB_SUPPORT": 6455184211011276950,
+                "MUTED": 7419955651011276950,
+                "ACADEMY_USER": 8087599101014249251,
+            },
+            "HTB_API_KEY": "test",
+            "guild_ids": [6455184161011276950],
+            "dev_guild_ids": [7764771731239076051],
+        }
+        payload.update(overrides)
+        return Global(_env_file=None, **payload)
+
     def test_guild_ids_accept_string_snowflakes(self):
         """Test that guild IDs can be provided as digit strings and are coerced to ints."""
-        config = Global(HTB_API_KEY="test", guild_ids=["6455184161011276950"], dev_guild_ids=["7764771731239076051"])
+        config = self.minimal_settings(
+            guild_ids=["6455184161011276950"],
+            dev_guild_ids=["7764771731239076051"],
+        )
         self.assertEqual(config.guild_ids, [6455184161011276950])
         self.assertEqual(config.dev_guild_ids, [7764771731239076051])
 
     def test_guild_ids_reject_non_snowflakes(self):
         """Test that guild IDs must be positive base-10 unsigned 64-bit snowflakes."""
         with self.assertRaises(ValidationError):
-            Global(HTB_API_KEY="test", guild_ids=["not-a-snowflake"])
+            self.minimal_settings(guild_ids=["not-a-snowflake"])
 
         with self.assertRaises(ValidationError):
-            Global(HTB_API_KEY="test", guild_ids=[0])
+            self.minimal_settings(guild_ids=[0])
 
         with self.assertRaises(ValidationError):
-            Global(HTB_API_KEY="test", guild_ids=[2**64])
+            self.minimal_settings(guild_ids=[2**64])
 
     def test_core_roles_required(self):
         """Test that core roles are still loaded from env vars."""
@@ -53,3 +96,12 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(hasattr(settings.roles, "OMNISCIENT"))
         self.assertTrue(hasattr(settings.roles, "VIP"))
         self.assertTrue(hasattr(settings.roles, "BOX_CREATOR"))
+
+    def test_season_id_loads_from_nested_env_config(self):
+        """Test that SEASON_ID is loaded under the new nested env contract."""
+        self.assertEqual(settings.SEASON_ID, 1)
+
+    def test_minor_review_settings_load_from_env(self):
+        """Test that minor-review config fields are declared and loaded from .test.env."""
+        self.assertEqual(settings.channels.MINOR_REVIEW, 1437472925720280084)
+        self.assertEqual(settings.roles.VERIFIED_MINOR, 1281517925395733615)

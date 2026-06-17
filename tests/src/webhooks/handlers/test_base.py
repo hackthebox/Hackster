@@ -100,6 +100,23 @@ class TestBaseHandler:
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == "Invalid test_property"
 
+    def test_validate_non_empty_string_success(self):
+        """Test successful non-empty string validation."""
+        handler = ConcreteHandler()
+
+        assert handler.validate_non_empty_string("valid value", "notes") == "valid value"
+
+    def test_validate_non_empty_string_invalid(self):
+        """Test non-empty string validation rejects blank values."""
+        handler = ConcreteHandler()
+
+        for invalid_value in (None, "", "   "):
+            with pytest.raises(HTTPException) as exc_info:
+                handler.validate_non_empty_string(invalid_value, "notes")
+
+            assert exc_info.value.status_code == 400
+            assert exc_info.value.detail == "Invalid notes"
+
     def test_validate_discord_id_success(self):
         """Test successful Discord ID validation."""
         handler = ConcreteHandler()

@@ -11,7 +11,6 @@ from discord.ui import Button, InputText, Modal, View
 from sqlalchemy import select
 
 from src.bot import Bot
-from src.core import settings  # noqa: F401
 from src.database.models import MinorReport, UserNote
 from src.database.session import AsyncSessionLocal
 from src.helpers.ban import ban_member_with_epoch, get_ban, unban_member
@@ -41,9 +40,9 @@ def _status_color(status: str) -> int:
     if status == PENDING:
         return 0xFFA500  # Orange
     if status == APPROVED:
-        return 0xFF2429  # Red
+        return 0xFF2429  # Red — ban approved (negative outcome for the user)
     if status == DENIED:
-        return 0x00FF00  # Green
+        return 0x00FF00  # Green — report denied (no ban)
     if status == CONSENT_VERIFIED:
         return 0x0099FF  # Blue
     return 0x808080

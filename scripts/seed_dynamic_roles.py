@@ -83,6 +83,10 @@ SEED_DATA = [
         "cert_full_name": "HTB Certified Wi-Fi Pentesting Expert",
         "cert_integer_id": 8,
     }),
+    ("ACADEMY_COAE", RoleCategory.ACADEMY_CERT, "COAE", "Certified Offensive AI Expert", {
+        "cert_full_name": "HTB Certified Offensive AI Expert",
+        "cert_integer_id": 9,
+    }),
 ]
 
 # Joinable roles: multiple display names can share the same env var / discord_role_id.

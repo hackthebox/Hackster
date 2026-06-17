@@ -13,9 +13,9 @@ from src.database.models import Ban, MinorReport, Mute
 from src.database.session import AsyncSessionLocal
 from src.helpers.ban import unban_member, unmute_member
 from src.helpers.minor_verification import (
-    APPROVED,
     CONSENT_VERIFIED,
     assign_minor_role,
+    mark_report_aged_out,
     years_until_18,
 )
 from src.helpers.schedule import schedule
@@ -114,7 +114,7 @@ class ScheduledTasks(commands.Cog):
 
         async with AsyncSessionLocal() as session:
             result = await session.scalars(
-                select(MinorReport).filter(MinorReport.status.in_([APPROVED, CONSENT_VERIFIED]))
+                select(MinorReport).filter(MinorReport.status == CONSENT_VERIFIED)
             )
             reports = result.all()
 
@@ -136,11 +136,16 @@ class ScheduledTasks(commands.Cog):
 
                 member = await self.bot.get_member_or_user(guild, report.user_id)
                 if not isinstance(member, Member):
+                    await mark_report_aged_out(report.id)
                     continue
 
                 role_id = settings.roles.VERIFIED_MINOR
+                if not role_id:
+                    continue
+
                 role = guild.get_role(role_id)
                 if not role or role not in member.roles:
+                    await mark_report_aged_out(report.id)
                     continue
 
                 logger.info(
@@ -154,6 +159,8 @@ class ScheduledTasks(commands.Cog):
                     logger.warning(
                         "Failed to remove minor role from %s (%s): %s", member, member.id, exc
                     )
+                else:
+                    await mark_report_aged_out(report.id)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: Member) -> None:

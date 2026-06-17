@@ -1,8 +1,10 @@
 import time
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import ClientSession
+from dateutil.relativedelta import relativedelta
 
 from src.helpers.minor_verification import (
     APPROVED,
@@ -32,7 +34,7 @@ class MockResponse:
     async def text(self):
         return self._text
 
-    async def json(self):
+    async def json(self, content_type=None):
         return self._json
 
     async def __aenter__(self):
@@ -62,34 +64,25 @@ class TestMinorVerificationHelpers:
 
     def test_calculate_ban_duration_minor(self):
         """Test ban duration calculation for minors."""
-        # 15 years old -> returns Unix timestamp 3 years from now
-        now = time.time()
+        now = datetime.now(timezone.utc)
         duration = calculate_ban_duration(15)
-        # Should be approximately 3 years from now
-        three_years_seconds = 3 * 365 * 24 * 60 * 60
-        expected_timestamp = now + three_years_seconds
-        # Allow 1 day tolerance for execution time
+        expected_timestamp = int((now + relativedelta(years=3)).timestamp())
         assert abs(duration - expected_timestamp) < 86400
 
     def test_calculate_ban_duration_edge_cases(self):
         """Test ban duration edge cases."""
-        now = time.time()
-        
-        # 17 years old -> 1 year from now
+        now = datetime.now(timezone.utc)
+
         duration = calculate_ban_duration(17)
-        one_year_seconds = 365 * 24 * 60 * 60
-        expected_timestamp = now + one_year_seconds
+        expected_timestamp = int((now + relativedelta(years=1)).timestamp())
         assert abs(duration - expected_timestamp) < 86400
 
-        # 18+ should raise ValueError
         with pytest.raises(ValueError, match="suspected_age must be between 1 and 17"):
             calculate_ban_duration(18)
-        
-        # Age 1 -> 17 years from now
+
         duration = calculate_ban_duration(1)
-        seventeen_years_seconds = 17 * 365 * 24 * 60 * 60
-        expected_timestamp = now + seventeen_years_seconds
-        assert abs(duration - expected_timestamp) < 86400 * 2  # 2 day tolerance for longer duration
+        expected_timestamp = int((now + relativedelta(years=17)).timestamp())
+        assert abs(duration - expected_timestamp) < 86400
 
     @pytest.mark.asyncio
     async def test_check_parental_consent_exists(self):

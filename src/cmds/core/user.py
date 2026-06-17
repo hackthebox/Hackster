@@ -15,7 +15,7 @@ from src.bot import Bot
 from src.core import settings
 from src.database.models import HtbDiscordLink
 from src.database.session import AsyncSessionLocal
-from src.helpers.ban import add_infraction
+from src.helpers.ban import add_infraction, validate_evidence
 from src.helpers.checks import member_is_staff
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ class UserCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="Kick a user from the server.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_MODS"))
-    async def kick(self, ctx: ApplicationContext, user: Member, reason: str, evidence: str = None) \
+    async def kick(self, ctx: ApplicationContext, user: Member, reason: str, evidence: str) \
             -> Interaction | WebhookMessage:
         """Kick a user from the server."""
         await ctx.defer(ephemeral=False)
@@ -87,6 +87,9 @@ class UserCog(commands.Cog):
             return await ctx.followup.send("You cannot kick a bot.")
         if ctx.user.id == member.id:
             return await ctx.followup.send("You cannot kick yourself.")
+
+        if evidence_error := validate_evidence(evidence):
+            return await ctx.followup.send(evidence_error.message, delete_after=evidence_error.delete_after)
 
         if len(reason) == 0:
             reason = "No reason given..."

@@ -3,9 +3,10 @@
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import aiohttp
+from dateutil.relativedelta import relativedelta
 from discord import Forbidden, Guild, HTTPException, Member
 from sqlalchemy import select
 
@@ -24,6 +25,7 @@ PENDING = "pending"
 APPROVED = "approved"
 DENIED = "denied"
 CONSENT_VERIFIED = "consent_verified"
+AGED_OUT = "aged_out"
 
 
 async def check_parental_consent(discord_user_id: int) -> bool:
@@ -55,25 +57,29 @@ async def check_parental_consent(discord_user_id: int) -> bool:
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
-                body = await resp.text()
-                logger.info(
-                    "Nexus consent check for discord_id=%s: status=%s body=%s",
-                    discord_user_id,
-                    resp.status,
-                    body,
-                )
                 if resp.status != 200:
+                    logger.debug(
+                        "Nexus consent check discord_id=%s status=%s",
+                        discord_user_id,
+                        resp.status,
+                    )
                     return False
                 try:
-                    import json
-                    data = json.loads(body)
-                except (ValueError, TypeError):
+                    data = await resp.json(content_type=None)
+                except (ValueError, TypeError, aiohttp.ContentTypeError):
                     logger.warning(
                         "Nexus consent check returned non-JSON body for discord_id=%s",
                         discord_user_id,
                     )
                     return False
-                return bool(data.get("exists"))
+                exists = bool(data.get("exists"))
+                logger.debug(
+                    "Nexus consent check discord_id=%s status=%s exists=%s",
+                    discord_user_id,
+                    resp.status,
+                    exists,
+                )
+                return exists
     except aiohttp.ClientError as e:
         logger.warning("Nexus consent check request failed: %s", e)
         return False
@@ -85,6 +91,8 @@ async def check_parental_consent(discord_user_id: int) -> bool:
 async def assign_minor_role(member: Member, guild: Guild) -> bool:
     """Assign the discrete minor role to the member. Returns True if added."""
     role_id = settings.roles.VERIFIED_MINOR
+    if not role_id:
+        return False
     role = guild.get_role(role_id)
     if not role:
         return False
@@ -133,7 +141,7 @@ def calculate_ban_duration(suspected_age: int) -> int:
         raise ValueError("suspected_age must be between 1 and 17")
     now = datetime.now(timezone.utc)
     years_until_18 = 18 - suspected_age
-    end = now + timedelta(days=365 * years_until_18)
+    end = now + relativedelta(years=years_until_18)
     return int(end.timestamp())
 
 
@@ -168,3 +176,14 @@ def invalidate_reviewer_ids_cache() -> None:
     """Clear the reviewer IDs cache so the next check reads from the DB."""
     global _reviewer_ids_cache
     _reviewer_ids_cache = None
+
+
+async def mark_report_aged_out(report_id: int) -> None:
+    """Mark a consent-verified report as aged out after minor-role cleanup."""
+    now = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as session:
+        report = await session.get(MinorReport, report_id)
+        if report and report.status == CONSENT_VERIFIED:
+            report.status = AGED_OUT
+            report.updated_at = now
+            await session.commit()

@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 import discord
-from discord import ApplicationContext, WebhookMessage
+from discord import ApplicationContext
 from discord.ext.commands import has_any_role
 
 from src.bot import Bot
@@ -44,7 +44,7 @@ class FlagMinorCog(discord.Cog):
         user: discord.Member,
         suspected_age: int,
         evidence: str,
-    ) -> ApplicationContext | WebhookMessage:
+    ) -> ApplicationContext:
         """Flag a verified user as potentially underage. Only MOD+ can use this."""
         if not ctx.guild:
             return await ctx.respond("This command can only be used in a server.", ephemeral=True)
@@ -56,7 +56,7 @@ class FlagMinorCog(discord.Cog):
             )
 
         verified_role_id = settings.roles.VERIFIED
-        minor_role_id = getattr(settings.roles, "VERIFIED_MINOR", None)
+        minor_role_id = settings.roles.VERIFIED_MINOR
         if not minor_role_id:
             return await ctx.respond(
                 "Minor review is not configured (VERIFIED_MINOR role missing).",
@@ -93,7 +93,7 @@ class FlagMinorCog(discord.Cog):
                 ephemeral=True,
             )
 
-        status_message = await ctx.respond(
+        await ctx.respond(
             "Creating or updating minor report, please wait...",
             ephemeral=True,
         )
@@ -101,7 +101,7 @@ class FlagMinorCog(discord.Cog):
         has_consent = await check_parental_consent(target.id)
         if has_consent:
             added = await assign_minor_role(target, ctx.guild)
-            await status_message.edit(
+            await ctx.edit(
                 content=(
                     "Parental consent already on file. No report created."
                     + (" Role assigned." if added else " Role was already assigned.")
@@ -109,16 +109,16 @@ class FlagMinorCog(discord.Cog):
             )
             return
 
-        review_channel_id = getattr(settings.channels, "MINOR_REVIEW", None) or 0
+        review_channel_id = settings.channels.MINOR_REVIEW
         if not review_channel_id:
-            await status_message.edit(
+            await ctx.edit(
                 content="Minor review channel is not configured. Report could not be created.",
             )
             return
 
         review_channel = ctx.guild.get_channel(review_channel_id)
         if not review_channel:
-            await status_message.edit(
+            await ctx.edit(
                 content="Minor review channel not found. Report could not be created.",
             )
             return
@@ -152,7 +152,7 @@ class FlagMinorCog(discord.Cog):
                 await msg.edit(embed=embed)
             except (discord.NotFound, discord.HTTPException) as e:
                 logger.warning("Could not edit existing report message: %s", e)
-            await status_message.edit(
+            await ctx.edit(
                 content="Report updated with new information. Review channel message edited.",
             )
             return
@@ -209,7 +209,7 @@ class FlagMinorCog(discord.Cog):
         )
         await sent.edit(embed=embed_with_id)
 
-        await status_message.edit(
+        await ctx.edit(
             content=(
                 "Report created and posted to the review channel."
             ),

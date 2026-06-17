@@ -51,6 +51,7 @@ _ENV_FALLBACK_MAP: dict[str, tuple[RoleCategory, str]] = {
     "ACADEMY_CAPE": (RoleCategory.ACADEMY_CERT, "CAPE"),
     "ACADEMY_CJCA": (RoleCategory.ACADEMY_CERT, "CJCA"),
     "ACADEMY_CWPE": (RoleCategory.ACADEMY_CERT, "CWPE"),
+    "ACADEMY_COAE": (RoleCategory.ACADEMY_CERT, "COAE"),
 }
 
 

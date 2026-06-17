@@ -23,6 +23,16 @@ from src.views.bandecisionview import BanDecisionView
 logger = logging.getLogger(__name__)
 
 
+EVIDENCE_REQUIRED_MESSAGE = "Evidence is required."
+
+
+def validate_evidence(evidence: str | None) -> SimpleResponse | None:
+    """Return an error response when evidence is missing or blank."""
+    if not isinstance(evidence, str) or not evidence.strip():
+        return SimpleResponse(message=EVIDENCE_REQUIRED_MESSAGE, delete_after=15)
+    return None
+
+
 class BanCodes(Enum):
     SUCCESS = "SUCCESS"
     ALREADY_EXISTS = "ALREADY_EXISTS"
@@ -283,8 +293,8 @@ async def ban_member_with_epoch(
     if len(reason) == 0:
         reason = "No reason given ..."
 
-    if not evidence:
-        evidence = "none provided"
+    if evidence_error := validate_evidence(evidence):
+        return evidence_error
 
     # Validate epoch time is in the future
     current_time = datetime.now(tz=timezone.utc).timestamp()

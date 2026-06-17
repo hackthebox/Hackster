@@ -45,6 +45,7 @@ class TestScheduledTasksMinorRole:
         with (
             patch('src.cmds.automation.scheduled_tasks.AsyncSessionLocal', return_value=AsyncContextManager()),
             patch('src.cmds.automation.scheduled_tasks.settings') as mock_settings,
+            patch('src.cmds.automation.scheduled_tasks.mark_report_aged_out', new_callable=AsyncMock) as aged_out_mock,
         ):
             mock_settings.guild_ids = [123]
             cog = scheduled_tasks.ScheduledTasks(bot)
@@ -83,6 +84,7 @@ class TestScheduledTasksMinorRole:
         with (
             patch('src.cmds.automation.scheduled_tasks.AsyncSessionLocal', return_value=AsyncContextManager()),
             patch('src.cmds.automation.scheduled_tasks.settings') as mock_settings,
+            patch('src.cmds.automation.scheduled_tasks.mark_report_aged_out', new_callable=AsyncMock) as aged_out_mock,
         ):
             mock_settings.guild_ids = [123]
             bot.get_guild = MagicMock(return_value=helpers.MockGuild())
@@ -131,6 +133,7 @@ class TestScheduledTasksMinorRole:
         with (
             patch('src.cmds.automation.scheduled_tasks.AsyncSessionLocal', return_value=AsyncContextManager()),
             patch('src.cmds.automation.scheduled_tasks.settings') as mock_settings,
+            patch('src.cmds.automation.scheduled_tasks.mark_report_aged_out', new_callable=AsyncMock) as aged_out_mock,
         ):
             mock_settings.guild_ids = [123]
             mock_settings.roles.VERIFIED_MINOR = 456
@@ -149,6 +152,7 @@ class TestScheduledTasksMinorRole:
             await cog.auto_remove_minor_role()
 
             mock_member.remove_roles.assert_called_once_with(role, atomic=True)
+            aged_out_mock.assert_called_once_with(report.id)
 
     @pytest.mark.asyncio
     async def test_on_member_join_no_report(self, bot):
