@@ -203,7 +203,7 @@ class TestOther:
         with (
             patch.object(modal, "_lookup_htb_user_id", new_callable=AsyncMock, return_value="42"),
             patch.object(feedback_service, "is_configured", return_value=True),
-            patch.object(feedback_service, "ingest_discord_feedback", new_callable=AsyncMock) as mock_ingest,
+            patch.object(feedback_service, "ingest_discord_feedback", new_callable=AsyncMock, return_value=True) as mock_ingest,
             patch("src.cmds.core.other.WebhookClient") as mock_slack_client,
         ):
             mock_slack_client.return_value.send.return_value.status_code = 200
@@ -253,6 +253,34 @@ class TestOther:
             await modal.callback(interaction)
 
             mock_ingest.assert_not_called()
+            mock_slack_client.return_value.send.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_feedback_modal_falls_back_to_slack_when_feedback_service_fails(self):
+        """Test Slack fallback when feedback service is configured but ingest fails."""
+        modal = other.FeedbackModal(title="HTB Feedback", kind="bug", platform="htb_labs")
+        interaction = AsyncMock()
+        interaction.id = 222
+        interaction.user.id = 123456789012345678
+        interaction.user.name = "TestUser"
+        interaction.guild = None
+        for child in modal.children:
+            if child.custom_id == "summary":
+                child.value = "Title"
+            elif child.custom_id == "details":
+                child.value = "Body"
+
+        with (
+            patch.object(modal, "_lookup_htb_user_id", new_callable=AsyncMock, return_value=""),
+            patch.object(feedback_service, "is_configured", return_value=True),
+            patch.object(feedback_service, "ingest_discord_feedback", new_callable=AsyncMock, return_value=False),
+            patch("src.cmds.core.other.WebhookClient") as mock_slack_client,
+        ):
+            mock_slack_client.return_value.send.return_value.status_code = 200
+            mock_slack_client.return_value.send.return_value.body = "ok"
+
+            await modal.callback(interaction)
+
             mock_slack_client.return_value.send.assert_called_once()
 
     def test_setup(self, bot):

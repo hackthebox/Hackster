@@ -110,13 +110,18 @@ class FeedbackModal(Modal):
                 payload["author_htb_user_id"] = author_htb_user_id
             if interaction.guild:
                 payload["source_label"] = interaction.guild.name
-            await feedback_service.ingest_discord_feedback(payload)
-            return
+            if await feedback_service.ingest_discord_feedback(payload):
+                return
 
         if not settings.SLACK_FEEDBACK_WEBHOOK:
-            logger.warning(
-                "No feedback destination configured (FEEDBACK_SERVICE_* or SLACK_FEEDBACK_WEBHOOK)"
-            )
+            if feedback_service.is_configured():
+                logger.warning(
+                    "Feedback service ingest failed and SLACK_FEEDBACK_WEBHOOK is not configured"
+                )
+            else:
+                logger.warning(
+                    "No feedback destination configured (FEEDBACK_SERVICE_* or SLACK_FEEDBACK_WEBHOOK)"
+                )
             return
 
         kind_label = self.kind.replace("_", " ")
