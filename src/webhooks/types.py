@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Extra, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class WebhookEvent(Enum):
@@ -25,9 +25,9 @@ class Platform(Enum):
 
 
 class WebhookBody(BaseModel):
-    model_config = ConfigDict(extra=Extra.allow)
+    model_config = ConfigDict(extra="allow")
 
     platform: Platform
     event: WebhookEvent
-    properties: dict = Field(default_factory=dict)
-    traits: dict = Field(default_factory=dict)
+    properties: dict[str, object] = Field(default_factory=dict)
+    traits: dict[str, object] = Field(default_factory=dict)

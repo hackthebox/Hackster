@@ -1,38 +1,56 @@
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
-from pydantic import BaseSettings, validator
-
-# AcademyCertificates is removed; cert mappings are now in the dynamic_role DB table.
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Bot(BaseSettings):
-    """The API settings."""
+def _validate_discord_snowflake(value: int | str) -> int:
+    if isinstance(value, int):
+        discord_id = value
+    elif isinstance(value, str) and value.isdigit():
+        discord_id = int(value)
+    else:
+        raise ValueError("Discord IDs must be base-10 integer snowflakes.")
+
+    if not 0 < discord_id < 2**64:
+        raise ValueError("Discord IDs must be positive unsigned 64-bit snowflakes.")
+
+    return discord_id
+
+
+def _validate_non_zero_channel_id(value: int) -> int:
+    if not value:
+        return value
+    if len(str(value)) <= 17:
+        raise ValueError("Discord IDs must have a length of 19.")
+    return value
+
+
+class BotSettings(BaseModel):
+    """Discord bot settings."""
+
+    model_config = ConfigDict(extra="forbid")
 
     NAME: str = "Hackster"
     TOKEN: str
     ENVIRONMENT: str = "development"
 
-    @validator("TOKEN")
-    def check_token_format(cls, v: str) -> str:
-        """Validate discord tokens format."""
+    @field_validator("TOKEN")
+    @classmethod
+    def check_token_format(cls, value: str) -> str:
+        """Validate Discord token format."""
         pattern = re.compile(r".{26}\..{6}\..{38}")
-        assert pattern.fullmatch(
-            v
-        ), f"Discord token must follow >> {pattern.pattern} << pattern."
-        return v
-
-    class Config:
-        """The Pydantic settings configuration."""
-
-        env_file = ".env"
-        env_prefix = "BOT_"
+        if not pattern.fullmatch(value):
+            raise ValueError(f"Discord token must follow >> {pattern.pattern} << pattern.")
+        return value
 
 
-class Database(BaseSettings):
-    """The database settings."""
+class DatabaseSettings(BaseModel):
+    """Database settings."""
+
+    model_config = ConfigDict(extra="forbid")
 
     HOST: str = "localhost"
     PORT: int = 3306
@@ -40,24 +58,19 @@ class Database(BaseSettings):
     USER: str = "bot"
     PASSWORD: str = ""
     CHARSET: str = "utf8mb4"
+    ASYNC: bool | None = None
 
     def assemble_db_connection(self) -> str:
-        connection_string = (
+        return (
             f"mariadb+asyncmy://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
-            f"{self.DATABASE}?charset="
-            f"{self.CHARSET}"
+            f"{self.DATABASE}?charset={self.CHARSET}"
         )
-        return connection_string
-
-    class Config:
-        """The Pydantic settings configuration."""
-
-        env_file = ".env"
-        env_prefix = "MYSQL_"
 
 
-class Channels(BaseSettings):
-    """Channel ids."""
+class ChannelsSettings(BaseModel):
+    """Channel IDs."""
+
+    model_config = ConfigDict(extra="forbid")
 
     DEVLOG: int = 0
     SR_MOD: int
@@ -68,32 +81,31 @@ class Channels(BaseSettings):
     UNVERIFIED_BOT_COMMANDS: int = 0
     HOW_TO_VERIFY: int = 0
 
-    @validator(
-        "DEVLOG", "SR_MOD", "VERIFY_LOGS", "BOT_COMMANDS", "SPOILER", "BOT_LOGS",
-        "UNVERIFIED_BOT_COMMANDS", "HOW_TO_VERIFY",
+    @field_validator(
+        "DEVLOG",
+        "SR_MOD",
+        "VERIFY_LOGS",
+        "BOT_COMMANDS",
+        "SPOILER",
+        "BOT_LOGS",
+        "UNVERIFIED_BOT_COMMANDS",
+        "HOW_TO_VERIFY",
     )
-    def check_ids_format(cls, v: list[int]) -> list[int]:
-        """Validate discord ids format."""
-        if not v:
-            return v
-
-        assert len(str(v)) > 17, "Discord ids must have a length of 19."
-        return v
-
-    class Config:
-        """The Pydantic settings configuration."""
-
-        env_file = ".env"
-        env_prefix = "CHANNEL_"
+    @classmethod
+    def check_ids_format(cls, value: int) -> int:
+        """Validate Discord IDs format."""
+        return _validate_non_zero_channel_id(value)
 
 
-class Roles(BaseSettings):
-    """The roles settings.
+class RolesSettings(BaseModel):
+    """Role settings.
 
     Core roles (required): used in decorators at import time for permission checks.
     Dynamic roles (optional): managed via DB, kept here as fallback during transition.
     """
-    # ── Core roles (required, used in decorators) ────────────────────
+
+    model_config = ConfigDict(extra="forbid")
+
     VERIFIED: int
     COMMUNITY_MANAGER: int
     COMMUNITY_TEAM: int
@@ -106,87 +118,97 @@ class Roles(BaseSettings):
     MUTED: int
     ACADEMY_USER: int
 
-    # ── Dynamic roles (optional, DB-backed, env var fallback) ────────
-    # Ranks
-    OMNISCIENT: Optional[int] = None
-    GURU: Optional[int] = None
-    ELITE_HACKER: Optional[int] = None
-    PRO_HACKER: Optional[int] = None
-    HACKER: Optional[int] = None
-    SCRIPT_KIDDIE: Optional[int] = None
-    NOOB: Optional[int] = None
-    # Subscriptions
-    VIP: Optional[int] = None
-    VIP_PLUS: Optional[int] = None
-    SILVER_ANNUAL: Optional[int] = None
-    GOLD_ANNUAL: Optional[int] = None
-    # Content Creation
-    CHALLENGE_CREATOR: Optional[int] = None
-    BOX_CREATOR: Optional[int] = None
-    SHERLOCK_CREATOR: Optional[int] = None
-    # Positions
-    RANK_ONE: Optional[int] = None
-    RANK_TEN: Optional[int] = None
-    # Season Tiers
-    SEASON_HOLO: Optional[int] = None
-    SEASON_PLATINUM: Optional[int] = None
-    SEASON_RUBY: Optional[int] = None
-    SEASON_SILVER: Optional[int] = None
-    SEASON_BRONZE: Optional[int] = None
-    # Academy Certs
-    ACADEMY_CWES: Optional[int] = None
-    ACADEMY_CPTS: Optional[int] = None
-    ACADEMY_CDSA: Optional[int] = None
-    ACADEMY_CWEE: Optional[int] = None
-    ACADEMY_CAPE: Optional[int] = None
-    ACADEMY_CJCA: Optional[int] = None
-    ACADEMY_CWPE: Optional[int] = None
-    ACADEMY_COAE: Optional[int] = None
-    # Joinable roles
-    UNICTF2022: Optional[int] = None
-    BIZCTF2022: Optional[int] = None
-    NOAH_GANG: Optional[int] = None
-    BUDDY_GANG: Optional[int] = None
-    RED_TEAM: Optional[int] = None
-    BLUE_TEAM: Optional[int] = None
+    OMNISCIENT: int | None = None
+    GURU: int | None = None
+    ELITE_HACKER: int | None = None
+    PRO_HACKER: int | None = None
+    HACKER: int | None = None
+    SCRIPT_KIDDIE: int | None = None
+    NOOB: int | None = None
+    VIP: int | None = None
+    VIP_PLUS: int | None = None
+    SILVER_ANNUAL: int | None = None
+    GOLD_ANNUAL: int | None = None
+    CHALLENGE_CREATOR: int | None = None
+    BOX_CREATOR: int | None = None
+    SHERLOCK_CREATOR: int | None = None
+    APRIL_ROLE_1: int | None = None
+    APRIL_ROLE_2: int | None = None
+    RANK_FIVE: int | None = None
+    RANK_TWENTY_FIVE: int | None = None
+    RANK_FIFTY: int | None = None
+    RANK_HUNDRED: int | None = None
+    RANK_ONE: int | None = None
+    RANK_TEN: int | None = None
+    ACADEMY_CBBH: int | None = None
+    SEASON_HOLO: int | None = None
+    SEASON_PLATINUM: int | None = None
+    SEASON_RUBY: int | None = None
+    SEASON_SILVER: int | None = None
+    SEASON_BRONZE: int | None = None
+    ACADEMY_CWES: int | None = None
+    ACADEMY_CPTS: int | None = None
+    ACADEMY_CDSA: int | None = None
+    ACADEMY_CWEE: int | None = None
+    ACADEMY_CAPE: int | None = None
+    ACADEMY_CJCA: int | None = None
+    ACADEMY_CWPE: int | None = None
+    ACADEMY_COAE: int | None = None
+    UNICTF2022: int | None = None
+    BIZCTF2022: int | None = None
+    NOAH_GANG: int | None = None
+    BUDDY_GANG: int | None = None
+    RED_TEAM: int | None = None
+    BLUE_TEAM: int | None = None
 
-    @validator("VERIFIED", "COMMUNITY_MANAGER", "COMMUNITY_TEAM", "ADMINISTRATOR",
-               "SR_MODERATOR", "MODERATOR", "JR_MODERATOR", "HTB_STAFF", "HTB_SUPPORT",
-               "MUTED", "ACADEMY_USER", pre=True, each_item=True)
+    @field_validator(
+        "VERIFIED",
+        "COMMUNITY_MANAGER",
+        "COMMUNITY_TEAM",
+        "ADMINISTRATOR",
+        "SR_MODERATOR",
+        "MODERATOR",
+        "JR_MODERATOR",
+        "HTB_STAFF",
+        "HTB_SUPPORT",
+        "MUTED",
+        "ACADEMY_USER",
+        mode="before",
+    )
+    @classmethod
     def check_length(cls, value: str | int) -> str | int:
         value_str = str(value)
         if not 17 <= len(value_str) <= 20:
             raise ValueError("Each role ID must be between 18 & 19 characters long")
         return value
 
-    class Config:
-        """The Pydantic settings configuration."""
-
-        env_file = ".env"
-        env_prefix = "ROLE_"
-
 
 class Global(BaseSettings):
-    """The app settings."""
+    """Application settings."""
 
-    bot: Bot = None
-    database: Database = None
-    channels: Channels = None
-    roles: Roles = None
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_nested_delimiter="__",
+        extra="forbid",
+        populate_by_name=True,
+    )
+
+    bot: BotSettings = Field(validation_alias="BOT")
+    database: DatabaseSettings = Field(validation_alias="DATABASE")
+    channels: ChannelsSettings = Field(validation_alias="CHANNEL")
+    roles: RolesSettings = Field(validation_alias="ROLE")
+
     HTB_API_KEY: str
-
-    role_groups: dict[str, list[int | str]] = {}
-
     guild_ids: list[int]
-    dev_guild_ids: list[int] = []
+    dev_guild_ids: list[int] = Field(default_factory=list)
+    APRIL_FLAG_1: str = ""
+    APRIL_FLAG_2: str = ""
 
     SENTRY_DSN: str | None = None
     LOG_LEVEL: str | int = "INFO"
     DEBUG: bool = False
 
     HTB_URL: str = "https://labs.hackthebox.com"
-    API_URL: str = f"{HTB_URL}/api"
-    API_V4_URL: str = f"{API_URL}/v4"
     HTB_API_SECRET: str | None = None
 
     START_WEBHOOK_SERVER: bool = False
@@ -194,73 +216,52 @@ class Global(BaseSettings):
     WEBHOOK_TOKEN: str = ""
 
     SLACK_FEEDBACK_WEBHOOK: str = ""
+    SLACK_WEBHOOK: str = ""
     JIRA_WEBHOOK: str = ""
+    JIRA_SPOILER_WEBHOOK: str = ""
 
     # Feedback service ingest (POST /api/ingest/discord)
     FEEDBACK_SERVICE_URL: str = ""
     FEEDBACK_SERVICE_API_KEY: str = ""
 
-    ROOT: Path = None
-
+    ROOT: Path | None = None
     VERSION: str = "unknown"
-
     SEASON_ID: int = 0
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @validator("guild_ids", "dev_guild_ids", pre=True, each_item=True)
-    def check_ids_format(cls, v: int | str) -> int:
+    @field_validator("guild_ids", "dev_guild_ids", mode="before")
+    @classmethod
+    def check_ids_format(cls, value: list[int | str] | int | str) -> list[int | str] | int:
         """Validate Discord snowflakes and accept string-form IDs from env sources."""
-        if isinstance(v, int):
-            discord_id = v
-        elif isinstance(v, str) and v.isdigit():
-            discord_id = int(v)
-        else:
-            raise ValueError("Discord IDs must be base-10 integer snowflakes.")
+        if isinstance(value, list):
+            return [_validate_discord_snowflake(item) for item in value]
+        return _validate_discord_snowflake(value)
 
-        if not 0 < discord_id < 2**64:
-            raise ValueError("Discord IDs must be positive unsigned 64-bit snowflakes.")
+    @property
+    def API_URL(self) -> str:
+        return f"{self.HTB_URL}/api"
 
-        return discord_id
+    @property
+    def API_V4_URL(self) -> str:
+        return f"{self.API_URL}/v4"
 
-    # Helper methods (get_post_or_rank, get_season, get_cert, get_academy_cert_role)
-    # have been moved to RoleManager (src/services/role_manager.py).
-
-    class Config:
-        """The Pydantic settings configuration."""
-
-        env_file = ".env"
-
-
-def load_settings(env_file: str | None = None):
-    global_settings = Global(_env_file=env_file)
-    global_settings.bot = Bot(_env_file=env_file)
-    global_settings.database = Database(_env_file=env_file)
-    global_settings.channels = Channels(_env_file=env_file)
-    global_settings.roles = Roles(_env_file=env_file)
-
-    # Core role groups (used in decorators at import time for permission checks).
-    # Dynamic role groups (ALL_RANKS, ALL_SEASON_RANKS, etc.) are now served by
-    # RoleManager.get_group_ids() from the database.
-    global_settings.role_groups = {
-        "ALL_ADMINS": [
-            global_settings.roles.ADMINISTRATOR,
-            global_settings.roles.COMMUNITY_MANAGER,
-        ],
-        "ALL_SR_MODS": [global_settings.roles.SR_MODERATOR],
-        "ALL_MODS": [
-            global_settings.roles.SR_MODERATOR,
-            global_settings.roles.MODERATOR,
-            global_settings.roles.JR_MODERATOR,
-        ],
-        "ALL_HTB_STAFF": [global_settings.roles.HTB_STAFF],
-        "ALL_HTB_SUPPORT": [global_settings.roles.HTB_SUPPORT],
-    }
-
-    return global_settings
+    @property
+    def role_groups(self) -> dict[str, list[int]]:
+        return {
+            "ALL_ADMINS": [
+                self.roles.ADMINISTRATOR,
+                self.roles.COMMUNITY_MANAGER,
+            ],
+            "ALL_SR_MODS": [self.roles.SR_MODERATOR],
+            "ALL_MODS": [
+                self.roles.SR_MODERATOR,
+                self.roles.MODERATOR,
+                self.roles.JR_MODERATOR,
+            ],
+            "ALL_HTB_STAFF": [self.roles.HTB_STAFF],
+            "ALL_HTB_SUPPORT": [self.roles.HTB_SUPPORT],
+        }
 
 
-settings = load_settings(
-    os.environ.get("ENV_PATH") if os.environ.get("BOT_ENVIRONMENT") else ".test.env"
+settings = Global(
+    _env_file=os.environ.get("ENV_PATH") if os.environ.get("BOT_ENVIRONMENT") else ".test.env"
 )

@@ -28,7 +28,7 @@ class BanCog(commands.Cog):
     @slash_command(guild_ids=settings.guild_ids, description="Ban a user from the server permanently.")
     @has_any_role(*settings.role_groups.get("ALL_ADMINS"), *settings.role_groups.get("ALL_SR_MODS"))
     async def ban(
-            self, ctx: ApplicationContext, user: discord.Member, reason: str, evidence: str = None
+            self, ctx: ApplicationContext, user: discord.Member, reason: str, evidence: str
     ) -> Interaction | WebhookMessage:
         """Ban a user from the server permanently."""
         await ctx.defer(ephemeral=False)
@@ -48,7 +48,7 @@ class BanCog(commands.Cog):
         *settings.role_groups.get("ALL_HTB_STAFF")
     )
     async def tempban(
-        self, ctx: ApplicationContext, user: discord.Member, duration: str, reason: str, evidence: str = None
+        self, ctx: ApplicationContext, user: discord.Member, duration: str, reason: str, evidence: str
     ) -> Interaction | WebhookMessage:
         """Ban a user from the server temporarily."""
         await ctx.defer(ephemeral=False)

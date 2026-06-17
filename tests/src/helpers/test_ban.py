@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from discord import Forbidden, HTTPException
 
-from src.helpers.ban import _check_member, _dm_banned_member, ban_member
+from src.helpers.ban import EVIDENCE_REQUIRED_MESSAGE, _check_member, _dm_banned_member, ban_member
 from src.helpers.responses import SimpleResponse
 from tests import helpers
 
@@ -149,6 +149,17 @@ class TestBanMember:
             result = await ban_member(bot, guild, member, duration, reason, evidence)
             assert isinstance(result, SimpleResponse)
             assert result.message == "Invalid duration: could not parse."
+
+    @pytest.mark.asyncio
+    async def test_ban_member_missing_evidence(self, bot, guild, member, author):
+        duration = "1d"
+        reason = "xf reason"
+        member.display_name = "Banned Member"
+
+        with mock.patch("src.helpers.ban._check_member", return_value=None):
+            result = await ban_member(bot, guild, member, duration, reason, "   ")
+            assert isinstance(result, SimpleResponse)
+            assert result.message == EVIDENCE_REQUIRED_MESSAGE
 
     @pytest.mark.asyncio
     async def test_ban_member_permanently_success(self, bot, guild, member, author):
