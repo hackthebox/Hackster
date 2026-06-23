@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def is_configured() -> bool:
     """Return True when feedback service URL and API key are both set."""
-    return settings.FEEDBACK_SERVICE_URL and settings.FEEDBACK_SERVICE_API_KEY
+    return bool(settings.FEEDBACK_SERVICE_URL and settings.FEEDBACK_SERVICE_API_KEY)
 
 
 async def ingest_discord_feedback(payload: dict[str, Any]) -> bool:
