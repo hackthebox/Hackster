@@ -145,8 +145,12 @@ class FeedbackModal(Modal):
                 }
             ],
         )
-        assert response.status_code == 200
-        assert response.body == "ok"
+        if response.status_code != 200 or response.body != "ok":
+            logger.error(
+                "Slack feedback webhook failed: %s - %s",
+                response.status_code,
+                response.body,
+            )
 
 
 class SpoilerModal(Modal):
