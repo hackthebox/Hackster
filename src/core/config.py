@@ -220,6 +220,10 @@ class Global(BaseSettings):
     JIRA_WEBHOOK: str = ""
     JIRA_SPOILER_WEBHOOK: str = ""
 
+    # Feedback service ingest (POST /api/ingest/discord)
+    FEEDBACK_SERVICE_URL: str = ""
+    FEEDBACK_SERVICE_API_KEY: str = ""
+
     ROOT: Path | None = None
     VERSION: str = "unknown"
     SEASON_ID: int = 0

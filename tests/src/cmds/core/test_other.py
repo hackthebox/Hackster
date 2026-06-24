@@ -7,7 +7,7 @@ from src.bot import Bot
 from src.cmds.core import other
 from src.cmds.core.other import OtherCog, SpoilerModal
 from src.core import settings
-from src.helpers import webhook
+from src.helpers import feedback_service, webhook
 
 
 class TestWebhookHelper:
@@ -178,6 +178,110 @@ class TestOther:
             )
 
 
+
+    @pytest.mark.asyncio
+    async def test_feedback_modal_sends_to_feedback_service(self):
+        """Test the feedback modal posts structured payload to the feedback service."""
+        modal = other.FeedbackModal(
+            title="HTB Feedback",
+            kind="suggestion",
+            platform="htb_discord",
+        )
+        interaction = AsyncMock()
+        interaction.id = 999888777
+        interaction.user.id = 123456789012345678
+        interaction.user.name = "TestUser"
+        interaction.guild = None
+        for child in modal.children:
+            if child.custom_id == "summary":
+                child.value = "Badge precedence"
+            elif child.custom_id == "details":
+                child.value = "CWPE should override CPTS badge in Discord"
+            elif child.custom_id == "product":
+                child.value = "certifications"
+
+        with (
+            patch.object(modal, "_lookup_htb_user_id", new_callable=AsyncMock, return_value="42"),
+            patch.object(feedback_service, "is_configured", return_value=True),
+            patch.object(feedback_service, "ingest_discord_feedback", new_callable=AsyncMock, return_value=True) as mock_ingest,
+            patch("src.cmds.core.other.WebhookClient") as mock_slack_client,
+        ):
+            mock_slack_client.return_value.send.return_value.status_code = 200
+            mock_slack_client.return_value.send.return_value.body = "ok"
+
+            await modal.callback(interaction)
+
+            interaction.response.send_message.assert_called_once_with(
+                "Thank you, your feedback has been recorded.",
+                ephemeral=True,
+            )
+            mock_ingest.assert_called_once_with(
+                {
+                    "external_id": "999888777",
+                    "title": "Badge precedence",
+                    "body": "CWPE should override CPTS badge in Discord",
+                    "kind": "suggestion",
+                    "platform": "htb_discord",
+                    "product": "certifications",
+                    "author_source_user_id": "123456789012345678",
+                    "submitted_at": mock_ingest.call_args[0][0]["submitted_at"],
+                    "author_htb_user_id": "42",
+                }
+            )
+
+    @pytest.mark.asyncio
+    async def test_feedback_modal_falls_back_to_slack_when_feedback_service_unconfigured(self):
+        """Test legacy Slack path when feedback service URL/key are unset."""
+        modal = other.FeedbackModal(title="HTB Feedback", kind="bug", platform="htb_labs")
+        interaction = AsyncMock()
+        interaction.id = 111
+        interaction.user = None
+        for child in modal.children:
+            if child.custom_id == "summary":
+                child.value = "Title"
+            elif child.custom_id == "details":
+                child.value = "Body"
+
+        with (
+            patch.object(feedback_service, "is_configured", return_value=False),
+            patch.object(feedback_service, "ingest_discord_feedback", new_callable=AsyncMock) as mock_ingest,
+            patch("src.cmds.core.other.WebhookClient") as mock_slack_client,
+        ):
+            mock_slack_client.return_value.send.return_value.status_code = 200
+            mock_slack_client.return_value.send.return_value.body = "ok"
+
+            await modal.callback(interaction)
+
+            mock_ingest.assert_not_called()
+            mock_slack_client.return_value.send.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_feedback_modal_falls_back_to_slack_when_feedback_service_fails(self):
+        """Test Slack fallback when feedback service is configured but ingest fails."""
+        modal = other.FeedbackModal(title="HTB Feedback", kind="bug", platform="htb_labs")
+        interaction = AsyncMock()
+        interaction.id = 222
+        interaction.user.id = 123456789012345678
+        interaction.user.name = "TestUser"
+        interaction.guild = None
+        for child in modal.children:
+            if child.custom_id == "summary":
+                child.value = "Title"
+            elif child.custom_id == "details":
+                child.value = "Body"
+
+        with (
+            patch.object(modal, "_lookup_htb_user_id", new_callable=AsyncMock, return_value=""),
+            patch.object(feedback_service, "is_configured", return_value=True),
+            patch.object(feedback_service, "ingest_discord_feedback", new_callable=AsyncMock, return_value=False),
+            patch("src.cmds.core.other.WebhookClient") as mock_slack_client,
+        ):
+            mock_slack_client.return_value.send.return_value.status_code = 200
+            mock_slack_client.return_value.send.return_value.body = "ok"
+
+            await modal.callback(interaction)
+
+            mock_slack_client.return_value.send.assert_called_once()
 
     def test_setup(self, bot):
         """Test the setup method of the cog."""

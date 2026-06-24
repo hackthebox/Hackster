@@ -1,57 +1,156 @@
 import logging
+from datetime import UTC, datetime
 
 import discord
 from discord import ApplicationContext, Interaction, Message, Option, slash_command
 from discord.ext import commands
 from discord.ui import Button, InputText, Modal, View
 from slack_sdk.webhook import WebhookClient
+from sqlalchemy import select
 
 from src.bot import Bot
+from src.constants.feedback import feedback_kind_choices, feedback_platform_choices
 from src.core import settings
-from src.helpers import webhook
+from src.database.models import HtbDiscordLink
+from src.database.session import AsyncSessionLocal
+from src.helpers import feedback_service, webhook
 
 logger = logging.getLogger(__name__)
 
 
-class FeedbackModal(Modal):
-    """Feedback modal."""
+def _sanitize_feedback_text(text: str) -> str:
+    """Strip characters that could trigger Slack @-mentions."""
+    return text.replace("@", "[at]").replace("<", "[bracket]")
 
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialize the Feedback Modal with input fields."""
-        super().__init__(*args, **kwargs)
-        self.add_item(InputText(label="Title"))
-        self.add_item(InputText(label="Feedback", style=discord.InputTextStyle.long))
+
+def _modal_field_value(modal: Modal, custom_id: str) -> str:
+    for child in modal.children:
+        if getattr(child, "custom_id", None) == custom_id:
+            return (child.value or "").strip()
+    return ""
+
+
+class FeedbackModal(Modal):
+    """Collect structured feedback for the feedback service."""
+
+    def __init__(self, *, kind: str, platform: str, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.kind = kind
+        self.platform = platform
+        self.add_item(
+            InputText(
+                label="Summary",
+                custom_id="summary",
+                placeholder="Brief summary (e.g. VPN drops during Pro Labs)",
+                max_length=150,
+                required=True,
+            )
+        )
+        self.add_item(
+            InputText(
+                label="Details",
+                custom_id="details",
+                placeholder="What happened? Steps to reproduce, expected vs actual behavior…",
+                style=discord.InputTextStyle.long,
+                max_length=4000,
+                required=True,
+            )
+        )
+        self.add_item(
+            InputText(
+                label="Product area (optional)",
+                custom_id="product",
+                placeholder="e.g. machines, modules, VPN, certifications",
+                max_length=100,
+                required=False,
+            )
+        )
+
+    async def _lookup_htb_user_id(self, discord_user_id: int) -> str:
+        async with AsyncSessionLocal() as session:
+            stmt = select(HtbDiscordLink).filter(
+                HtbDiscordLink.discord_user_id == discord_user_id
+            ).limit(1)
+            result = await session.scalars(stmt)
+            link = result.first()
+        if link:
+            return str(link.htb_user_id)
+        return ""
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        """Handle the modal submission by sending feedback to Slack."""
+        """Handle the modal submission — forward to feedback or legacy Slack."""
         await interaction.response.send_message("Thank you, your feedback has been recorded.", ephemeral=True)
 
-        webhook = WebhookClient(settings.SLACK_FEEDBACK_WEBHOOK)
+        summary = _modal_field_value(self, "summary")
+        details = _modal_field_value(self, "details")
+        product = _modal_field_value(self, "product")
 
-        if interaction.user:  # Protects against some weird edge cases
-            title = f"{self.children[0].value} - {interaction.user.name}"
+        if interaction.user:
+            author_source_user_id = str(interaction.user.id)
+            author_htb_user_id = await self._lookup_htb_user_id(interaction.user.id)
+            slack_title = f"{summary} - {interaction.user.name}"
         else:
-            title = f"{self.children[0].value}"
+            author_source_user_id = ""
+            author_htb_user_id = ""
+            slack_title = summary
 
-        message_body = self.children[1].value
-        # Slack has no way to disallow @(@everyone calls), so we strip it out and replace it with a safe version
-        title = title.replace("@", "[at]").replace("<", "[bracket]")
-        message_body = message_body.replace("@", "[at]").replace("<", "[bracket]")
+        if feedback_service.is_configured():
+            payload: dict[str, str] = {
+                "external_id": str(interaction.id),
+                "title": summary,
+                "body": details,
+                "kind": self.kind,
+                "platform": self.platform,
+                "author_source_user_id": author_source_user_id,
+                "submitted_at": datetime.now(UTC).isoformat(),
+            }
+            if product:
+                payload["product"] = product
+            if author_htb_user_id:
+                payload["author_htb_user_id"] = author_htb_user_id
+            if interaction.guild:
+                payload["source_label"] = interaction.guild.name
+            if await feedback_service.ingest_discord_feedback(payload):
+                return
 
-        response = webhook.send(
+        if not settings.SLACK_FEEDBACK_WEBHOOK:
+            if feedback_service.is_configured():
+                logger.warning(
+                    "Feedback service ingest failed and SLACK_FEEDBACK_WEBHOOK is not configured"
+                )
+            else:
+                logger.warning(
+                    "No feedback destination configured (FEEDBACK_SERVICE_* or SLACK_FEEDBACK_WEBHOOK)"
+                )
+            return
+
+        kind_label = self.kind.replace("_", " ")
+        platform_label = self.platform.replace("htb_", "").replace("_", " ")
+        slack_header = f"[{kind_label} / {platform_label}]"
+        if product:
+            slack_header += f" ({product})"
+
+        title = _sanitize_feedback_text(f"{slack_header} {slack_title}")
+        message_body = _sanitize_feedback_text(details)
+        slack_webhook = WebhookClient(settings.SLACK_FEEDBACK_WEBHOOK)
+        response = slack_webhook.send(
             text=f"{title} - {message_body}",
             blocks=[
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"{title}:\n {message_body}"
-                    }
+                        "text": f"{title}:\n {message_body}",
+                    },
                 }
-            ]
+            ],
         )
-        assert response.status_code == 200
-        assert response.body == "ok"
+        if response.status_code != 200 or response.body != "ok":
+            logger.error(
+                "Slack feedback webhook failed: %s - %s",
+                response.status_code,
+                response.body,
+            )
 
 
 class SpoilerModal(Modal):
@@ -160,9 +259,24 @@ class OtherCog(commands.Cog):
 
     @slash_command(guild_ids=settings.guild_ids, description="Provide feedback to HTB.")
     @commands.cooldown(1, 60, commands.BucketType.user)
-    async def feedback(self, ctx: ApplicationContext) -> Interaction:
-        """Provide feedback to HTB."""
-        modal = FeedbackModal(title="Feedback")
+    async def feedback(
+        self,
+        ctx: ApplicationContext,
+        kind: Option(
+            str,
+            "Type of feedback",
+            choices=feedback_kind_choices(),
+            required=True,
+        ),
+        platform: Option(
+            str,
+            "HTB platform this relates to",
+            choices=feedback_platform_choices(),
+            required=True,
+        ),
+    ) -> Interaction:
+        """Provide structured feedback to HTB."""
+        modal = FeedbackModal(title="HTB Feedback", kind=kind, platform=platform)
         return await ctx.send_modal(modal)
 
     @slash_command(guild_ids=settings.guild_ids, description="Report a suspected cheater on the main platform.")
