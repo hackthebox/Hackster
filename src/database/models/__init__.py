@@ -7,5 +7,7 @@ from .dynamic_role import DynamicRole, RoleCategory
 from .htb_discord_link import HtbDiscordLink
 from .infraction import Infraction
 from .macro import Macro
+from .minor_report import MinorReport
+from .minor_review_reviewer import MinorReviewReviewer
 from .mute import Mute
 from .user_note import UserNote

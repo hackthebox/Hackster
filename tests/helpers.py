@@ -502,7 +502,7 @@ class MockContext(CustomMockMixin, mock.MagicMock):
     """
     spec_set = context_instance
 
-    additional_spec_asyncs = ("respond", "defer")
+    additional_spec_asyncs = ("respond", "defer", "edit")
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)

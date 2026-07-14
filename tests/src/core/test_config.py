@@ -45,7 +45,7 @@ class TestConfig(unittest.TestCase):
             "dev_guild_ids": [7764771731239076051],
         }
         payload.update(overrides)
-        return Global(**payload)
+        return Global(_env_file=None, **payload)
 
     def test_guild_ids_accept_string_snowflakes(self):
         """Test that guild IDs can be provided as digit strings and are coerced to ints."""
@@ -100,3 +100,8 @@ class TestConfig(unittest.TestCase):
     def test_season_id_loads_from_nested_env_config(self):
         """Test that SEASON_ID is loaded under the new nested env contract."""
         self.assertEqual(settings.SEASON_ID, 1)
+
+    def test_minor_review_settings_load_from_env(self):
+        """Test that minor-review config fields are declared and loaded from .test.env."""
+        self.assertEqual(settings.channels.MINOR_REVIEW, 1437472925720280084)
+        self.assertEqual(settings.roles.VERIFIED_MINOR, 1281517925395733615)

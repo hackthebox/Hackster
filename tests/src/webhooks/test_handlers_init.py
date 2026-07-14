@@ -1,11 +1,12 @@
-from unittest import mock
 from typing import Callable
+from unittest import mock
 
 import pytest
 
-from src.webhooks.handlers import handlers, can_handle, handle
+from src.webhooks.handlers import can_handle, handle, handlers
 from src.webhooks.types import Platform, WebhookBody, WebhookEvent
 from tests.conftest import bot
+
 
 class TestHandlersInit:
     def test_handler_init(self):
@@ -24,7 +25,7 @@ class TestHandlersInit:
     def test_handle_success(self):
         with mock.patch("src.webhooks.handlers.handlers", {Platform.MAIN: lambda x, y: 1337}):
             assert handle(WebhookBody(platform=Platform.MAIN, event=WebhookEvent.ACCOUNT_LINKED, properties={}, traits={}), bot) == 1337
-        
+
     def test_handle_unknown_platform(self):
         with pytest.raises(ValueError):
             handle(WebhookBody(platform="UNKNOWN", event=WebhookEvent.ACCOUNT_LINKED, properties={}, traits={}), bot)
