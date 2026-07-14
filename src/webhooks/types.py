@@ -14,6 +14,7 @@ class WebhookEvent(Enum):
     SUBSCRIPTION_CHANGE = "SubscriptionChange"
     NAME_CHANGE = "NameChange"
     SEASON_RANK_CHANGE = "SeasonRankChange"
+    XP_RANK_CHANGE = "XpRankChange"
 
 
 class Platform(Enum):

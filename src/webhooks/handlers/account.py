@@ -27,6 +27,8 @@ class AccountHandler(BaseHandler):
             return await self._handle_account_banned(body, bot)
         elif body.event == WebhookEvent.NAME_CHANGE:
             return await self._handle_name_change(body, bot)
+        elif body.event == WebhookEvent.XP_RANK_CHANGE:
+            return await self._handle_xp_rank_change(body, bot)
         else:
             raise ValueError(f"Invalid event: {body.event}")
 
@@ -125,6 +127,45 @@ class AccountHandler(BaseHandler):
 
         self.logger.debug(f"Platform ban handling result: {result['action']}", extra=extra)
 
+        return self.success()
+
+    async def _handle_xp_rank_change(self, body: WebhookBody, bot: Bot) -> dict:
+        """
+        Handles the XP-system rank change event.
+
+        Assigns the XP tier role and the XP grade role. Tier roles are mutually
+        exclusive with each other and grade roles are mutually exclusive with
+        each other, but the two groups are independent: a member can hold one
+        tier role and one grade role at the same time.
+        """
+        discord_id, account_id = self.validate_common_properties(body)
+        extra = {"account_id": account_id, "discord_id": discord_id}
+
+        xp_rank = self.validate_property(
+            self.get_property_or_trait(body, "xp_rank"), "xp_rank"
+        )
+        rank_role_id = bot.role_manager.get_xp_rank_role_id(xp_rank)
+        if not rank_role_id:
+            err = ValueError(f"Cannot find role for XP rank '{xp_rank}'")
+            self.logger.error(err, extra={**extra, "xp_rank": xp_rank})
+            raise err
+
+        xp_grade = self.validate_property(
+            self.get_property_or_trait(body, "xp_grade"), "xp_grade"
+        )
+        grade_role_id = bot.role_manager.get_xp_grade_role_id(xp_grade)
+        if not grade_role_id:
+            err = ValueError(f"Cannot find role for XP grade '{xp_grade}'")
+            self.logger.error(err, extra={**extra, "xp_grade": xp_grade})
+            raise err
+
+        member = await self.get_guild_member(discord_id, bot)
+        await self.swap_role_in_group(
+            member, rank_role_id, bot.role_manager.get_group_ids("xp_rank"), bot
+        )
+        await self.swap_role_in_group(
+            member, grade_role_id, bot.role_manager.get_group_ids("xp_grade"), bot
+        )
         return self.success()
 
     async def _handle_account_deleted(self, body: WebhookBody, bot: Bot) -> dict:

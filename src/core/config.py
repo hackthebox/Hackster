@@ -225,6 +225,9 @@ class Global(BaseSettings):
 
     NEXUS_API_BASE_URL: str | None = None
     NEXUS_API_TOKEN: str | None = None
+    # Feedback service ingest (POST /api/ingest/discord)
+    FEEDBACK_SERVICE_URL: str = ""
+    FEEDBACK_SERVICE_API_KEY: str = ""
 
     ROOT: Path | None = None
     VERSION: str = "unknown"
