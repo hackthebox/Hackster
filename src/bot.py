@@ -95,12 +95,18 @@ class Bot(DiscordBot):
 
     async def _register_persistent_views(self) -> None:
         """Re-register persistent UI views so buttons survive bot restarts."""
+        from src.views.anonymous_vote import register_anonymous_vote_views
         from src.views.bandecisionview import register_ban_views
 
         try:
             await register_ban_views(self)
         except Exception:
             logger.exception("Failed to register persistent ban decision views")
+
+        try:
+            await register_anonymous_vote_views(self)
+        except Exception:
+            logger.exception("Failed to register persistent anonymous vote views")
 
     async def on_application_command(self, ctx: ApplicationContext) -> None:
         """A global handler cog."""

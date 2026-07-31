@@ -259,6 +259,19 @@ class Global(BaseSettings):
             ],
             "ALL_HTB_STAFF": [self.roles.HTB_STAFF],
             "ALL_HTB_SUPPORT": [self.roles.HTB_SUPPORT],
+            "VOTE_STARTERS": [
+                self.roles.ADMINISTRATOR,
+                self.roles.COMMUNITY_MANAGER,
+                self.roles.COMMUNITY_TEAM,
+            ],
+            "VOTE_CASTERS": [
+                self.roles.ADMINISTRATOR,
+                self.roles.COMMUNITY_MANAGER,
+                self.roles.COMMUNITY_TEAM,
+                self.roles.SR_MODERATOR,
+                self.roles.MODERATOR,
+                self.roles.JR_MODERATOR,
+            ],
         }
 
 
