@@ -2,8 +2,8 @@ import unittest
 
 from pydantic import ValidationError
 
-from src.core.config import Global
 from src.core import settings
+from src.core.config import Global
 
 
 class TestConfig(unittest.TestCase):
@@ -81,10 +81,25 @@ class TestConfig(unittest.TestCase):
         self.assertIn("ALL_HTB_STAFF", settings.role_groups)
         self.assertIn("ALL_SR_MODS", settings.role_groups)
         self.assertIn("ALL_HTB_SUPPORT", settings.role_groups)
-        self.assertIn("VOTE_STARTERS", settings.role_groups)
-        self.assertIn("VOTE_CASTERS", settings.role_groups)
-        self.assertEqual(len(settings.role_groups["VOTE_STARTERS"]), 3)
-        self.assertEqual(len(settings.role_groups["VOTE_CASTERS"]), 6)
+        self.assertEqual(
+            settings.role_groups["VOTE_STARTERS"],
+            [
+                settings.roles.ADMINISTRATOR,
+                settings.roles.COMMUNITY_MANAGER,
+                settings.roles.COMMUNITY_TEAM,
+            ],
+        )
+        self.assertEqual(
+            settings.role_groups["VOTE_CASTERS"],
+            [
+                settings.roles.ADMINISTRATOR,
+                settings.roles.COMMUNITY_MANAGER,
+                settings.roles.COMMUNITY_TEAM,
+                settings.roles.SR_MODERATOR,
+                settings.roles.MODERATOR,
+                settings.roles.JR_MODERATOR,
+            ],
+        )
 
     def test_dynamic_role_groups_removed(self):
         """Test that dynamic role groups are no longer in settings."""

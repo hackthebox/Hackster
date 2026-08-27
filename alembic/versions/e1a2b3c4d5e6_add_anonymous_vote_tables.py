@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("message_id", mysql.BIGINT(display_width=18), nullable=True),
         sa.Column("topic", mysql.TEXT(), nullable=True),
         sa.Column("created_by_id", mysql.BIGINT(display_width=18), nullable=False),
-        sa.Column("closes_at", mysql.TIMESTAMP(), nullable=False),
+        sa.Column("closes_at", mysql.BIGINT(display_width=18), nullable=False),
         sa.Column("closed", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )

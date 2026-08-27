@@ -1,8 +1,6 @@
 # flake8: noqa: D101
-from datetime import datetime
-
 from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.mysql import BIGINT, TEXT, TIMESTAMP
+from sqlalchemy.dialects.mysql import BIGINT, TEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
@@ -17,7 +15,7 @@ class AnonymousVoteSession(Base):
     message_id: Mapped[int | None] = mapped_column(BIGINT(18), nullable=True)
     topic: Mapped[str | None] = mapped_column(TEXT, nullable=True)
     created_by_id: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
-    closes_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
+    closes_at: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
     closed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     candidates: Mapped[list["AnonymousVoteCandidate"]] = relationship(
