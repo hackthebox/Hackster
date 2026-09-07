@@ -132,7 +132,7 @@ async def get_user_details(labs_id: int | str) -> dict:
 
 async def get_season_rank(htb_uid: int) -> str | None:
     """Get season rank from HTB."""
-    season_api_url = f"{settings.API_V4_URL}/season/end/{settings.SEASON_ID}/{htb_uid}"
+    season_api_url = f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}"
 
     async with get_labs_session() as session:
         async with session.get(season_api_url) as r:
