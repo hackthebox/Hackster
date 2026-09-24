@@ -1,42 +1,126 @@
-name: Deploy
+name: Build & Push
 
+run-name: "Build: ${{ github.ref_name }}${{ github.event_name == 'workflow_dispatch' && format(' (manual, {0})', inputs.environment) || '' }}"
+
+# Same tag rules as before. The destination is what changes.
+#
+#   v*-rc tag, or a manual run -> central ECR, Flux deploys services-dev
+#   any other v* tag           -> GitHub Container Registry, then DigitalOcean
+#
+# The development tag Flux accepts is dev-<8 hex chars>-<10 digit timestamp>.
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment
+        type: choice
+        required: true
+        default: development
+        options:
+          - development
   push:
     tags:
       - v*
-  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ contains(github.ref, '-rc') || github.event_name == 'workflow_dispatch' }}
 
 jobs:
-  deploy:
-    environment:
-      name: ${{ (contains(github.ref, '-rc')) && 'development' || 'production' }}
+  build-development:
+    name: Build development image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 30
+    if: github.event_name == 'workflow_dispatch' || contains(github.ref, '-rc')
+    environment: development
     env:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      COMMITTER: ${{ github.actor }}
-      DOCKER_IMAGE: ghcr.io/hackthebox/hackster:${{ github.sha }}
-      LATEST_IMAGE: ghcr.io/hackthebox/hackster:latest
-      CHANGE_CAUSE: ${{ github.run_number }}-${{ github.sha }}
-      DEPLOYMENT_NAME: ${{ (contains(github.ref, '-rc')) && 'hackster-dev' || 'hackster' }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Determine image tag
+        id: config
+        run: |
+          set -euo pipefail
+          FULL_SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="$(echo "$FULL_SHA" | cut -c1-8)"
+          TIMESTAMP="$(date +%s)"
+          echo "image_tag=dev-${SHORT_SHA}-${TIMESTAMP}" >> "$GITHUB_OUTPUT"
+          echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Configure AWS credentials for ECR
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_GITHUB_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        with:
+          registries: ${{ env.ECR_REGISTRY }}
+
+      - name: Build and push to Amazon ECR
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.config.outputs.image_tag }}
+          build-args: |
+            VERSION=${{ steps.config.outputs.version }}
+          cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache,mode=max
+
+      - name: Output image information
+        run: |
+          echo "Pushed image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.config.outputs.image_tag }}"
+
+  deploy-production:
+    name: Roll production on DigitalOcean
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-rc')
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DOCKER_IMAGE: ghcr.io/hackthebox/hackster:${{ github.sha }}
+      LATEST_IMAGE: ghcr.io/hackthebox/hackster:latest
+      CHANGE_CAUSE: ${{ github.run_number }}-${{ github.sha }}
+      DEPLOYMENT_NAME: hackster
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
       - name: Derive git version
         id: git-version
-        run: echo "value=$(git describe --tags --always --dirty)" >> "$GITHUB_OUTPUT"
+        run: echo "value=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+
       - name: Login to ghcr.io
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build image
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
@@ -45,6 +129,7 @@ jobs:
           tags: ${{ env.DOCKER_IMAGE }},${{ env.LATEST_IMAGE }}
           build-args: |
             VERSION=${{ steps.git-version.outputs.value }}
+
       - name: Rollout release
         uses: makelarisjr/kubectl-action@6a140d582feb88b20e91ee8e35d15c255865ab32 # v1
         with:
