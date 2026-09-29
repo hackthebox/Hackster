@@ -60,9 +60,16 @@ class DatabaseSettings(BaseModel):
     CHARSET: str = "utf8mb4"
     ASYNC: bool | None = None
 
-    def assemble_db_connection(self) -> str:
+    def assemble_db_connection(self, async_: bool | None = None) -> str:
+        """Build a SQLAlchemy MariaDB URL.
+
+        ``async_`` overrides ``ASYNC``. Alembic passes ``False`` because it needs
+        a sync driver. When neither is set, the async driver is used.
+        """
+        use_async = self.ASYNC if async_ is None else async_
+        driver = "pymysql" if use_async is False else "asyncmy"
         return (
-            f"mariadb+asyncmy://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
+            f"mariadb+{driver}://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
             f"{self.DATABASE}?charset={self.CHARSET}"
         )
 

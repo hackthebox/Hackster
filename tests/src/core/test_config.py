@@ -48,7 +48,7 @@ class TestConfig(unittest.TestCase):
             "dev_guild_ids": [7764771731239076051],
         }
         payload.update(overrides)
-        return Global(**payload)
+        return Global(_env_file=None, **payload)
 
     def test_guild_ids_accept_string_snowflakes(self):
         """Test that guild IDs can be provided as digit strings and are coerced to ints."""
@@ -103,6 +103,29 @@ class TestConfig(unittest.TestCase):
     def test_season_id_loads_from_nested_env_config(self):
         """Test that SEASON_ID is loaded under the new nested env contract."""
         self.assertEqual(settings.SEASON_ID, 1)
+
+    def test_assemble_db_connection_defaults_to_async_driver(self):
+        """Test that an unset ASYNC flag uses the async MariaDB driver."""
+        config = self.minimal_settings()
+        url = config.database.assemble_db_connection()
+        self.assertTrue(url.startswith("mariadb+asyncmy://bot:secret@localhost:3306/bot"))
+
+    def test_assemble_db_connection_uses_sync_driver_when_disabled(self):
+        """Test that ASYNC false, and an explicit override, select the sync driver."""
+        database = {
+            "HOST": "localhost",
+            "PORT": 3306,
+            "DATABASE": "bot",
+            "USER": "bot",
+            "PASSWORD": "secret",
+            "ASYNC": False,
+        }
+        config = self.minimal_settings(database=database)
+        self.assertTrue(config.database.assemble_db_connection().startswith("mariadb+pymysql://"))
+
+        async_config = self.minimal_settings()
+        sync_url = async_config.database.assemble_db_connection(async_=False)
+        self.assertTrue(sync_url.startswith("mariadb+pymysql://"))
 
     def test_resolve_env_file_defaults_to_test_env(self):
         """Test that local runs load .test.env unless a deploy flag is set."""
