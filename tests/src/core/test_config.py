@@ -1,9 +1,11 @@
+import os
 import unittest
+from unittest.mock import patch
 
 from pydantic import ValidationError
 
 from scripts.seed_dynamic_roles import role_env_var
-from src.core.config import Global
+from src.core.config import Global, resolve_env_file
 from src.core import settings
 
 
@@ -101,6 +103,30 @@ class TestConfig(unittest.TestCase):
     def test_season_id_loads_from_nested_env_config(self):
         """Test that SEASON_ID is loaded under the new nested env contract."""
         self.assertEqual(settings.SEASON_ID, 1)
+
+    def test_resolve_env_file_defaults_to_test_env(self):
+        """Test that local runs load .test.env unless a deploy flag is set."""
+        with patch.dict(os.environ, {"APP_ENV_FILE": "", "BOT_ENVIRONMENT": "", "ENV_PATH": ".env"}):
+            self.assertEqual(resolve_env_file(), ".test.env")
+
+    def test_resolve_env_file_prefers_app_env_file(self):
+        """Test that APP_ENV_FILE selects ENV_PATH and ignores the legacy flag's absence."""
+        with patch.dict(
+            os.environ,
+            {"APP_ENV_FILE": "production", "BOT_ENVIRONMENT": "", "ENV_PATH": "/vault/secrets/.env"},
+        ):
+            self.assertEqual(resolve_env_file(), "/vault/secrets/.env")
+
+    def test_resolve_env_file_accepts_legacy_bot_environment(self):
+        """Test that BOT_ENVIRONMENT still selects ENV_PATH until Vault is renamed."""
+        with patch.dict(os.environ, {"APP_ENV_FILE": "", "BOT_ENVIRONMENT": "production", "ENV_PATH": ".env"}):
+            self.assertEqual(resolve_env_file(), ".env")
+
+    def test_resolve_env_file_without_env_path_uses_process_environment(self):
+        """Test that a deploy flag with no ENV_PATH does not force .test.env."""
+        with patch.dict(os.environ, {"APP_ENV_FILE": "production", "BOT_ENVIRONMENT": ""}):
+            os.environ.pop("ENV_PATH", None)
+            self.assertIsNone(resolve_env_file())
 
     def test_seed_role_env_var_uses_nested_delimiter(self):
         """Test that dynamic-role seeding reads ROLE__ vars, not ROLE_."""

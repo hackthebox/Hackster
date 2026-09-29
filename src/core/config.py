@@ -251,6 +251,18 @@ class Global(BaseSettings):
         }
 
 
-settings = Global(
-    _env_file=os.environ.get("ENV_PATH") if os.environ.get("BOT_ENVIRONMENT") else ".test.env"
-)
+def resolve_env_file() -> str | None:
+    """Choose the env file used to build settings.
+
+    Deployed processes set ``APP_ENV_FILE``. ``BOT_ENVIRONMENT`` is still accepted
+    so existing Vault configs keep booting. Either flag loads ``ENV_PATH`` when
+    it is set, and otherwise uses the process environment. Local runs load
+    ``.test.env``.
+    """
+    deployed = os.environ.get("APP_ENV_FILE") or os.environ.get("BOT_ENVIRONMENT")
+    if deployed:
+        return os.environ.get("ENV_PATH")
+    return ".test.env"
+
+
+settings = Global(_env_file=resolve_env_file())
