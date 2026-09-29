@@ -1,54 +1,39 @@
-name: Deploy
+name: Build & Push
 
 on:
   push:
+    branches:
+      - main
     tags:
       - v*
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
 jobs:
-  deploy:
-    environment:
-      name: ${{ (contains(github.ref, '-rc')) && 'development' || 'production' }}
+  set-environment:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    env:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      COMMITTER: ${{ github.actor }}
-      DOCKER_IMAGE: ghcr.io/hackthebox/hackster:${{ github.sha }}
-      LATEST_IMAGE: ghcr.io/hackthebox/hackster:latest
-      CHANGE_CAUSE: ${{ github.run_number }}-${{ github.sha }}
-      DEPLOYMENT_NAME: ${{ (contains(github.ref, '-rc')) && 'hackster-dev' || 'hackster' }}
+    environment: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && 'production' || 'development' }}
+    outputs:
+      role: ${{ steps.vars.outputs.role }}
+      repository: ${{ steps.vars.outputs.repository }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
-      - name: Derive git version
-        id: git-version
-        run: echo "value=$(git describe --tags --always --dirty)" >> "$GITHUB_OUTPUT"
-      - name: Login to ghcr.io
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build image
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-        with:
-          push: true
-          context: .
-          tags: ${{ env.DOCKER_IMAGE }},${{ env.LATEST_IMAGE }}
-          build-args: |
-            VERSION=${{ steps.git-version.outputs.value }}
-      - name: Rollout release
-        uses: makelarisjr/kubectl-action@6a140d582feb88b20e91ee8e35d15c255865ab32 # v1
-        with:
-          config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: |
-            set image deployment ${{ env.DEPLOYMENT_NAME }} hackster=${{ env.DOCKER_IMAGE }};
-            kubectl annotate deployment ${{ env.DEPLOYMENT_NAME }} kubernetes.io/change-cause="${{ env.CHANGE_CAUSE }}";
+      - id: vars
+        run: |
+          echo "role=${{ vars.AWS_GITHUB_ROLE }}" >> "$GITHUB_OUTPUT"
+          echo "repository=${{ vars.ECR_REPOSITORY }}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: set-environment
+    uses: hackthebox/workflows/.github/workflows/build-docker-image.yml@main
+    with:
+      ecr_enabled: true
+      ecr_repository: ${{ needs.set-environment.outputs.repository }}
+      ecr_role_arn: ${{ needs.set-environment.outputs.role }}
+      environment_name: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && 'production' || 'development' }}
+      runner: ubuntu-latest
+      enable_dockerhub_login: false
+    secrets: inherit
