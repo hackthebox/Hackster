@@ -132,15 +132,8 @@ class RolesSettings(BaseModel):
     CHALLENGE_CREATOR: int | None = None
     BOX_CREATOR: int | None = None
     SHERLOCK_CREATOR: int | None = None
-    APRIL_ROLE_1: int | None = None
-    APRIL_ROLE_2: int | None = None
-    RANK_FIVE: int | None = None
-    RANK_TWENTY_FIVE: int | None = None
-    RANK_FIFTY: int | None = None
-    RANK_HUNDRED: int | None = None
     RANK_ONE: int | None = None
     RANK_TEN: int | None = None
-    ACADEMY_CBBH: int | None = None
     SEASON_HOLO: int | None = None
     SEASON_PLATINUM: int | None = None
     SEASON_RUBY: int | None = None
@@ -201,8 +194,6 @@ class Global(BaseSettings):
     HTB_API_KEY: str
     guild_ids: list[int]
     dev_guild_ids: list[int] = Field(default_factory=list)
-    APRIL_FLAG_1: str = ""
-    APRIL_FLAG_2: str = ""
 
     SENTRY_DSN: str | None = None
     LOG_LEVEL: str | int = "INFO"
@@ -216,9 +207,7 @@ class Global(BaseSettings):
     WEBHOOK_TOKEN: str = ""
 
     SLACK_FEEDBACK_WEBHOOK: str = ""
-    SLACK_WEBHOOK: str = ""
     JIRA_WEBHOOK: str = ""
-    JIRA_SPOILER_WEBHOOK: str = ""
 
     # Feedback service ingest (POST /api/ingest/discord)
     FEEDBACK_SERVICE_URL: str = ""
