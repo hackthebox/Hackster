@@ -2,6 +2,7 @@ import unittest
 
 from pydantic import ValidationError
 
+from scripts.seed_dynamic_roles import role_env_var
 from src.core.config import Global
 from src.core import settings
 
@@ -100,3 +101,7 @@ class TestConfig(unittest.TestCase):
     def test_season_id_loads_from_nested_env_config(self):
         """Test that SEASON_ID is loaded under the new nested env contract."""
         self.assertEqual(settings.SEASON_ID, 1)
+
+    def test_seed_role_env_var_uses_nested_delimiter(self):
+        """Test that dynamic-role seeding reads ROLE__ vars, not ROLE_."""
+        self.assertEqual(role_env_var("RANK_ONE"), "ROLE__RANK_ONE")
