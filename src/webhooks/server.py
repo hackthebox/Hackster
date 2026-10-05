@@ -1,7 +1,8 @@
+import asyncio
 import hashlib
 import hmac
-import logging
 import json
+import logging
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
@@ -102,5 +103,11 @@ config = HypercornConfig()
 config.bind = [f"0.0.0.0:{settings.WEBHOOK_PORT}"]
 
 
-async def serve():
-    await hypercorn_serve(app, config)
+async def _never_shutdown() -> None:
+    await asyncio.Event().wait()
+
+
+async def serve() -> None:
+    """Run the webhook server until the event loop is stopped."""
+    # Passing a trigger stops hypercorn from replacing py-cord's SIGTERM/SIGINT handlers, which close the bot.
+    await hypercorn_serve(app, config, shutdown_trigger=_never_shutdown)

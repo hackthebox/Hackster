@@ -25,4 +25,4 @@ if __name__ == "__main__":
     logger.debug(f"Starting webhook server listening on port: {settings.WEBHOOK_PORT}")
     bot.loop.create_task(serve())
     logger.debug(f"Starting bot with token: {settings.bot.TOKEN}")
-    bot.loop.create_task(bot.run(settings.bot.TOKEN))
+    bot.run(settings.bot.TOKEN)
