@@ -1,5 +1,6 @@
 import logging
 import socket
+from typing import TypeVar
 
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
@@ -27,7 +28,6 @@ from discord.ext.commands import (
     UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
-from typing import TypeVar
 
 from src import trace_config
 from src.core import constants, settings
@@ -136,14 +136,14 @@ class Bot(DiscordBot):
         elif isinstance(error, CommandOnCooldown):
             message = f"You are on cooldown. Try again in {error.retry_after:.2f}s"
         elif isinstance(error, NoResultFound):
-            message = f"The requested object could not be found."
+            message = "The requested object could not be found."
 
         errored_commands.labels(ctx.command.name).inc()
 
         if message is None:
             raise error
         else:
-            logger.debug(f"A user caused an error which was handled.", exc_info=error)
+            logger.debug("A user caused an error which was handled.", exc_info=error)
             await ctx.respond(message, delete_after=15, ephemeral=True)
 
     async def on_application_command_completion(self, ctx: ApplicationContext) -> None:
@@ -204,21 +204,20 @@ class Bot(DiscordBot):
             logger.warning(
                 f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
             )
-        except NotFound as exc:
-            logger.warning(f"Could not find guild member with id: {id_}", exc_info=exc)
+        except NotFound:
+            # Expected for users who left the guild, so no traceback; we fall back to the user lookup.
+            logger.debug(f"Could not find guild member with id: {id_}")
             try:
                 return await self.get_or_fetch_user(id_)
             except Forbidden as exc:
                 logger.warning(
-                    f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
+                    f"Unauthorized attempt to fetch user with id: {id_}", exc_info=exc
                 )
             except NotFound as exc:
-                logger.warning(
-                    f"Could not find guild member with id: {id_}", exc_info=exc
-                )
+                logger.warning(f"Could not find user with id: {id_}", exc_info=exc)
             except HTTPException as exc:
                 logger.error(
-                    f"Discord error while fetching guild member with id: {id_}",
+                    f"Discord error while fetching user with id: {id_}",
                     exc_info=exc,
                 )
         except HTTPException as exc:
