@@ -206,7 +206,7 @@ class Bot(DiscordBot):
             )
         except NotFound:
             # Expected for users who left the guild, so no traceback; we fall back to the user lookup.
-            logger.debug(f"Could not find guild member with id: {id_}")
+            logger.warning(f"Could not find guild member with id: {id_}")
             try:
                 return await self.get_or_fetch_user(id_)
             except Forbidden as exc:

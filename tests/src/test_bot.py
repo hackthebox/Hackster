@@ -57,7 +57,7 @@ class TestGetMemberOrUser:
         bot.get_or_fetch_user.assert_awaited_once_with(USER_ID)
         records = _records(caplog)
         assert len(records) == 1
-        assert records[0].levelno == logging.DEBUG
+        assert records[0].levelno == logging.WARNING
         assert records[0].getMessage() == f"Could not find guild member with id: {USER_ID}"
         assert records[0].exc_info is None
 
@@ -70,9 +70,11 @@ class TestGetMemberOrUser:
 
         assert result is None
         warnings = [r for r in _records(caplog) if r.levelno == logging.WARNING]
-        assert len(warnings) == 1
-        assert warnings[0].getMessage() == f"Could not find user with id: {USER_ID}"
-        assert warnings[0].exc_info[1] is user_error
+        assert len(warnings) == 2
+        assert warnings[0].getMessage() == f"Could not find guild member with id: {USER_ID}"
+        assert warnings[0].exc_info is None
+        assert warnings[1].getMessage() == f"Could not find user with id: {USER_ID}"
+        assert warnings[1].exc_info[1] is user_error
 
     @pytest.mark.asyncio
     async def test_forbidden_fetching_member_keeps_traceback(self, caplog):
@@ -98,9 +100,11 @@ class TestGetMemberOrUser:
 
         assert result is None
         warnings = [r for r in _records(caplog) if r.levelno == logging.WARNING]
-        assert len(warnings) == 1
-        assert warnings[0].getMessage() == f"Unauthorized attempt to fetch user with id: {USER_ID}"
-        assert warnings[0].exc_info[1] is error
+        assert len(warnings) == 2
+        assert warnings[0].getMessage() == f"Could not find guild member with id: {USER_ID}"
+        assert warnings[0].exc_info is None
+        assert warnings[1].getMessage() == f"Unauthorized attempt to fetch user with id: {USER_ID}"
+        assert warnings[1].exc_info[1] is error
 
     @pytest.mark.asyncio
     async def test_http_error_after_member_not_found_logs_error_with_traceback(self, caplog):
