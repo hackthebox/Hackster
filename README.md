@@ -42,16 +42,17 @@ To set up and deploy the Discord bot, follow these steps:
    uv sync --dev
    ```
 
-3. add the following environment variables.
+3. add the following environment variables. Grouped settings use a double underscore between the group and
+   the field, for example `BOT__TOKEN`, `CHANNEL__DEVLOG` and `ROLE__VERIFIED`. See `.test.env` for the full list.
 
-   | Variable       | Description                | Default    |
-      |----------------|----------------------------|------------|
-   | BOT_NAME       | The name of the bot        | "Hackster" |
-   | BOT_TOKEN      | The token of the bot       | *Required  |
-   | CHANNEL_DEVLOG | The devlog channel id      | 0          |
-   | DEBUG          | Toggles debug mode         | False      |
-   | DEV_GUILD_IDS  | The dev servers of the bot | []         |
-   | GUILD_IDS      | The servers of the bot     | *Required  |
+   | Variable        | Description                | Default    |
+   |-----------------|----------------------------|------------|
+   | BOT__NAME       | The name of the bot        | "Hackster" |
+   | BOT__TOKEN      | The token of the bot       | *Required  |
+   | CHANNEL__DEVLOG | The devlog channel id      | 0          |
+   | DEBUG           | Toggles debug mode         | False      |
+   | DEV_GUILD_IDS   | The dev servers of the bot | []         |
+   | GUILD_IDS       | The servers of the bot     | *Required  |
 
 4. Now you are done! You can run the project using
 
