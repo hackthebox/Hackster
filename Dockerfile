@@ -43,7 +43,7 @@ COPY alembic.ini ./alembic.ini
 COPY src ./src
 COPY resources ./resources
 COPY startup.sh ./startup.sh
-COPY pyproject.toml ./pyproject.toml
+COPY pyproject.toml uv.lock ./
 RUN chmod +x startup.sh
 
 ENV PYTHONPATH=$APP_PATH
