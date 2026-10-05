@@ -6,16 +6,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 import discord
-from discord import (
-    Forbidden,
-    Guild,
-    HTTPException,
-    Member,
-    NotFound,
-    User,
-    TextChannel,
-    ClientUser,
-)
+from discord import ClientUser, Forbidden, Guild, HTTPException, Member, NotFound, TextChannel, User
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
@@ -354,10 +345,9 @@ async def ban_member_with_epoch(
     # Try to actually ban the member from the guild
     try:
         await guild.ban(member, reason=reason, delete_message_seconds=0)
-    except Forbidden as exc:
+    except Forbidden:
         logger.warning(
             "Ban failed due to permission error",
-            exc_info=exc,
             extra={"ban_requestor": author.name, "ban_receiver": member.id},
         )
         if author:
@@ -367,10 +357,8 @@ async def ban_member_with_epoch(
                 code=BanCodes.FAILED,
             )
         return
-    except HTTPException as ex:
-        logger.warning(
-            f"HTTPException when trying to ban user with ID {member.id}", exc_info=ex
-        )
+    except HTTPException:
+        logger.warning(f"HTTPException when trying to ban user with ID {member.id}")
         if author:
             return SimpleResponse(
                 message="Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week.",
@@ -473,16 +461,13 @@ async def _dm_banned_member(
     try:
         await member.send(message)
         return True
-    except Forbidden as ex:
+    except Forbidden:
         logger.warning(
             f"Could not DM member with id {member.id} due to privacy settings, however will still attempt to ban "
-            f"them...",
-            exc_info=ex,
+            f"them..."
         )
-    except HTTPException as ex:
-        logger.warning(
-            f"HTTPException when trying to unban user with ID {member.id}", exc_info=ex
-        )
+    except HTTPException:
+        logger.warning(f"HTTPException when trying to unban user with ID {member.id}")
     return False
 
 
@@ -616,17 +601,11 @@ async def add_infraction(
             f"After a total value of 3, permanent exclusion from the server may be enforced.\n"
             f"Following is the reason given:\n>>> {reason}\n"
         )
-    except Forbidden as ex:
+    except Forbidden:
         message = "Could not DM member due to privacy settings, however the infraction was still added."
-        logger.warning(
-            f"Forbidden, when trying to contact user with ID {member.id} about infraction.",
-            exc_info=ex,
-        )
-    except HTTPException as ex:
+        logger.warning(f"Forbidden, when trying to contact user with ID {member.id} about infraction.")
+    except HTTPException:
         message = "Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week."
-        logger.warning(
-            f"HTTPException when trying to add infraction for user with ID {member.id}",
-            exc_info=ex,
-        )
+        logger.warning(f"HTTPException when trying to add infraction for user with ID {member.id}")
 
     return SimpleResponse(message=message, delete_after=None)

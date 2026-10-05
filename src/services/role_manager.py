@@ -104,9 +104,9 @@ class RoleManager:
             total = sum(len(v) for v in self._roles.values())
             logger.info(f"Loaded {total} dynamic roles from database")
 
-        except Exception:
+        except Exception as exc:
             if self._loaded:
-                logger.warning("Failed to reload dynamic roles from DB, keeping previous cache", exc_info=True)
+                logger.warning(f"Failed to reload dynamic roles from DB, keeping previous cache: {exc}")
             else:
                 logger.error("Failed to load dynamic roles from DB on first attempt", exc_info=True)
                 raise

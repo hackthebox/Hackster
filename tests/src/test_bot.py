@@ -62,7 +62,7 @@ class TestGetMemberOrUser:
         assert records[0].exc_info is None
 
     @pytest.mark.asyncio
-    async def test_member_and_user_not_found_keeps_traceback(self, caplog):
+    async def test_member_and_user_not_found_logs_warnings_without_traceback(self, caplog):
         user_error = NotFound(_response(404), "Unknown User")
         bot = _bot(NotFound(_response(404), "Unknown Member"), user_result=user_error)
         with caplog.at_level(logging.DEBUG, logger="src.bot"):
@@ -74,10 +74,10 @@ class TestGetMemberOrUser:
         assert warnings[0].getMessage() == f"Could not find guild member with id: {USER_ID}"
         assert warnings[0].exc_info is None
         assert warnings[1].getMessage() == f"Could not find user with id: {USER_ID}"
-        assert warnings[1].exc_info[1] is user_error
+        assert warnings[1].exc_info is None
 
     @pytest.mark.asyncio
-    async def test_forbidden_fetching_member_keeps_traceback(self, caplog):
+    async def test_forbidden_fetching_member_logs_warning_without_traceback(self, caplog):
         error = Forbidden(_response(403), "Missing Access")
         bot = _bot(error)
         with caplog.at_level(logging.DEBUG, logger="src.bot"):
@@ -89,10 +89,10 @@ class TestGetMemberOrUser:
         assert len(records) == 1
         assert records[0].levelno == logging.WARNING
         assert records[0].getMessage() == f"Unauthorized attempt to fetch member with id: {USER_ID}"
-        assert records[0].exc_info[1] is error
+        assert records[0].exc_info is None
 
     @pytest.mark.asyncio
-    async def test_forbidden_fetching_user_after_member_not_found_keeps_traceback(self, caplog):
+    async def test_forbidden_fetching_user_after_member_not_found_logs_warnings_without_traceback(self, caplog):
         error = Forbidden(_response(403), "Missing Access")
         bot = _bot(NotFound(_response(404), "Unknown Member"), user_result=error)
         with caplog.at_level(logging.DEBUG, logger="src.bot"):
@@ -104,7 +104,7 @@ class TestGetMemberOrUser:
         assert warnings[0].getMessage() == f"Could not find guild member with id: {USER_ID}"
         assert warnings[0].exc_info is None
         assert warnings[1].getMessage() == f"Unauthorized attempt to fetch user with id: {USER_ID}"
-        assert warnings[1].exc_info[1] is error
+        assert warnings[1].exc_info is None
 
     @pytest.mark.asyncio
     async def test_http_error_after_member_not_found_logs_error_with_traceback(self, caplog):
