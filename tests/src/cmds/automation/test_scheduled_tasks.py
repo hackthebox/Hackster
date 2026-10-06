@@ -141,11 +141,17 @@ class TestScheduledTasks:
 
         with mock.patch.object(scheduled_tasks.settings, "guild_ids", [guild.id + 1, guild.id]), mock.patch.object(
             scheduled_tasks, "AsyncSessionLocal", side_effect=[session_for([ban, bad_ban]), session_for([mute, bad_mute])]
-        ):
+        ), mock.patch.object(scheduled_tasks, "unban_member", new_callable=mock.AsyncMock) as unban, mock.patch.object(
+            scheduled_tasks, "unmute_member", new_callable=mock.AsyncMock
+        ) as unmute:
             await cog.auto_unban()
             await cog.auto_unmute()
+            await asyncio.wait_for(asyncio.gather(*cog._pending_tasks), timeout=1)
 
-        assert cog._pending_tasks == set()
+        unban.assert_awaited_once()
+        assert unban.await_args.args[1].id == ban.user_id
+        unmute.assert_awaited_once()
+        assert unmute.await_args.args[1].id == mute.user_id
 
     @pytest.mark.asyncio
     async def test_all_tasks_schedules_both_and_survives_errors(self, bot):

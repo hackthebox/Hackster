@@ -3,6 +3,7 @@ import logging
 from collections.abc import Coroutine
 from datetime import datetime, timedelta
 
+from discord import Object
 from discord.ext import commands, tasks
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -90,8 +91,8 @@ class ScheduledTasks(commands.Cog):
                 logger.debug(f"Got user_id: {ban.user_id} and unban timestamp: {run_at} from DB.")
                 member = await self.bot.get_member_or_user(guild, ban.user_id)
                 if not member:
-                    logger.info(f"Member with id: {ban.user_id} not found.")
-                    continue
+                    logger.info("Member with id: %s not found. Unbanning by id.", ban.user_id)
+                    member = Object(id=ban.user_id)
                 self._track_task(self._run_scheduled(unban_member(guild, member), run_at, "unban"))
                 logger.info(f"Scheduled unban task for user_id {ban.user_id} at {run_at}.")
 
@@ -125,8 +126,8 @@ class ScheduledTasks(commands.Cog):
                 )
                 member = await self.bot.get_member_or_user(guild, mute.user_id)
                 if not member:
-                    logger.info(f"Member with id: {mute.user_id} not found.")
-                    continue
+                    logger.info("Member with id: %s not found. Deleting the mute by id.", mute.user_id)
+                    member = Object(id=mute.user_id)
                 self._track_task(self._run_scheduled(unmute_member(guild, member), run_at, "unmute"))
                 logger.info(f"Scheduled unmute task for user_id {mute.user_id} at {run_at}.")
 
