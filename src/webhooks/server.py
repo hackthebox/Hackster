@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import logging
+import signal
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
@@ -101,13 +102,18 @@ app.mount("/metrics", metrics_app)
 
 config = HypercornConfig()
 config.bind = [f"0.0.0.0:{settings.WEBHOOK_PORT}"]
-
-
-async def _never_shutdown() -> None:
-    await asyncio.Event().wait()
+# Upper bound only: an idle server stops at once. Keep it below the pod's termination grace period.
+config.graceful_timeout = 50
 
 
 async def serve() -> None:
-    """Run the webhook server until the event loop is stopped."""
-    # Passing a trigger stops hypercorn from replacing py-cord's SIGTERM/SIGINT handlers, which close the bot.
-    await hypercorn_serve(app, config, shutdown_trigger=_never_shutdown)
+    """Run the webhook server until SIGTERM/SIGINT, drain in-flight webhooks, then close the bot."""
+    shutdown = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    # Replaces py-cord's handlers, which stop the loop and cancel in-flight webhooks.
+    # The bot stays connected during the drain, because the handlers need it.
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, shutdown.set)
+
+    await hypercorn_serve(app, config, shutdown_trigger=shutdown.wait)
+    await bot.close()
