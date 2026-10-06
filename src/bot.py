@@ -1,5 +1,6 @@
 import logging
 import socket
+from typing import TypeVar
 
 import discord
 from aiohttp import AsyncResolver, ClientSession, TCPConnector
@@ -27,7 +28,6 @@ from discord.ext.commands import (
     UserInputError,
 )
 from sqlalchemy.exc import NoResultFound
-from typing import TypeVar
 
 from src import trace_config
 from src.core import constants, settings
@@ -81,7 +81,7 @@ class Bot(DiscordBot):
             try:
                 await self.role_manager.reload()
             except Exception:
-                logger.warning("Failed to reload dynamic roles on reconnect, keeping previous cache", exc_info=True)
+                logger.warning("Failed to reload dynamic roles on reconnect, keeping previous cache")
 
         logger.info(f"Started bot as {name}")
         print("Loading ScheduledTasks cog...")
@@ -136,14 +136,14 @@ class Bot(DiscordBot):
         elif isinstance(error, CommandOnCooldown):
             message = f"You are on cooldown. Try again in {error.retry_after:.2f}s"
         elif isinstance(error, NoResultFound):
-            message = f"The requested object could not be found."
+            message = "The requested object could not be found."
 
         errored_commands.labels(ctx.command.name).inc()
 
         if message is None:
             raise error
         else:
-            logger.debug(f"A user caused an error which was handled.", exc_info=error)
+            logger.debug("A user caused an error which was handled.", exc_info=error)
             await ctx.respond(message, delete_after=15, ephemeral=True)
 
     async def on_application_command_completion(self, ctx: ApplicationContext) -> None:
@@ -200,25 +200,19 @@ class Bot(DiscordBot):
         """Get a member or a user from the guild or discord."""
         try:
             return await guild.fetch_member(id_)
-        except Forbidden as exc:
-            logger.warning(
-                f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
-            )
-        except NotFound as exc:
-            logger.warning(f"Could not find guild member with id: {id_}", exc_info=exc)
+        except Forbidden:
+            logger.warning(f"Unauthorized attempt to fetch member with id: {id_}")
+        except NotFound:
+            logger.warning(f"Could not find guild member with id: {id_}")
             try:
                 return await self.get_or_fetch_user(id_)
-            except Forbidden as exc:
-                logger.warning(
-                    f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
-                )
-            except NotFound as exc:
-                logger.warning(
-                    f"Could not find guild member with id: {id_}", exc_info=exc
-                )
+            except Forbidden:
+                logger.warning(f"Unauthorized attempt to fetch user with id: {id_}")
+            except NotFound:
+                logger.warning(f"Could not find user with id: {id_}")
             except HTTPException as exc:
                 logger.error(
-                    f"Discord error while fetching guild member with id: {id_}",
+                    f"Discord error while fetching user with id: {id_}",
                     exc_info=exc,
                 )
         except HTTPException as exc:
@@ -228,17 +222,13 @@ class Bot(DiscordBot):
             )
             try:
                 return await self.get_or_fetch_user(id_)
-            except Forbidden as exc:
-                logger.warning(
-                    f"Unauthorized attempt to fetch member with id: {id_}", exc_info=exc
-                )
-            except NotFound as exc:
-                logger.warning(
-                    f"Could not find guild member with id: {id_}", exc_info=exc
-                )
+            except Forbidden:
+                logger.warning(f"Unauthorized attempt to fetch user with id: {id_}")
+            except NotFound:
+                logger.warning(f"Could not find user with id: {id_}")
             except HTTPException as exc:
                 logger.error(
-                    f"Discord error while fetching guild member with id: {id_}",
+                    f"Discord error while fetching user with id: {id_}",
                     exc_info=exc,
                 )
 
