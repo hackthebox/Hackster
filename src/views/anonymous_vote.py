@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import hashlib
+import hmac
 import logging
 import time
 from collections import defaultdict
@@ -11,6 +14,7 @@ from datetime import datetime
 import discord
 from discord import Interaction, SelectOption
 from discord.ui import Button, Select, View
+from discord.utils import escape_markdown
 from sqlalchemy import select, update
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.orm import selectinload
@@ -25,10 +29,6 @@ logger = logging.getLogger(__name__)
 
 CHOICE_APPROVE = "approve"
 CHOICE_REJECT = "reject"
-# Neutral marker shown per ballot cast (does not reveal approve vs reject).
-VOTE_ACTIVITY_BOX = "⬜"
-# Keep embed descriptions safely under Discord's 4096-char limit.
-MAX_ACTIVITY_BOXES_PER_NOMINEE = 40
 # Under the interaction token's 15-minute life, not equal to it: py-cord starts the
 # timeout clock in ViewStore.add_view, which runs only once the followup send returns,
 # so an exactly-900s ballot would expire after the token and fail its own cleanup edit.
@@ -39,40 +39,33 @@ BALLOT_TIMEOUT_SECONDS = 840
 # server counts rows matched and 1 means "inserted or re-voted the same way".
 UPSERT_ROWCOUNT_UPDATED = 2
 
+# One pending close per session. on_ready runs on every gateway reconnect, and without this
+# each reconnect would add another sleeping close task for every open vote.
+_close_tasks: dict[int, asyncio.Task] = {}
+# Sessions whose results are being posted right now, so a reconnect sweep cannot post them twice.
+_publishing: set[int] = set()
+
+
+def voter_hash(session_id: int, voter_id: int) -> str:
+    """Return the keyed hash stored in place of a voter's Discord id."""
+    message = f"{session_id}:{voter_id}".encode()
+    return hmac.new(settings.VOTE_HMAC_SECRET.encode(), message, hashlib.sha256).hexdigest()
+
 
 def _member_can_vote(member: discord.Member) -> bool:
     voter_roles = set(settings.role_groups.get("VOTE_CASTERS", []))
     return bool(voter_roles.intersection({role.id for role in member.roles}))
 
 
-def _ballot_counts_by_candidate(ballots: list[AnonymousVoteBallot]) -> dict[int, int]:
-    counts: dict[int, int] = defaultdict(int)
-    for ballot in ballots:
-        counts[ballot.candidate_id] += 1
-    return counts
+def _nominee_name(candidate: AnonymousVoteCandidate) -> str:
+    """Nominee display name, safe to put inside embed markdown."""
+    return escape_markdown(candidate.display_name)
 
 
-def _format_nominee_line(candidate: AnonymousVoteCandidate, vote_count: int) -> str:
-    """Format a nominee line with one activity box per cast ballot."""
-    line = f"• **{candidate.display_name}** (`{candidate.user_id}`)"
-    if vote_count <= 0:
-        return line
-    shown = min(vote_count, MAX_ACTIVITY_BOXES_PER_NOMINEE)
-    boxes = VOTE_ACTIVITY_BOX * shown
-    if vote_count > MAX_ACTIVITY_BOXES_PER_NOMINEE:
-        boxes += "…"
-    return f"{line} {boxes}"
-
-
-def build_poll_embed(
-    session: AnonymousVoteSession,
-    candidates: list[AnonymousVoteCandidate],
-    ballots: list[AnonymousVoteBallot] | None = None,
-) -> discord.Embed:
-    """Build the public poll embed (no approve/reject tallies)."""
+def build_poll_embed(session: AnonymousVoteSession, candidates: list[AnonymousVoteCandidate]) -> discord.Embed:
+    """Build the public poll embed. It shows no votes at all until the poll closes."""
     title = session.topic or "Anonymous vote"
-    counts = _ballot_counts_by_candidate(ballots or [])
-    lines = [_format_nominee_line(c, counts.get(c.id, 0)) for c in candidates]
+    lines = [f"• **{_nominee_name(c)}** (`{c.user_id}`)" for c in candidates]
     embed = discord.Embed(
         title=title,
         description="\n".join(lines) if lines else "No nominees.",
@@ -83,9 +76,8 @@ def build_poll_embed(
         value=(
             "1. Select a nominee from the menu\n"
             "2. Press **Approve** or **Reject** on the private ballot you receive\n"
-            f"Each {VOTE_ACTIVITY_BOX} next to a name means someone voted on them "
-            "(not whether it was approve or reject). "
-            "Votes stay anonymous; exact tallies appear when the poll closes."
+            "Nobody in Discord can see who voted or how. Your Discord id is not stored with your "
+            "vote, only a keyed hash of it. Tallies appear when the poll closes."
         ),
         inline=False,
     )
@@ -114,7 +106,7 @@ def build_results_embed(
     for candidate in candidates:
         tally = counts[candidate.id]
         lines.append(
-            f"• **{candidate.display_name}** — ✓ {tally[CHOICE_APPROVE]} / ✗ {tally[CHOICE_REJECT]}"
+            f"• **{_nominee_name(candidate)}** — ✓ {tally[CHOICE_APPROVE]} / ✗ {tally[CHOICE_REJECT]}"
         )
 
     embed = discord.Embed(
@@ -130,10 +122,7 @@ def _ballot_confirmation(choice: str, display_name: str, updated: bool) -> str:
     """Word the private vote confirmation."""
     label = "Approve" if choice == CHOICE_APPROVE else "Reject"
     action = "updated" if updated else "recorded"
-    return (
-        f"Vote {action}: **{label}** for **{display_name}**. "
-        "Your choice is anonymous; only a neutral activity box is shown publicly."
-    )
+    return f"Vote {action}: **{label}** for **{display_name}**. Nobody else can see your choice."
 
 
 def _candidate_options(candidates: list[AnonymousVoteCandidate] | None) -> list[SelectOption]:
@@ -182,26 +171,30 @@ class AnonymousVoteView(View):
         # Read the pick off this interaction's own payload, never off the Select item:
         # the item is shared by every voter and ViewStore.dispatch overwrites its state
         # synchronously while callbacks run in later tasks, so voters would cross nominees.
-        values = interaction.data.get("values", [])
+        values = (interaction.data or {}).get("values", [])
         if not values:
             await interaction.response.send_message("No nominee selected.", ephemeral=True)
             return
+        try:
+            candidate_id = int(values[0])
+        except (TypeError, ValueError):
+            await interaction.response.send_message("Unknown nominee.", ephemeral=True)
+            return
 
         await interaction.response.defer(ephemeral=True)
-        candidate_id = int(values[0])
-        display_name, error = await self._resolve_nominee(candidate_id)
+        display_name, error = await self._resolve_nominee(candidate_id, interaction.user.id)
         if error:
             await interaction.followup.send(error, ephemeral=True)
             return
 
         await interaction.followup.send(
             f"Vote on **{display_name}**:",
-            view=BallotView(self.session_id, candidate_id, interaction.message),
+            view=BallotView(self.session_id, candidate_id),
             ephemeral=True,
         )
 
-    async def _resolve_nominee(self, candidate_id: int) -> tuple[str | None, str | None]:
-        """Return the nominee's display name, or the error message to show the voter."""
+    async def _resolve_nominee(self, candidate_id: int, voter_id: int) -> tuple[str | None, str | None]:
+        """Return the nominee's escaped display name, or the error message to show the voter."""
         async with AsyncSessionLocal() as session:
             vote_session = await session.get(AnonymousVoteSession, self.session_id)
             if not vote_session or vote_session.closed:
@@ -210,18 +203,19 @@ class AnonymousVoteView(View):
             candidate = await session.get(AnonymousVoteCandidate, candidate_id)
             if not candidate or candidate.session_id != self.session_id:
                 return None, "Unknown nominee."
+            if candidate.user_id == voter_id:
+                return None, "You can't vote on yourself."
 
-            return candidate.display_name, None
+            return _nominee_name(candidate), None
 
 
 class BallotView(View):
     """Private, per-voter ballot for a single nominee."""
 
-    def __init__(self, session_id: int, candidate_id: int, poll_message: discord.Message | None):
+    def __init__(self, session_id: int, candidate_id: int):
         super().__init__(timeout=BALLOT_TIMEOUT_SECONDS)
         self.session_id = session_id
         self.candidate_id = candidate_id
-        self.poll_message = poll_message
 
         approve_btn = Button(label="Approve", style=discord.ButtonStyle.success, emoji="✅")
         approve_btn.callback = self._on_approve
@@ -255,35 +249,31 @@ class BallotView(View):
             )
 
     async def _cast_vote(self, interaction: Interaction, choice: str) -> None:
-        """Persist the voter's choice, then refresh the public poll embed."""
+        """Persist the voter's choice and confirm it privately."""
         if not isinstance(interaction.user, discord.Member) or not _member_can_vote(interaction.user):
             await interaction.response.send_message("You are not authorized to vote in this poll.", ephemeral=True)
             return
 
         await interaction.response.defer(ephemeral=True)
 
-        confirmation, poll_embed, error = await self._record_ballot(interaction.user.id, choice)
-        if error:
-            await interaction.followup.send(error, ephemeral=True)
-            return
+        message = await self._record_ballot(interaction.user.id, choice)
+        await interaction.followup.send(message, ephemeral=True)
 
-        await interaction.followup.send(confirmation, ephemeral=True)
-        await self._refresh_poll_message(poll_embed)
-
-    async def _record_ballot(
-        self, voter_id: int, choice: str
-    ) -> tuple[str | None, discord.Embed | None, str | None]:
-        """Upsert this voter's ballot and rebuild the poll embed, or return an error message."""
+    async def _record_ballot(self, voter_id: int, choice: str) -> str:
+        """Upsert this voter's ballot; return the confirmation or the error to show."""
         async with AsyncSessionLocal() as session:
             vote_session = await session.get(AnonymousVoteSession, self.session_id)
             if not vote_session or vote_session.closed:
-                return None, None, "This poll is closed."
+                return "This poll is closed."
 
             candidate = await session.get(AnonymousVoteCandidate, self.candidate_id)
             if not candidate or candidate.session_id != self.session_id:
-                return None, None, "Unknown nominee."
+                return "Unknown nominee."
+            # Checked again here, not only when the ballot was handed out, because this is the write.
+            if candidate.user_id == voter_id:
+                return "You can't vote on yourself."
 
-            display_name = candidate.display_name
+            display_name = _nominee_name(candidate)
             # One statement, so two clicks in flight cannot both insert and trip
             # uq_anonymous_vote_ballot_session_candidate_voter.
             result = await session.execute(
@@ -291,48 +281,21 @@ class BallotView(View):
                 .values(
                     session_id=self.session_id,
                     candidate_id=self.candidate_id,
-                    voter_id=voter_id,
+                    voter_hash=voter_hash(self.session_id, voter_id),
                     choice=choice,
                 )
                 .on_duplicate_key_update(choice=choice)
             )
             await session.commit()
 
-            loaded = await session.scalar(
-                select(AnonymousVoteSession)
-                .where(AnonymousVoteSession.id == self.session_id)
-                .options(
-                    selectinload(AnonymousVoteSession.candidates),
-                    selectinload(AnonymousVoteSession.ballots),
-                )
-            )
-            poll_embed = (
-                build_poll_embed(loaded, list(loaded.candidates), list(loaded.ballots)) if loaded else None
-            )
-
-        confirmation = _ballot_confirmation(
-            choice, display_name, result.rowcount == UPSERT_ROWCOUNT_UPDATED
-        )
-        return confirmation, poll_embed, None
-
-    async def _refresh_poll_message(self, poll_embed: discord.Embed | None) -> None:
-        """Redraw the public poll message so the new activity box shows."""
-        if poll_embed is None or self.poll_message is None:
-            return
-        try:
-            await self.poll_message.edit(embed=poll_embed)
-        except discord.HTTPException:
-            logger.exception("Failed to refresh poll embed for session %s after vote.", self.session_id)
+        return _ballot_confirmation(choice, display_name, result.rowcount == UPSERT_ROWCOUNT_UPDATED)
 
 
-async def _close_vote_session(
-    session_id: int,
-) -> tuple[discord.Embed, list[AnonymousVoteCandidate], int, int | None] | None:
-    """Claim the close atomically and return what publishing its results needs."""
+async def _claim_close(session_id: int) -> bool:
+    """Mark the session closed; False when another close already did, or the row is gone."""
     async with AsyncSessionLocal() as session:
-        # Conditional UPDATE rather than read-then-write: on_ready re-schedules a close
-        # on every reconnect, so a long vote accumulates closes that all fire at once
-        # and would otherwise each publish a results message.
+        # Conditional UPDATE rather than read-then-write, so two closes racing each other
+        # cannot both go on to publish.
         result = await session.execute(
             update(AnonymousVoteSession)
             .where(AnonymousVoteSession.id == session_id, AnonymousVoteSession.closed.is_(False))
@@ -340,9 +303,16 @@ async def _close_vote_session(
         )
         if result.rowcount == 0:
             logger.debug("Anonymous vote session %s is already closed or gone.", session_id)
-            return None
+            return False
         await session.commit()
+        return True
 
+
+async def _load_results(
+    session_id: int,
+) -> tuple[discord.Embed, list[AnonymousVoteCandidate], int, int | None] | None:
+    """Return what publishing needs, or None when the session is gone or already published."""
+    async with AsyncSessionLocal() as session:
         vote_session = await session.scalar(
             select(AnonymousVoteSession)
             .where(AnonymousVoteSession.id == session_id)
@@ -352,12 +322,25 @@ async def _close_vote_session(
             )
         )
         if vote_session is None:
-            logger.warning("Anonymous vote session %s vanished after its close was claimed.", session_id)
+            logger.warning("Anonymous vote session %s vanished before its results were posted.", session_id)
+            return None
+        if vote_session.published_at is not None:
             return None
 
         candidates = list(vote_session.candidates)
         results_embed = build_results_embed(vote_session, candidates, list(vote_session.ballots))
         return results_embed, candidates, vote_session.channel_id, vote_session.message_id
+
+
+async def _mark_published(session_id: int) -> None:
+    """Record that the results are out, so startup does not post them again."""
+    async with AsyncSessionLocal() as session:
+        await session.execute(
+            update(AnonymousVoteSession)
+            .where(AnonymousVoteSession.id == session_id, AnonymousVoteSession.published_at.is_(None))
+            .values(published_at=int(time.time()))
+        )
+        await session.commit()
 
 
 async def _resolve_poll_channel(bot: Bot, channel_id: int, session_id: int) -> discord.abc.Messageable | None:
@@ -368,7 +351,12 @@ async def _resolve_poll_channel(bot: Bot, channel_id: int, session_id: int) -> d
     try:
         return await bot.fetch_channel(channel_id)
     except discord.HTTPException:
-        logger.exception("Failed to fetch channel %s for vote session %s", channel_id, session_id)
+        logger.exception(
+            "Failed to fetch channel %s for vote session %s. Results will be retried on the next "
+            "startup or reconnect.",
+            channel_id,
+            session_id,
+        )
         return None
 
 
@@ -399,55 +387,96 @@ async def _edit_poll_with_results(
         return False
 
 
-async def _send_results(
-    channel: discord.abc.Messageable, results_embed: discord.Embed, session_id: int
-) -> None:
-    """Post results as a new message. Swallowing here loses the tallies, so log loudly."""
+async def _send_results(channel: discord.abc.Messageable, results_embed: discord.Embed, session_id: int) -> bool:
+    """Post results as a new message; False when that failed too."""
     try:
         await channel.send(embed=results_embed)
+        return True
     except discord.HTTPException:
         logger.exception(
-            "Failed to post results for vote session %s; the tallies are now unrecoverable.",
+            "Failed to post results for vote session %s. The ballots are still stored, and posting "
+            "is retried on the next startup or reconnect.",
             session_id,
         )
+        return False
+
+
+async def publish_vote_results(bot: Bot, session_id: int) -> None:
+    """Post the results of a closed session, unless they are already out."""
+    if session_id in _publishing:
+        return
+    _publishing.add(session_id)
+    try:
+        loaded = await _load_results(session_id)
+        if loaded is None:
+            return
+        results_embed, candidates, channel_id, message_id = loaded
+
+        channel = await _resolve_poll_channel(bot, channel_id, session_id)
+        if channel is None:
+            return
+
+        view = AnonymousVoteView(session_id, bot, candidates)
+        for item in view.children:
+            item.disabled = True
+
+        posted = await _edit_poll_with_results(channel, message_id, results_embed, view, session_id)
+        if not posted:
+            posted = await _send_results(channel, results_embed, session_id)
+        # A restart between the post and this write posts the results a second time. That is
+        # the safer way to fail: a duplicate is visible, missing results are not.
+        if posted:
+            await _mark_published(session_id)
+    finally:
+        _publishing.discard(session_id)
 
 
 async def close_anonymous_vote(bot: Bot, session_id: int) -> None:
     """Close a vote session, post totals, and disable controls."""
-    closed = await _close_vote_session(session_id)
-    if closed is None:
-        return
-    results_embed, candidates, channel_id, message_id = closed
-
-    channel = await _resolve_poll_channel(bot, channel_id, session_id)
-    if channel is None:
-        return
-
-    view = AnonymousVoteView(session_id, bot, candidates)
-    for item in view.children:
-        item.disabled = True
-
-    if not await _edit_poll_with_results(channel, message_id, results_embed, view, session_id):
-        await _send_results(channel, results_embed, session_id)
+    if await _claim_close(session_id):
+        await publish_vote_results(bot, session_id)
 
 
 def schedule_vote_close(bot: Bot, session_id: int, closes_at_ts: int) -> None:
-    """Schedule auto-close for a vote session on the bot event loop."""
-    bot.loop.create_task(
+    """Schedule auto-close for a vote session, unless one is already pending."""
+    pending = _close_tasks.get(session_id)
+    if pending is not None and not pending.done():
+        return
+
+    task = bot.loop.create_task(
         schedule(close_anonymous_vote(bot, session_id), datetime.fromtimestamp(closes_at_ts))
     )
+    _close_tasks[session_id] = task
+
+    def _forget(done: asyncio.Task) -> None:
+        if _close_tasks.get(session_id) is done:
+            del _close_tasks[session_id]
+
+    task.add_done_callback(_forget)
 
 
 async def register_anonymous_vote_views(bot: Bot) -> None:
-    """Re-register open vote views and reschedule their closes after restart."""
+    """Re-register open vote views, reschedule their closes, and retry unpublished results."""
     async with AsyncSessionLocal() as session:
-        stmt = (
-            select(AnonymousVoteSession)
-            .where(AnonymousVoteSession.closed.is_(False))
-            .options(selectinload(AnonymousVoteSession.candidates))
+        open_sessions = list(
+            (
+                await session.scalars(
+                    select(AnonymousVoteSession)
+                    .where(AnonymousVoteSession.closed.is_(False))
+                    .options(selectinload(AnonymousVoteSession.candidates))
+                )
+            ).all()
         )
-        result = await session.scalars(stmt)
-        open_sessions = list(result.all())
+        unpublished_ids = list(
+            (
+                await session.scalars(
+                    select(AnonymousVoteSession.id).where(
+                        AnonymousVoteSession.closed.is_(True),
+                        AnonymousVoteSession.published_at.is_(None),
+                    )
+                )
+            ).all()
+        )
 
     now = int(time.time())
     for vote_session in open_sessions:
@@ -457,5 +486,10 @@ async def register_anonymous_vote_views(bot: Bot) -> None:
         else:
             schedule_vote_close(bot, vote_session.id, vote_session.closes_at)
 
+    for session_id in unpublished_ids:
+        bot.loop.create_task(publish_vote_results(bot, session_id))
+
     if open_sessions:
         logger.info("Registered %d open anonymous vote session(s).", len(open_sessions))
+    if unpublished_ids:
+        logger.warning("Retrying results for %d closed but unpublished vote session(s).", len(unpublished_ids))

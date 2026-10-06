@@ -50,9 +50,11 @@ To set up and deploy the Discord bot, follow these steps:
    | BOT__NAME       | The name of the bot        | "Hackster" |
    | BOT__TOKEN      | The token of the bot       | *Required  |
    | CHANNEL__DEVLOG | The devlog channel id      | 0          |
+   | CHANNEL__VOTE   | Channel for `/admin vote` polls; 0 disables the command | 0 |
    | DEBUG           | Toggles debug mode         | False      |
    | DEV_GUILD_IDS   | The dev servers of the bot | []         |
    | GUILD_IDS       | The servers of the bot     | *Required  |
+   | VOTE_HMAC_SECRET | Key for hashing voter ids in `/admin vote`; empty disables the command | "" |
 
 4. Now you are done! You can run the project using
 

@@ -6,22 +6,33 @@ import pytest
 from discord.ui import Button, Select
 
 from src.core import settings
+import src.views.anonymous_vote as anonymous_vote
 from src.views.anonymous_vote import (
     CHOICE_APPROVE,
     CHOICE_REJECT,
-    MAX_ACTIVITY_BOXES_PER_NOMINEE,
-    VOTE_ACTIVITY_BOX,
     AnonymousVoteView,
     BallotView,
-    _ballot_counts_by_candidate,
-    _format_nominee_line,
     build_poll_embed,
     build_results_embed,
     close_anonymous_vote,
+    publish_vote_results,
     register_anonymous_vote_views,
     schedule_vote_close,
+    voter_hash,
 )
 from tests import helpers
+
+VOTER_ID = 900000000000000001
+
+
+@pytest.fixture(autouse=True)
+def reset_module_state():
+    """The close-task registry and publish guard are module globals; keep tests independent."""
+    anonymous_vote._close_tasks.clear()
+    anonymous_vote._publishing.clear()
+    yield
+    anonymous_vote._close_tasks.clear()
+    anonymous_vote._publishing.clear()
 
 
 def _make_session(
@@ -30,6 +41,7 @@ def _make_session(
     closes_at: int = 1800000000,
     closed: bool = False,
     message_id: int | None = 666,
+    published_at: int | None = None,
 ) -> MagicMock:
     """Build a mock AnonymousVoteSession model instance."""
     session = MagicMock()
@@ -39,6 +51,7 @@ def _make_session(
     session.closed = closed
     session.channel_id = 555
     session.message_id = message_id
+    session.published_at = published_at
     return session
 
 
@@ -68,10 +81,13 @@ def _session_ctx(session_mock: AsyncMock) -> MagicMock:
     return ctx
 
 
-def _make_voter(can_vote: bool = True) -> helpers.MockMember:
-    """Build a member who does or does not hold a VOTE_CASTERS role."""
+def _make_voter(can_vote: bool = True, user_id: int = VOTER_ID) -> helpers.MockMember:
+    """Build a member who does or does not hold a VOTE_CASTERS role.
+
+    The id is fixed so it can never collide with a nominee's user_id and trip the self-vote check.
+    """
     role_id = settings.role_groups["VOTE_CASTERS"][0] if can_vote else 999999
-    return helpers.MockMember(roles=[helpers.MockRole(name="Voter", id=role_id)])
+    return helpers.MockMember(id=user_id, roles=[helpers.MockRole(name="Voter", id=role_id)])
 
 
 def _make_interaction(
@@ -105,7 +121,7 @@ def _loaded_session(session_id: int = 1, message_id: int | None = 666) -> MagicM
 
 
 def _make_poll_message() -> MagicMock:
-    """Build the public poll message a ballot writes its refreshed embed back to."""
+    """Build the public poll message that close edits the results into."""
     message = MagicMock()
     message.edit = AsyncMock()
     return message
@@ -141,6 +157,26 @@ class TestBuildPollEmbed:
 
         closes_field = next(f for f in embed.fields if f.name == "Closes")
         assert closes_field.value == "<t:1800000000:F> (<t:1800000000:R>)"
+
+    def test_lists_nominees_without_any_vote_activity(self):
+        """A live per-nominee marker shows who voted and when, so the poll shows nothing until close."""
+        embed = build_poll_embed(_make_session(), [_make_candidate(candidate_id=3, name="Carol")])
+
+        assert embed.description == "• **Carol** (`103`)"
+
+    def test_escapes_markdown_in_nominee_names(self):
+        candidate = _make_candidate(name="[click](https://example.com) **bold**")
+
+        embed = build_poll_embed(_make_session(), [candidate])
+
+        # A leading backslash on "[" is what stops Discord rendering the masked link.
+        assert "\\[click](https://example.com)" in embed.description
+        assert "\\*\\*bold\\*\\*" in embed.description
+
+    def test_does_not_promise_more_anonymity_than_it_gives(self):
+        how_to = next(f for f in build_poll_embed(_make_session(), []).fields if f.name == "How to vote")
+
+        assert "keyed hash" in how_to.value
 
 
 class TestAnonymousVoteViewShape:
@@ -206,7 +242,6 @@ class TestSelectCallback:
         ballot = kwargs["view"]
         assert isinstance(ballot, BallotView)
         assert (ballot.session_id, ballot.candidate_id) == (9, 5)
-        assert ballot.poll_message is poll_message
 
     @pytest.mark.asyncio
     async def test_defers_before_touching_the_database(self, bot):
@@ -289,11 +324,49 @@ class TestSelectCallback:
         interaction.response.defer.assert_not_awaited()
         assert interaction.response.send_message.call_args[0][0] == "No nominee selected."
 
+    @pytest.mark.asyncio
+    async def test_reports_a_payload_with_no_data(self, bot):
+        view = AnonymousVoteView(9, bot, [_make_candidate(session_id=9)])
+        interaction = _make_interaction()
+        interaction.data = None
+
+        with patch("src.views.anonymous_vote.AsyncSessionLocal") as session_local:
+            await view.children[0].callback(interaction)
+
+        session_local.assert_not_called()
+        assert interaction.response.send_message.call_args[0][0] == "No nominee selected."
+
+    @pytest.mark.asyncio
+    async def test_reports_a_non_numeric_value_before_deferring(self, bot):
+        """A ValueError after the defer would leave the voter with no answer at all."""
+        view = AnonymousVoteView(9, bot, [_make_candidate(session_id=9)])
+        interaction = _make_interaction(values=["not-a-number"])
+
+        with patch("src.views.anonymous_vote.AsyncSessionLocal") as session_local:
+            await view.children[0].callback(interaction)
+
+        session_local.assert_not_called()
+        interaction.response.defer.assert_not_awaited()
+        assert interaction.response.send_message.call_args[0][0] == "Unknown nominee."
+
+    @pytest.mark.asyncio
+    async def test_refuses_a_ballot_on_yourself(self, bot):
+        candidate = _make_candidate(candidate_id=5, session_id=9)
+        view = AnonymousVoteView(9, bot, [candidate])
+        interaction = _make_interaction(values=["5"], user=_make_voter(user_id=candidate.user_id))
+        session = _open_session_db(candidate)
+
+        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
+            await view.children[0].callback(interaction)
+
+        assert interaction.followup.send.call_args[0][0] == "You can't vote on yourself."
+        assert "view" not in interaction.followup.send.call_args.kwargs
+
 
 class TestBallotView:
     @pytest.mark.asyncio
     async def test_holds_two_buttons_and_is_not_persistent(self):
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
 
         buttons = [c for c in ballot.children if isinstance(c, Button)]
         assert [b.label for b in buttons] == ["Approve", "Reject"]
@@ -303,9 +376,8 @@ class TestBallotView:
     async def test_upserts_the_ballot_instead_of_read_then_insert(self):
         candidate = _make_candidate(candidate_id=5, session_id=9, name="Carol")
         session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=_loaded_session())
 
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
@@ -327,9 +399,8 @@ class TestBallotView:
         candidate = _make_candidate(candidate_id=5, session_id=9, name="Carol")
         session = _open_session_db(candidate)
         session.execute = AsyncMock(return_value=MagicMock(rowcount=rowcount))
-        session.scalar = AsyncMock(return_value=_loaded_session())
 
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
@@ -341,7 +412,7 @@ class TestBallotView:
     async def test_refuses_a_voter_who_lost_the_role_since_the_ballot_was_issued(self):
         """The ballot outlives the role check that issued it, so re-check at cast time."""
         session = AsyncMock()
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         interaction = _make_interaction(user=_make_voter(can_vote=False))
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)) as db:
@@ -355,9 +426,8 @@ class TestBallotView:
     async def test_still_accepts_a_voter_who_kept_the_role(self):
         candidate = _make_candidate(candidate_id=5, session_id=9, name="Carol")
         session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=_loaded_session())
 
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         interaction = _make_interaction(user=_make_voter(can_vote=True))
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
@@ -369,12 +439,12 @@ class TestBallotView:
     @pytest.mark.asyncio
     async def test_timeout_expires_before_the_interaction_token_does(self):
         """The clock starts after the send returns, so 900 would fire past token expiry."""
-        assert BallotView(9, 5, None).timeout == 840
+        assert BallotView(9, 5).timeout == 840
 
     @pytest.mark.asyncio
     async def test_on_timeout_disables_the_ballot_and_says_it_lapsed(self):
         message = _make_poll_message()
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         ballot.message = message
 
         await ballot.on_timeout()
@@ -385,7 +455,7 @@ class TestBallotView:
 
     @pytest.mark.asyncio
     async def test_on_timeout_without_a_message_does_not_raise(self):
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         ballot.message = None
 
         await ballot.on_timeout()
@@ -396,7 +466,7 @@ class TestBallotView:
     async def test_on_timeout_survives_a_failed_edit(self):
         message = _make_poll_message()
         message.edit = AsyncMock(side_effect=discord.HTTPException(MagicMock(), "gone"))
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         ballot.message = message
 
         await ballot.on_timeout()
@@ -404,28 +474,12 @@ class TestBallotView:
         message.edit.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_reports_a_vanished_session_instead_of_crashing_after_the_write(self):
-        """The ballot is already persisted here; an AttributeError would strand the voter."""
-        candidate = _make_candidate(candidate_id=5, session_id=9, name="Carol")
-        session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=None)
-
-        ballot = BallotView(9, 5, _make_poll_message())
-        interaction = _make_interaction()
-
-        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
-            await ballot.children[0].callback(interaction)
-
-        interaction.followup.send.assert_awaited_once()
-
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(("button_index", "expected"), [(0, CHOICE_APPROVE), (1, CHOICE_REJECT)])
     async def test_each_button_records_its_own_choice(self, button_index, expected):
         candidate = _make_candidate(candidate_id=5, session_id=9, name="Carol")
         session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=_loaded_session())
 
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
@@ -439,7 +493,6 @@ class TestBallotView:
     async def test_defers_before_touching_the_database(self):
         candidate = _make_candidate(candidate_id=5, session_id=9)
         session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=_loaded_session())
 
         order: list[str] = []
         interaction = _make_interaction()
@@ -450,7 +503,7 @@ class TestBallotView:
             order.append("db")
             return session_ctx
 
-        ballot = BallotView(9, 5, _make_poll_message())
+        ballot = BallotView(9, 5)
         with patch("src.views.anonymous_vote.AsyncSessionLocal", side_effect=open_session):
             await ballot.children[0].callback(interaction)
 
@@ -458,105 +511,112 @@ class TestBallotView:
         interaction.response.send_message.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_refreshes_the_public_poll_message(self):
+    async def test_casting_a_vote_leaves_the_public_poll_alone(self):
+        """Redrawing the poll per ballot told the channel who voted and when."""
         candidate = _make_candidate(candidate_id=5, session_id=9)
         session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=_loaded_session())
-
-        poll_message = MagicMock()
-        poll_message.edit = AsyncMock()
-        ballot = BallotView(9, 5, poll_message)
-
-        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
-            await ballot.children[0].callback(_make_interaction())
-
-        poll_message.edit.assert_awaited_once()
-        assert "embed" in poll_message.edit.await_args.kwargs
-
-    @pytest.mark.asyncio
-    async def test_records_the_vote_when_there_is_no_poll_message_to_refresh(self):
-        candidate = _make_candidate(candidate_id=5, session_id=9, name="Carol")
-        session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=_loaded_session())
-
-        ballot = BallotView(9, 5, None)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
-            await ballot.children[0].callback(interaction)
+            await BallotView(9, 5).children[0].callback(interaction)
 
         session.execute.assert_awaited_once()
-        assert "Carol" in interaction.followup.send.call_args[0][0]
+        interaction.message.edit.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_a_failed_refresh_does_not_lose_the_recorded_vote(self):
-        candidate = _make_candidate(candidate_id=5, session_id=9, name="Carol")
+    async def test_stores_a_keyed_hash_instead_of_the_voter_id(self):
+        candidate = _make_candidate(candidate_id=5, session_id=9)
         session = _open_session_db(candidate)
-        session.scalar = AsyncMock(return_value=_loaded_session())
 
-        poll_message = _make_poll_message()
-        poll_message.edit = AsyncMock(side_effect=discord.HTTPException(MagicMock(), "boom"))
+        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
+            await BallotView(9, 5).children[0].callback(_make_interaction())
 
-        ballot = BallotView(9, 5, poll_message)
+        params = session.execute.await_args.args[0].compile(dialect=_mysql_dialect()).params
+        assert params["voter_hash"] == voter_hash(9, VOTER_ID)
+        assert str(VOTER_ID) not in str(params)
+
+    @pytest.mark.asyncio
+    async def test_refuses_a_ballot_on_yourself_without_writing(self):
+        """Checked at write time too, in case the ballot was obtained some other way."""
+        candidate = _make_candidate(candidate_id=5, session_id=9)
+        session = _open_session_db(candidate)
+        interaction = _make_interaction(user=_make_voter(user_id=candidate.user_id))
+
+        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
+            await BallotView(9, 5).children[0].callback(interaction)
+
+        session.execute.assert_not_awaited()
+        assert interaction.followup.send.call_args[0][0] == "You can't vote on yourself."
+
+    @pytest.mark.asyncio
+    async def test_escapes_markdown_in_the_confirmation(self):
+        candidate = _make_candidate(candidate_id=5, session_id=9, name="**Carol**")
+        session = _open_session_db(candidate)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
-            await ballot.children[0].callback(interaction)
+            await BallotView(9, 5).children[0].callback(interaction)
 
-        session.execute.assert_awaited_once()
-        assert "Carol" in interaction.followup.send.call_args[0][0]
+        assert "\\*\\*Carol\\*\\*" in interaction.followup.send.call_args[0][0]
 
     @pytest.mark.asyncio
     async def test_reports_a_closed_poll_without_writing(self):
         session = _open_session_db(None, vote_session=_make_session(closed=True))
-        poll_message = MagicMock()
-        poll_message.edit = AsyncMock()
 
-        ballot = BallotView(9, 5, poll_message)
+        ballot = BallotView(9, 5)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
             await ballot.children[0].callback(interaction)
 
         session.execute.assert_not_awaited()
-        poll_message.edit.assert_not_awaited()
         assert interaction.followup.send.call_args[0][0] == "This poll is closed."
 
     @pytest.mark.asyncio
     async def test_reports_a_missing_nominee_without_writing(self):
         session = _open_session_db(None)
-        poll_message = _make_poll_message()
 
-        ballot = BallotView(9, 5, poll_message)
+        ballot = BallotView(9, 5)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
             await ballot.children[0].callback(interaction)
 
         session.execute.assert_not_awaited()
-        poll_message.edit.assert_not_awaited()
         assert interaction.followup.send.call_args[0][0] == "Unknown nominee."
 
     @pytest.mark.asyncio
     async def test_reports_a_nominee_from_another_session_without_writing(self):
         """A ballot must not write against a candidate row belonging to a different poll."""
         session = _open_session_db(_make_candidate(candidate_id=5, session_id=77))
-        poll_message = _make_poll_message()
 
-        ballot = BallotView(9, 5, poll_message)
+        ballot = BallotView(9, 5)
         interaction = _make_interaction()
 
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
             await ballot.children[0].callback(interaction)
 
         session.execute.assert_not_awaited()
-        poll_message.edit.assert_not_awaited()
         assert interaction.followup.send.call_args[0][0] == "Unknown nominee."
+
+
+def _compiled(stmt) -> str:
+    return str(stmt.compile(dialect=_mysql_dialect())).lower()
+
+
+def _scalars(*results: list) -> AsyncMock:
+    """``session.scalars`` mock returning each list in turn (open sessions, then unpublished ids)."""
+    returned = []
+    for items in results:
+        result = MagicMock()
+        result.all.return_value = items
+        returned.append(result)
+    return AsyncMock(side_effect=returned)
 
 
 class TestCloseAnonymousVote:
     @pytest.mark.asyncio
-    async def test_disables_the_select_and_posts_results(self, bot):
+    async def test_disables_the_select_posts_results_and_marks_them_published(self, bot):
         session = _close_db(loaded=_loaded_session(session_id=9))
 
         message = _make_poll_message()
@@ -567,12 +627,14 @@ class TestCloseAnonymousVote:
         with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
             await close_anonymous_vote(bot, 9)
 
-        session.execute.assert_awaited_once()
         view = message.edit.await_args.kwargs["view"]
         assert all(item.disabled for item in view.children)
+        claim, mark = [call.args[0] for call in session.execute.await_args_list]
+        assert "closed is false" in _compiled(claim)
+        assert "published_at" in _compiled(mark)
 
     @pytest.mark.asyncio
-    async def test_a_failed_fallback_send_is_logged_not_raised(self, bot):
+    async def test_a_failed_fallback_send_is_logged_and_left_for_a_retry(self, bot):
         """close runs in a bare task, so an unhandled send failure would vanish silently."""
         session = _close_db(loaded=_loaded_session(session_id=9, message_id=None))
 
@@ -584,6 +646,8 @@ class TestCloseAnonymousVote:
             await close_anonymous_vote(bot, 9)
 
         channel.send.assert_awaited_once()
+        # Only the close claim ran; published_at stays NULL so startup retries.
+        session.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_a_failed_edit_falls_back_to_a_new_message(self, bot):
@@ -599,9 +663,10 @@ class TestCloseAnonymousVote:
 
         channel.send.assert_awaited_once()
         assert channel.send.await_args.kwargs["embed"] is not None
+        assert "published_at" in _compiled(session.execute.await_args.args[0])
 
     @pytest.mark.asyncio
-    async def test_gives_up_when_the_channel_cannot_be_resolved(self, bot):
+    async def test_an_unresolvable_channel_is_left_for_a_retry(self, bot):
         session = _close_db(loaded=_loaded_session(session_id=9))
 
         bot.get_channel = MagicMock(return_value=None)
@@ -611,25 +676,7 @@ class TestCloseAnonymousVote:
             await close_anonymous_vote(bot, 9)
 
         bot.fetch_channel.assert_awaited_once_with(555)
-
-    @pytest.mark.asyncio
-    async def test_claims_the_close_with_a_conditional_update(self, bot):
-        """on_ready re-schedules a close on every reconnect, so closes pile up and race."""
-        session = _close_db(loaded=_loaded_session(session_id=9))
-
-        message = _make_poll_message()
-        channel = MagicMock()
-        channel.fetch_message = AsyncMock(return_value=message)
-        bot.get_channel = MagicMock(return_value=channel)
-
-        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
-            await close_anonymous_vote(bot, 9)
-
-        stmt = session.execute.await_args.args[0]
-        assert stmt.is_update
-        compiled = str(stmt.compile(dialect=_mysql_dialect()))
-        assert "closed is false" in compiled.lower()
-        message.edit.assert_awaited_once()
+        session.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_a_losing_concurrent_close_publishes_nothing(self, bot):
@@ -641,17 +688,7 @@ class TestCloseAnonymousVote:
             await close_anonymous_vote(bot, 9)
 
         bot.get_channel.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_ignores_a_close_it_did_not_claim(self, bot):
-        """Already closed and already deleted are one case: the UPDATE matched no row."""
-        session = _close_db(rowcount=0)
-        bot.get_channel = MagicMock()
-
-        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
-            await close_anonymous_vote(bot, 9)
-
-        bot.get_channel.assert_not_called()
+        session.scalar.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_publishes_nothing_when_the_row_vanishes_after_the_claim(self, bot):
@@ -663,6 +700,41 @@ class TestCloseAnonymousVote:
             await close_anonymous_vote(bot, 9)
 
         bot.get_channel.assert_not_called()
+
+
+class TestPublishVoteResults:
+    @pytest.mark.asyncio
+    async def test_does_nothing_when_results_are_already_out(self, bot):
+        loaded = _loaded_session(session_id=9)
+        loaded.published_at = 1800000000
+        session = _close_db(loaded=loaded)
+        bot.get_channel = MagicMock()
+
+        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
+            await publish_vote_results(bot, 9)
+
+        bot.get_channel.assert_not_called()
+        session.execute.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_skips_a_session_that_is_already_being_published(self, bot):
+        anonymous_vote._publishing.add(9)
+
+        with patch("src.views.anonymous_vote.AsyncSessionLocal") as session_local:
+            await publish_vote_results(bot, 9)
+
+        session_local.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_releases_the_guard_after_a_failure(self, bot):
+        session = _close_db(loaded=_loaded_session(session_id=9))
+        bot.get_channel = MagicMock(return_value=None)
+        bot.fetch_channel = AsyncMock(side_effect=discord.HTTPException(MagicMock(), "nope"))
+
+        with patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)):
+            await publish_vote_results(bot, 9)
+
+        assert 9 not in anonymous_vote._publishing
 
 
 class TestScheduleVoteClose:
@@ -677,6 +749,37 @@ class TestScheduleVoteClose:
         mock_schedule.assert_called_once()
         assert mock_schedule.call_args[0][1] == datetime.fromtimestamp(1800000000)
 
+    @pytest.mark.asyncio
+    async def test_a_reconnect_does_not_add_a_second_pending_close(self, bot):
+        pending = MagicMock()
+        pending.done.return_value = False
+        bot.loop.create_task = MagicMock(return_value=pending)
+
+        with (
+            patch("src.views.anonymous_vote.schedule", new_callable=MagicMock),
+            patch("src.views.anonymous_vote.close_anonymous_vote", new_callable=MagicMock),
+        ):
+            schedule_vote_close(bot, 7, 1800000000)
+            schedule_vote_close(bot, 7, 1800000000)
+
+        bot.loop.create_task.assert_called_once()
+        assert anonymous_vote._close_tasks[7] is pending
+
+    @pytest.mark.asyncio
+    async def test_reschedules_once_the_previous_close_has_finished(self, bot):
+        finished = MagicMock()
+        finished.done.return_value = True
+        anonymous_vote._close_tasks[7] = finished
+
+        with (
+            patch("src.views.anonymous_vote.schedule", new_callable=MagicMock),
+            patch("src.views.anonymous_vote.close_anonymous_vote", new_callable=MagicMock),
+        ):
+            schedule_vote_close(bot, 7, 1800000000)
+
+        bot.loop.create_task.assert_called_once()
+        assert anonymous_vote._close_tasks[7] is not finished
+
 
 class TestRegisterAnonymousVoteViews:
     @pytest.mark.asyncio
@@ -684,10 +787,8 @@ class TestRegisterAnonymousVoteViews:
         vote_session = _make_session(session_id=3, closes_at=1800000000)
         vote_session.candidates = [_make_candidate(session_id=3)]
 
-        scalars_result = MagicMock()
-        scalars_result.all.return_value = [vote_session]
         session = AsyncMock()
-        session.scalars = AsyncMock(return_value=scalars_result)
+        session.scalars = _scalars([vote_session], [])
 
         with (
             patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)),
@@ -703,10 +804,8 @@ class TestRegisterAnonymousVoteViews:
         vote_session = _make_session(session_id=4, closes_at=1000000000)
         vote_session.candidates = []
 
-        scalars_result = MagicMock()
-        scalars_result.all.return_value = [vote_session]
         session = AsyncMock()
-        session.scalars = AsyncMock(return_value=scalars_result)
+        session.scalars = _scalars([vote_session], [])
 
         with (
             patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)),
@@ -718,68 +817,21 @@ class TestRegisterAnonymousVoteViews:
         mock_schedule_close.assert_not_called()
         mock_close.assert_called_once_with(bot, 4)
 
+    @pytest.mark.asyncio
+    async def test_retries_results_that_were_never_published(self, bot):
+        session = AsyncMock()
+        session.scalars = _scalars([], [11, 12])
 
-class TestBallotCountsByCandidate:
-    def test_counts_each_candidates_ballots_separately(self):
-        ballots = [
-            _make_ballot(candidate_id=1),
-            _make_ballot(candidate_id=2),
-            _make_ballot(candidate_id=1),
-            _make_ballot(candidate_id=3),
-            _make_ballot(candidate_id=1),
-            _make_ballot(candidate_id=2),
-        ]
+        with (
+            patch("src.views.anonymous_vote.AsyncSessionLocal", return_value=_session_ctx(session)),
+            patch("src.views.anonymous_vote.publish_vote_results") as mock_publish,
+        ):
+            await register_anonymous_vote_views(bot)
 
-        counts = _ballot_counts_by_candidate(ballots)
-
-        assert counts[1] == 3
-        assert counts[2] == 2
-        assert counts[3] == 1
-
-    def test_a_candidate_with_no_ballots_is_absent_and_reads_as_zero(self):
-        counts = _ballot_counts_by_candidate([_make_ballot(candidate_id=1)])
-
-        assert 2 not in counts
-        assert counts.get(2, 0) == 0
-        assert counts.get(1, 0) == 1
-
-    def test_no_ballots_counts_nothing(self):
-        assert _ballot_counts_by_candidate([]) == {}
-
-
-class TestFormatNomineeLine:
-    def test_no_ballots_renders_the_bare_nominee_line(self):
-        line = _format_nominee_line(_make_candidate(candidate_id=3, name="Carol"), 0)
-
-        assert line == "• **Carol** (`103`)"
-
-    def test_a_single_ballot_renders_one_box(self):
-        line = _format_nominee_line(_make_candidate(candidate_id=3, name="Carol"), 1)
-
-        assert line == "• **Carol** (`103`) ⬜"
-
-    def test_several_ballots_render_one_box_each(self):
-        line = _format_nominee_line(_make_candidate(candidate_id=3, name="Carol"), 4)
-
-        assert line == "• **Carol** (`103`) ⬜⬜⬜⬜"
-
-    def test_exactly_the_maximum_is_not_marked_as_truncated(self):
-        line = _format_nominee_line(_make_candidate(), MAX_ACTIVITY_BOXES_PER_NOMINEE)
-
-        assert line.count(VOTE_ACTIVITY_BOX) == 40
-        assert "…" not in line
-
-    def test_one_over_the_maximum_caps_the_boxes_and_marks_truncation(self):
-        line = _format_nominee_line(_make_candidate(), MAX_ACTIVITY_BOXES_PER_NOMINEE + 1)
-
-        assert line.count(VOTE_ACTIVITY_BOX) == 40
-        assert line.endswith("…")
-
-    def test_far_over_the_maximum_still_caps_at_the_maximum(self):
-        line = _format_nominee_line(_make_candidate(), 500)
-
-        assert line.count(VOTE_ACTIVITY_BOX) == 40
-        assert line.endswith("…")
+        assert [c.args for c in mock_publish.call_args_list] == [(bot, 11), (bot, 12)]
+        unpublished_query = _compiled(session.scalars.await_args_list[1].args[0])
+        assert "closed is true" in unpublished_query
+        assert "published_at is null" in unpublished_query
 
 
 class TestBuildResultsEmbed:
@@ -824,3 +876,10 @@ class TestBuildResultsEmbed:
         embed = build_results_embed(_make_session(), [candidate], ballots)
 
         assert "• **Alice** — ✓ 1 / ✗ 0" in embed.description
+
+    def test_escapes_markdown_in_nominee_names(self):
+        candidate = _make_candidate(candidate_id=1, name="[click](https://example.com)")
+
+        embed = build_results_embed(_make_session(), [candidate], [])
+
+        assert "\\[click](https://example.com)" in embed.description

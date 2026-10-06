@@ -1,7 +1,7 @@
 """Add anonymous vote tables
 
 Revision ID: e1a2b3c4d5e6
-Revises: d4f8c2a6e1b7
+Revises: c8a4e2d6b9f1
 Create Date: 2026-07-31 13:53:00.000000
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e1a2b3c4d5e6"
-down_revision = "d4f8c2a6e1b7"
+down_revision = "c8a4e2d6b9f1"
 branch_labels = None
 depends_on = None
 
@@ -28,6 +28,7 @@ def upgrade() -> None:
         sa.Column("created_by_id", mysql.BIGINT(display_width=18), nullable=False),
         sa.Column("closes_at", mysql.BIGINT(display_width=18), nullable=False),
         sa.Column("closed", sa.Boolean(), nullable=False),
+        sa.Column("published_at", mysql.BIGINT(display_width=18), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -48,7 +49,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("session_id", sa.Integer(), nullable=False),
         sa.Column("candidate_id", sa.Integer(), nullable=False),
-        sa.Column("voter_id", mysql.BIGINT(display_width=18), nullable=False),
+        sa.Column("voter_hash", sa.String(length=64), nullable=False),
         sa.Column("choice", sa.String(length=16), nullable=False),
         sa.ForeignKeyConstraint(
             ["candidate_id"],
@@ -64,7 +65,7 @@ def upgrade() -> None:
         sa.UniqueConstraint(
             "session_id",
             "candidate_id",
-            "voter_id",
+            "voter_hash",
             name="uq_anonymous_vote_ballot_session_candidate_voter",
         ),
     )

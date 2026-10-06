@@ -1,11 +1,13 @@
 """Tests for Admin cog."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 import pytest
 
 from src.cmds.core import admin
+from src.core import settings
 from src.database.models.dynamic_role import DynamicRole, RoleCategory
 from tests import helpers
 
@@ -325,42 +327,62 @@ class TestParseMemberIds:
             admin._parse_member_ids("12345")
 
 
-def _guild_ctx(get_member: MagicMock, fetch_member: AsyncMock) -> MagicMock:
-    """Build a context whose guild resolves members the two ways Discord offers."""
+def _member(user_id: int, name: str = "Nominee") -> MagicMock:
+    member = MagicMock()
+    member.id = user_id
+    member.display_name = name
+    return member
+
+
+def _guild_ctx(get_member: MagicMock, query_members: AsyncMock | None = None) -> MagicMock:
+    """Build a context whose guild resolves members from the cache, then over the gateway."""
     ctx = MagicMock()
     ctx.guild = MagicMock()
     ctx.guild.get_member = get_member
-    ctx.guild.fetch_member = fetch_member
+    ctx.guild.query_members = query_members or AsyncMock(return_value=[])
     return ctx
 
 
-class TestFetchMember:
-    """Test the member resolution fallback."""
+class TestLookupMembers:
+    """Test the nominee member lookup."""
 
     @pytest.mark.asyncio
-    async def test_returns_the_cached_member_without_calling_the_api(self):
-        member = MagicMock()
-        fetch = AsyncMock()
-        ctx = _guild_ctx(MagicMock(return_value=member), fetch)
+    async def test_cached_members_need_no_gateway_request(self):
+        ctx = _guild_ctx(MagicMock(side_effect=lambda uid: _member(uid)))
 
-        assert await admin._fetch_member(ctx, 1) is member
-        fetch.assert_not_awaited()
+        resolved, missing = await admin._lookup_members(ctx, [1, 2])
 
-    @pytest.mark.asyncio
-    async def test_falls_back_to_the_api_when_not_cached(self):
-        member = MagicMock()
-        ctx = _guild_ctx(MagicMock(return_value=None), AsyncMock(return_value=member))
-
-        assert await admin._fetch_member(ctx, 1) is member
+        assert resolved == [(1, "Nominee"), (2, "Nominee")]
+        assert missing == []
+        ctx.guild.query_members.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_returns_none_when_discord_has_no_such_member(self):
-        ctx = _guild_ctx(
-            MagicMock(return_value=None),
-            AsyncMock(side_effect=discord.HTTPException(MagicMock(), "unknown member")),
-        )
+    async def test_uncached_members_are_fetched_in_one_request(self):
+        cached = {1: _member(1, "Cached")}
+        query = AsyncMock(return_value=[_member(3, "Three"), _member(2, "Two")])
+        ctx = _guild_ctx(MagicMock(side_effect=cached.get), query)
 
-        assert await admin._fetch_member(ctx, 1) is None
+        resolved, missing = await admin._lookup_members(ctx, [1, 2, 3])
+
+        query.assert_awaited_once_with(user_ids=[2, 3], limit=2)
+        assert resolved == [(1, "Cached"), (2, "Two"), (3, "Three")]
+        assert missing == []
+
+    @pytest.mark.asyncio
+    async def test_reports_ids_discord_did_not_return(self):
+        ctx = _guild_ctx(MagicMock(return_value=None), AsyncMock(return_value=[_member(1)]))
+
+        resolved, missing = await admin._lookup_members(ctx, [1, 2])
+
+        assert resolved == [(1, "Nominee")]
+        assert missing == ["2"]
+
+    @pytest.mark.asyncio
+    async def test_a_gateway_timeout_becomes_a_user_facing_error(self):
+        ctx = _guild_ctx(MagicMock(return_value=None), AsyncMock(side_effect=asyncio.TimeoutError))
+
+        with pytest.raises(ValueError, match="Try again"):
+            await admin._lookup_members(ctx, [1])
 
 
 class TestResolveNominees:
@@ -380,26 +402,24 @@ class TestResolveNominees:
 
     @pytest.mark.asyncio
     async def test_names_the_members_it_could_not_find(self):
-        ctx = _guild_ctx(
-            MagicMock(return_value=None),
-            AsyncMock(side_effect=discord.HTTPException(MagicMock(), "unknown member")),
-        )
+        ctx = _guild_ctx(MagicMock(return_value=None))
 
         with pytest.raises(ValueError, match="123456789012345678"):
             await admin._resolve_nominees(ctx, "123456789012345678")
 
     @pytest.mark.asyncio
     async def test_returns_id_and_display_name_pairs(self):
-        member = MagicMock()
-        member.id = 123456789012345678
-        member.display_name = "Nominee"
-        ctx = _guild_ctx(MagicMock(return_value=member), AsyncMock())
+        ctx = _guild_ctx(MagicMock(return_value=_member(123456789012345678)))
 
         assert await admin._resolve_nominees(ctx, "123456789012345678") == [(123456789012345678, "Nominee")]
 
 
 class TestVoteCommand:
     """Test the /admin vote command."""
+
+    @pytest.fixture(autouse=True)
+    def in_vote_channel(self, ctx):
+        ctx.channel.id = settings.channels.VOTE
 
     def test_topic_is_bounded_below_the_embed_title_limit(self, bot):
         """Discord caps embed titles at 256; build_results_embed also prefixes 'Results: '."""
@@ -411,11 +431,11 @@ class TestVoteCommand:
 
     @pytest.mark.asyncio
     async def test_defers_before_resolving_members(self, ctx, bot):
-        """Up to 25 sequential fetch_member calls blow the 3s budget; defer must come first."""
+        """Resolving nominees can outlast the 3s initial-response budget; defer must come first."""
         order: list[str] = []
         ctx.defer = AsyncMock(side_effect=lambda **kw: order.append("defer"))
         ctx.guild.get_member = MagicMock(side_effect=lambda uid: order.append("resolve") or None)
-        ctx.guild.fetch_member = AsyncMock(side_effect=discord.HTTPException(MagicMock(), "unknown"))
+        ctx.guild.query_members = AsyncMock(return_value=[])
 
         cog = admin.AdminCog(bot)
         with patch("src.cmds.core.admin.validate_duration", return_value=(1800000000, "")), patch(
@@ -526,3 +546,31 @@ class TestVoteCommand:
         session_local.assert_not_called()
         ctx.respond.assert_called_once()
         assert "not-a-mention" in ctx.respond.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_refuses_to_post_outside_the_vote_channel(self, ctx, bot):
+        """One wrong channel would show nominees and their tallies to everyone in it."""
+        ctx.channel.id = settings.channels.VOTE + 1
+        cog = admin.AdminCog(bot)
+        with patch("src.cmds.core.admin.AsyncSessionLocal") as session_local:
+            await cog.vote.callback(cog, ctx, "<@123456789012345678>", "10m", None)
+
+        session_local.assert_not_called()
+        ctx.channel.send.assert_not_called()
+        assert f"<#{settings.channels.VOTE}>" in ctx.respond.call_args[0][0]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("target", "name"),
+        [(settings.channels, "VOTE"), (settings, "VOTE_HMAC_SECRET")],
+    )
+    async def test_refuses_to_start_until_votes_are_configured(self, ctx, bot, target, name):
+        cog = admin.AdminCog(bot)
+        with (
+            patch.object(target, name, type(getattr(target, name))()),
+            patch("src.cmds.core.admin.AsyncSessionLocal") as session_local,
+        ):
+            await cog.vote.callback(cog, ctx, "<@123456789012345678>", "10m", None)
+
+        session_local.assert_not_called()
+        assert "not set up" in ctx.respond.call_args[0][0]

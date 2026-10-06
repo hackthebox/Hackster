@@ -1,5 +1,6 @@
 """Admin command group for bot administration commands."""
 
+import asyncio
 import logging
 import re
 import time
@@ -48,29 +49,28 @@ def _parse_member_ids(raw: str) -> list[int]:
     return list(dict.fromkeys(ids))
 
 
-async def _fetch_member(ctx: ApplicationContext, user_id: int) -> discord.Member | None:
-    """Return the guild member for *user_id*, or None when Discord has no such member."""
-    member = ctx.guild.get_member(user_id)
-    if member is not None:
-        return member
-    try:
-        return await ctx.guild.fetch_member(user_id)
-    except discord.HTTPException:
-        return None
-
-
 async def _lookup_members(
     ctx: ApplicationContext, member_ids: list[int]
 ) -> tuple[list[tuple[int, str]], list[str]]:
     """Split nominee IDs into resolved (id, display name) pairs and unresolvable IDs."""
-    resolved: list[tuple[int, str]] = []
-    missing: list[str] = []
+    found: dict[int, discord.Member] = {}
     for user_id in member_ids:
-        member = await _fetch_member(ctx, user_id)
-        if member is None:
-            missing.append(str(user_id))
-        else:
-            resolved.append((member.id, member.display_name))
+        member = ctx.guild.get_member(user_id)
+        if member is not None:
+            found[user_id] = member
+
+    uncached = [user_id for user_id in member_ids if user_id not in found]
+    if uncached:
+        # One gateway request for every nominee the cache missed, instead of a REST call each.
+        try:
+            members = await ctx.guild.query_members(user_ids=uncached, limit=len(uncached))
+        except asyncio.TimeoutError:
+            raise ValueError("Discord did not answer the member lookup in time. Try again.") from None
+        for member in members:
+            found[member.id] = member
+
+    resolved = [(found[user_id].id, found[user_id].display_name) for user_id in member_ids if user_id in found]
+    missing = [str(user_id) for user_id in member_ids if user_id not in found]
     return resolved, missing
 
 
@@ -306,6 +306,15 @@ class AdminCog(commands.Cog):
         # after which ctx.defer() itself fails with 10062 Unknown interaction.
         await ctx.defer(ephemeral=True)
 
+        if not settings.channels.VOTE or not settings.VOTE_HMAC_SECRET:
+            return await ctx.respond(
+                "Anonymous votes are not set up yet. CHANNEL__VOTE and VOTE_HMAC_SECRET need to be configured.",
+                ephemeral=True,
+            )
+        # The poll shows nominees and, at close, their tallies, so it only goes in the staff vote channel.
+        if ctx.channel.id != settings.channels.VOTE:
+            return await ctx.respond(f"Start votes in <#{settings.channels.VOTE}>.", ephemeral=True)
+
         closes_at_ts, error = _validate_vote_duration(duration)
         if error:
             return await ctx.respond(error, ephemeral=True)
@@ -326,6 +335,9 @@ class AdminCog(commands.Cog):
             await _delete_vote_session(session_id)
             return await ctx.followup.send("Could not post the poll in this channel.", ephemeral=True)
 
+        # If the bot stops before this write, the poll is live but the row keeps message_id NULL.
+        # The session still closes on schedule, but the results go out as a new message and the
+        # original poll keeps a select menu that no longer records votes.
         await _attach_poll_message(session_id, message.id)
         schedule_vote_close(self.bot, session_id, closes_at_ts)
         return await ctx.followup.send(

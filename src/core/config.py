@@ -84,6 +84,8 @@ class ChannelsSettings(BaseModel):
     BOT_LOGS: int
     UNVERIFIED_BOT_COMMANDS: int = 0
     HOW_TO_VERIFY: int = 0
+    # Staff channel /admin vote posts its polls to. 0 leaves the command disabled.
+    VOTE: int = 0
 
     @field_validator(
         "DEVLOG",
@@ -94,6 +96,7 @@ class ChannelsSettings(BaseModel):
         "BOT_LOGS",
         "UNVERIFIED_BOT_COMMANDS",
         "HOW_TO_VERIFY",
+        "VOTE",
     )
     @classmethod
     def check_ids_format(cls, value: int) -> int:
@@ -205,6 +208,8 @@ class Global(BaseSettings):
 
     HTB_URL: str = "https://labs.hackthebox.com"
     HTB_API_SECRET: str | None = None
+    # Keys the voter hashes stored for anonymous votes. Unset leaves /admin vote disabled.
+    VOTE_HMAC_SECRET: str = ""
 
     START_WEBHOOK_SERVER: bool = False
     WEBHOOK_PORT: int = 1337

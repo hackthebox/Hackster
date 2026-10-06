@@ -17,6 +17,9 @@ class AnonymousVoteSession(Base):
     created_by_id: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
     closes_at: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
     closed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Set once the results are posted. closed without published_at means the post failed or the
+    # bot stopped first; register_anonymous_vote_views retries those.
+    published_at: Mapped[int | None] = mapped_column(BIGINT(18), nullable=True)
 
     candidates: Mapped[list["AnonymousVoteCandidate"]] = relationship(
         back_populates="session",
@@ -46,13 +49,19 @@ class AnonymousVoteCandidate(Base):
 
 
 class AnonymousVoteBallot(Base):
-    """A single voter's choice for one nominee. voter_id is never shown in Discord."""
+    """
+    A single voter's choice for one nominee.
+
+    The voter is stored as HMAC(VOTE_HMAC_SECRET, "<session_id>:<voter_id>"), never as a Discord id,
+    so the database or a backup alone cannot tell who voted which way. Anyone who also holds the
+    secret can still recover it by hashing each eligible voter's id.
+    """
 
     __table_args__ = (
         UniqueConstraint(
             "session_id",
             "candidate_id",
-            "voter_id",
+            "voter_hash",
             name="uq_anonymous_vote_ballot_session_candidate_voter",
         ),
     )
@@ -64,7 +73,7 @@ class AnonymousVoteBallot(Base):
     candidate_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("anonymous_vote_candidate.id", ondelete="CASCADE"), nullable=False
     )
-    voter_id: Mapped[int] = mapped_column(BIGINT(18), nullable=False)
+    voter_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     choice: Mapped[str] = mapped_column(String(16), nullable=False)
 
     session: Mapped["AnonymousVoteSession"] = relationship(back_populates="ballots")
