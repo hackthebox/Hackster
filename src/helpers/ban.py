@@ -357,8 +357,8 @@ async def ban_member_with_epoch(
                 code=BanCodes.FAILED,
             )
         return
-    except HTTPException:
-        logger.warning(f"HTTPException when trying to ban user with ID {member.id}")
+    except HTTPException as exc:
+        logger.warning(f"HTTPException when trying to ban user with ID {member.id}: {exc}")
         if author:
             return SimpleResponse(
                 message="Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week.",
@@ -466,8 +466,8 @@ async def _dm_banned_member(
             f"Could not DM member with id {member.id} due to privacy settings, however will still attempt to ban "
             f"them..."
         )
-    except HTTPException:
-        logger.warning(f"HTTPException when trying to unban user with ID {member.id}")
+    except HTTPException as exc:
+        logger.warning(f"HTTPException when trying to DM user with ID {member.id} about their ban: {exc}")
     return False
 
 
@@ -604,8 +604,8 @@ async def add_infraction(
     except Forbidden:
         message = "Could not DM member due to privacy settings, however the infraction was still added."
         logger.warning(f"Forbidden, when trying to contact user with ID {member.id} about infraction.")
-    except HTTPException:
+    except HTTPException as exc:
         message = "Here's a 400 Bad Request for you. Just like when you tried to ask me out, last week."
-        logger.warning(f"HTTPException when trying to add infraction for user with ID {member.id}")
+        logger.warning(f"HTTPException when trying to add infraction for user with ID {member.id}: {exc}")
 
     return SimpleResponse(message=message, delete_after=None)

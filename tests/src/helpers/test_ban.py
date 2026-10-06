@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -5,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from discord import Forbidden, HTTPException
 
-from src.helpers.ban import EVIDENCE_REQUIRED_MESSAGE, _check_member, _dm_banned_member, ban_member
+from src.helpers.ban import EVIDENCE_REQUIRED_MESSAGE, _check_member, _dm_banned_member, add_infraction, ban_member
 from src.helpers.responses import SimpleResponse
 from tests import helpers
 
@@ -277,3 +278,64 @@ class TestBanMember:
 
         assert isinstance(response, SimpleResponse)
         assert response.message == "You cannot ban yourself."
+
+
+def _http_exception() -> HTTPException:
+    response = MagicMock(status=500, reason="Internal Server Error")
+    return HTTPException(response, {"code": 0, "message": "Something broke"})
+
+
+HTTP_EXCEPTION_TEXT = "500 Internal Server Error (error code: 0): Something broke"
+
+
+@pytest.fixture
+def ban_logs(caplog, monkeypatch):
+    # The alembic migration tests call logging.config.fileConfig, which disables existing loggers.
+    monkeypatch.setattr(logging.getLogger("src.helpers.ban"), "disabled", False)
+    caplog.set_level(logging.DEBUG, logger="src.helpers.ban")
+
+    def warnings() -> list[logging.LogRecord]:
+        return [r for r in caplog.records if r.name == "src.helpers.ban" and r.levelno == logging.WARNING]
+
+    return warnings
+
+
+class TestHttpExceptionWarnings:
+    @pytest.mark.asyncio
+    async def test_failed_ban_logs_the_cause(self, bot, guild, member, ban_logs):
+        future_timestamp = int(datetime.now(tz=timezone.utc).timestamp() + 86400)
+        guild.ban = AsyncMock(side_effect=_http_exception())
+        with (
+            mock.patch("src.helpers.ban._check_member", return_value=None),
+            mock.patch("src.helpers.ban._dm_banned_member", return_value=True),
+            mock.patch("src.helpers.ban._get_ban_or_create", return_value=(1, False)),
+            mock.patch("src.helpers.ban.validate_duration", return_value=(future_timestamp, "")),
+        ):
+            await ban_member(bot, guild, member, "1d", "reason", "evidence")
+
+        assert [r.getMessage() for r in ban_logs()] == [
+            f"HTTPException when trying to ban user with ID {member.id}: {HTTP_EXCEPTION_TEXT}"
+        ]
+        assert ban_logs()[0].exc_info is None
+
+    @pytest.mark.asyncio
+    async def test_failed_ban_dm_logs_the_cause(self, guild, member, ban_logs):
+        member.send = AsyncMock(side_effect=_http_exception())
+        result = await _dm_banned_member("2023-05-19", guild, member, "reason")
+
+        assert result is False
+        assert [r.getMessage() for r in ban_logs()] == [
+            f"HTTPException when trying to DM user with ID {member.id} about their ban: {HTTP_EXCEPTION_TEXT}"
+        ]
+        assert ban_logs()[0].exc_info is None
+
+    @pytest.mark.asyncio
+    async def test_failed_infraction_dm_logs_the_cause(self, guild, member, ban_logs):
+        member.send = AsyncMock(side_effect=_http_exception())
+        with mock.patch("src.helpers.ban.AsyncSessionLocal"):
+            await add_infraction(guild, member, 1, "reason", helpers.MockMember())
+
+        assert [r.getMessage() for r in ban_logs()] == [
+            f"HTTPException when trying to add infraction for user with ID {member.id}: {HTTP_EXCEPTION_TEXT}"
+        ]
+        assert ban_logs()[0].exc_info is None

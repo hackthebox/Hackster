@@ -132,3 +132,26 @@ class TestGetMemberOrUser:
         assert records[0].levelno == logging.ERROR
         assert records[0].getMessage() == f"Discord error while fetching guild member with id: {USER_ID}"
         assert records[0].exc_info[1] is error
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("user_error", "level", "message"),
+        [
+            (Forbidden(_response(403), "Missing Access"), logging.WARNING,
+             f"Unauthorized attempt to fetch user with id: {USER_ID}"),
+            (NotFound(_response(404), "Unknown User"), logging.WARNING,
+             f"Could not find user with id: {USER_ID}"),
+            (HTTPException(_response(500), "boom"), logging.ERROR,
+             f"Discord error while fetching user with id: {USER_ID}"),
+        ],
+    )
+    async def test_user_fallback_after_http_error_logs_user_wording(self, caplog, user_error, level, message):
+        bot = _bot(HTTPException(_response(500), "boom"), user_result=user_error)
+        with caplog.at_level(logging.DEBUG, logger="src.bot"):
+            result = await Bot.get_member_or_user(bot, bot.guild, USER_ID)
+
+        assert result is None
+        records = _records(caplog)
+        assert len(records) == 2
+        assert records[1].levelno == level
+        assert records[1].getMessage() == message
