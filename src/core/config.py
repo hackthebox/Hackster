@@ -80,6 +80,7 @@ class ChannelsSettings(BaseModel):
     BOT_LOGS: int
     UNVERIFIED_BOT_COMMANDS: int = 0
     HOW_TO_VERIFY: int = 0
+    MINOR_REVIEW: int = 0
 
     @field_validator(
         "DEVLOG",
@@ -90,6 +91,7 @@ class ChannelsSettings(BaseModel):
         "BOT_LOGS",
         "UNVERIFIED_BOT_COMMANDS",
         "HOW_TO_VERIFY",
+        "MINOR_REVIEW",
     )
     @classmethod
     def check_ids_format(cls, value: int) -> int:
@@ -117,6 +119,7 @@ class RolesSettings(BaseModel):
     HTB_SUPPORT: int
     MUTED: int
     ACADEMY_USER: int
+    VERIFIED_MINOR: int | None = None
 
     OMNISCIENT: int | None = None
     GURU: int | None = None
@@ -220,6 +223,8 @@ class Global(BaseSettings):
     JIRA_WEBHOOK: str = ""
     JIRA_SPOILER_WEBHOOK: str = ""
 
+    NEXUS_API_BASE_URL: str | None = None
+    NEXUS_API_TOKEN: str | None = None
     # Feedback service ingest (POST /api/ingest/discord)
     FEEDBACK_SERVICE_URL: str = ""
     FEEDBACK_SERVICE_API_KEY: str = ""

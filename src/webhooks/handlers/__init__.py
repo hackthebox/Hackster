@@ -1,8 +1,9 @@
-from discord import Bot
 from typing import Any
 
-from src.webhooks.handlers.account import AccountHandler
+from discord import Bot
+
 from src.webhooks.handlers.academy import AcademyHandler
+from src.webhooks.handlers.account import AccountHandler
 from src.webhooks.handlers.mp import MPHandler
 from src.webhooks.types import Platform, WebhookBody
 
