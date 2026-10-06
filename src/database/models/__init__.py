@@ -1,6 +1,7 @@
 # flake8: noqa
 from src.database.base_class import Base  # noqa
 
+from .anonymous_vote import AnonymousVoteBallot, AnonymousVoteCandidate, AnonymousVoteSession
 from .ban import Ban
 from .ctf import Ctf
 from .dynamic_role import DynamicRole, RoleCategory

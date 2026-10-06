@@ -1,19 +1,156 @@
 """Admin command group for bot administration commands."""
 
+import asyncio
 import logging
+import re
+import time
 
 import discord
 from discord import ApplicationContext, Interaction, Option, WebhookMessage
 from discord.ext import commands
 from discord.ext.commands import has_any_role
+from sqlalchemy import delete, select
+from sqlalchemy.orm import selectinload
 
 from src.bot import Bot
 from src.core import settings
+from src.database.models import AnonymousVoteCandidate, AnonymousVoteSession
 from src.database.models.dynamic_role import RoleCategory
+from src.database.session import AsyncSessionLocal
+from src.helpers.duration import validate_duration
+from src.views.anonymous_vote import (
+    AnonymousVoteView,
+    build_poll_embed,
+    schedule_vote_close,
+)
 
 logger = logging.getLogger(__name__)
 
 CATEGORY_CHOICES = [c.value for c in RoleCategory]
+MAX_VOTE_DURATION_SECONDS = 30 * 24 * 60 * 60
+# Discord select menus carry at most 25 options.
+MAX_VOTE_NOMINEES = 25
+_MEMBER_TOKEN_RE = re.compile(r"<@!?(\d{15,20})>|(\d{15,20})")
+
+
+def _parse_member_ids(raw: str) -> list[int]:
+    """Parse space/comma-separated mentions or snowflake IDs into unique IDs."""
+    ids: list[int] = []
+    for part in re.split(r"[\s,]+", raw.strip()):
+        if not part:
+            continue
+        match = _MEMBER_TOKEN_RE.fullmatch(part)
+        if not match:
+            raise ValueError(
+                f"Could not parse `{part}`. Use mentions or numeric user IDs."
+            )
+        ids.append(int(match.group(1) or match.group(2)))
+    # Preserve order, drop duplicates
+    return list(dict.fromkeys(ids))
+
+
+async def _lookup_members(
+    ctx: ApplicationContext, member_ids: list[int]
+) -> tuple[list[tuple[int, str]], list[str]]:
+    """Split nominee IDs into resolved (id, display name) pairs and unresolvable IDs."""
+    found: dict[int, discord.Member] = {}
+    for user_id in member_ids:
+        member = ctx.guild.get_member(user_id)
+        if member is not None:
+            found[user_id] = member
+
+    uncached = [user_id for user_id in member_ids if user_id not in found]
+    if uncached:
+        # One gateway request for every nominee the cache missed, instead of a REST call each.
+        try:
+            members = await ctx.guild.query_members(user_ids=uncached, limit=len(uncached))
+        except asyncio.TimeoutError:
+            raise ValueError("Discord did not answer the member lookup in time. Try again.") from None
+        for member in members:
+            found[member.id] = member
+
+    resolved = [(found[user_id].id, found[user_id].display_name) for user_id in member_ids if user_id in found]
+    missing = [str(user_id) for user_id in member_ids if user_id not in found]
+    return resolved, missing
+
+
+async def _resolve_nominees(ctx: ApplicationContext, raw_members: str) -> list[tuple[int, str]]:
+    """Parse and resolve the nominee argument, raising ValueError with the user-facing reason."""
+    member_ids = _parse_member_ids(raw_members)
+    if not member_ids:
+        raise ValueError("Provide at least one nominee.")
+    if len(member_ids) > MAX_VOTE_NOMINEES:
+        raise ValueError(f"Discord select menus support at most {MAX_VOTE_NOMINEES} nominees.")
+
+    resolved, missing = await _lookup_members(ctx, member_ids)
+    if missing:
+        raise ValueError("Could not find member(s) in this server: " + ", ".join(f"`{m}`" for m in missing))
+    return resolved
+
+
+def _validate_vote_duration(duration: str) -> tuple[int, str]:
+    """Validate the requested duration and cap how far out a vote may close."""
+    closes_at_ts, error = validate_duration(duration)
+    if error:
+        return 0, error
+    if closes_at_ts - int(time.time()) > MAX_VOTE_DURATION_SECONDS:
+        return 0, "A vote can stay open for at most 30 days."
+    return closes_at_ts, ""
+
+
+async def _create_vote_session(
+    ctx: ApplicationContext,
+    topic: str | None,
+    closes_at_ts: int,
+    nominees: list[tuple[int, str]],
+) -> tuple[int, discord.Embed, list[AnonymousVoteCandidate]]:
+    """Persist the session and its nominees; return the id, poll embed and candidates."""
+    async with AsyncSessionLocal() as session:
+        vote_session = AnonymousVoteSession(
+            guild_id=ctx.guild.id,
+            channel_id=ctx.channel.id,
+            message_id=None,
+            topic=topic,
+            created_by_id=ctx.author.id,
+            closes_at=closes_at_ts,
+            closed=False,
+        )
+        session.add(vote_session)
+        await session.flush()
+
+        for user_id, display_name in nominees:
+            session.add(
+                AnonymousVoteCandidate(
+                    session_id=vote_session.id,
+                    user_id=user_id,
+                    display_name=display_name,
+                )
+            )
+        await session.commit()
+
+        loaded = await session.scalar(
+            select(AnonymousVoteSession)
+            .where(AnonymousVoteSession.id == vote_session.id)
+            .options(selectinload(AnonymousVoteSession.candidates))
+        )
+        candidates = list(loaded.candidates)
+        return loaded.id, build_poll_embed(loaded, candidates), candidates
+
+
+async def _delete_vote_session(session_id: int) -> None:
+    """Drop a session that was never posted; its nominees and ballots cascade."""
+    async with AsyncSessionLocal() as session:
+        await session.execute(delete(AnonymousVoteSession).where(AnonymousVoteSession.id == session_id))
+        await session.commit()
+
+
+async def _attach_poll_message(session_id: int, message_id: int) -> None:
+    """Record the posted message so the session can be edited and closed later."""
+    async with AsyncSessionLocal() as session:
+        vote_session = await session.get(AnonymousVoteSession, session_id)
+        if vote_session:
+            vote_session.message_id = message_id
+            await session.commit()
 
 
 class AdminCog(commands.Cog):
@@ -148,6 +285,66 @@ class AdminCog(commands.Cog):
         """Force reload the role manager cache from the database."""
         await self.bot.role_manager.reload()
         return await ctx.respond("Dynamic roles reloaded from database.", ephemeral=True)
+
+    @admin.command(
+        name="vote",
+        description="Start an anonymous timed vote on multiple members.",
+    )
+    @has_any_role(*settings.role_groups.get("VOTE_STARTERS"))
+    async def vote(
+        self,
+        ctx: ApplicationContext,
+        members: Option(
+            str,
+            "Nominees as mentions or user IDs (space/comma separated, max 25)",
+        ),
+        duration: Option(str, "How long the vote stays open (e.g. 12h, 1d, 30m)"),
+        topic: Option(str, "Optional topic shown on the poll", required=False, max_length=200),
+    ) -> Interaction | WebhookMessage:
+        """Start an anonymous vote; tallies reveal automatically when duration ends."""
+        # Resolving up to 25 nominees can outlast Discord's 3s initial-response deadline,
+        # after which ctx.defer() itself fails with 10062 Unknown interaction.
+        await ctx.defer(ephemeral=True)
+
+        if not settings.channels.VOTE or not settings.VOTE_HMAC_SECRET:
+            return await ctx.respond(
+                "Anonymous votes are not set up yet. CHANNEL__VOTE and VOTE_HMAC_SECRET need to be configured.",
+                ephemeral=True,
+            )
+        # The poll shows nominees and, at close, their tallies, so it only goes in the staff vote channel.
+        if ctx.channel.id != settings.channels.VOTE:
+            return await ctx.respond(f"Start votes in <#{settings.channels.VOTE}>.", ephemeral=True)
+
+        closes_at_ts, error = _validate_vote_duration(duration)
+        if error:
+            return await ctx.respond(error, ephemeral=True)
+
+        try:
+            nominees = await _resolve_nominees(ctx, members)
+        except ValueError as exc:
+            return await ctx.respond(str(exc), ephemeral=True)
+
+        session_id, poll_embed, candidates = await _create_vote_session(ctx, topic, closes_at_ts, nominees)
+
+        view = AnonymousVoteView(session_id, self.bot, candidates)
+        self.bot.add_view(view)
+        try:
+            message = await ctx.channel.send(embed=poll_embed, view=view)
+        except discord.HTTPException:
+            logger.exception("Failed to post anonymous vote %s; rolling back session.", session_id)
+            await _delete_vote_session(session_id)
+            return await ctx.followup.send("Could not post the poll in this channel.", ephemeral=True)
+
+        # If the bot stops before this write, the poll is live but the row keeps message_id NULL.
+        # The session still closes on schedule, but the results go out as a new message and the
+        # original poll keeps a select menu that no longer records votes.
+        await _attach_poll_message(session_id, message.id)
+        schedule_vote_close(self.bot, session_id, closes_at_ts)
+        return await ctx.followup.send(
+            f"Anonymous vote #{session_id} started in {ctx.channel.mention}. "
+            f"Closes <t:{closes_at_ts}:R>.",
+            ephemeral=True,
+        )
 
 
 def setup(bot: Bot) -> None:
