@@ -1,11 +1,7 @@
-import os
 from logging.config import fileConfig
 
-import dotenv
 from alembic import context
 from sqlalchemy import create_engine
-
-dotenv.load_dotenv()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -31,13 +27,10 @@ target_metadata = Base.metadata  # noqa: F405
 
 
 def get_url() -> str:
-    user = os.getenv("MYSQL_USER", "noahbot")
-    password = os.getenv("MYSQL_PASSWORD", None)
-    server = os.getenv("MYSQL_HOST", "localhost")
-    port = os.getenv("MYSQL_PORT", "3306")
-    db = os.getenv("MYSQL_DATABASE", "noahbot_dev")
-    url = f"mariadb+pymysql://{user}:{password}@{server}:{port}/{db}?charset=utf8mb4"
-    return url
+    """Sync MariaDB URL from ``DatabaseSettings``, not the legacy ``MYSQL_*`` vars."""
+    from src.core.config import settings
+
+    return settings.database.assemble_db_connection(async_=False)
 
 
 def run_migrations_offline() -> None:

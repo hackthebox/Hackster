@@ -7,7 +7,7 @@ from src.core import settings
 
 logger = logging.getLogger(__name__)
 
-connection_string = settings.database.assemble_db_connection()
+connection_string = settings.database.assemble_db_connection(async_=True)
 logger.debug(f"Database connection string: {connection_string}")
 async_engine = create_async_engine(connection_string, poolclass=NullPool)
 AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
