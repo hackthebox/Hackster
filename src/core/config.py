@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,7 +31,7 @@ def _validate_non_zero_channel_id(value: int) -> int:
 class BotSettings(BaseModel):
     """Discord bot settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     NAME: str = "Hackster"
     TOKEN: str
@@ -50,7 +50,7 @@ class BotSettings(BaseModel):
 class DatabaseSettings(BaseModel):
     """Database settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     HOST: str = "localhost"
     PORT: int = 3306
@@ -58,11 +58,15 @@ class DatabaseSettings(BaseModel):
     USER: str = "bot"
     PASSWORD: str = ""
     CHARSET: str = "utf8mb4"
-    ASYNC: bool | None = None
 
-    def assemble_db_connection(self) -> str:
+    def assemble_db_connection(self, async_: bool) -> str:
+        """Build a SQLAlchemy MariaDB URL.
+
+        The app passes ``True``. Alembic passes ``False`` because it needs a sync driver.
+        """
+        driver = "asyncmy" if async_ else "pymysql"
         return (
-            f"mariadb+asyncmy://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
+            f"mariadb+{driver}://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
             f"{self.DATABASE}?charset={self.CHARSET}"
         )
 
@@ -70,7 +74,7 @@ class DatabaseSettings(BaseModel):
 class ChannelsSettings(BaseModel):
     """Channel IDs."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     DEVLOG: int = 0
     SR_MOD: int
@@ -104,7 +108,7 @@ class RolesSettings(BaseModel):
     Dynamic roles (optional): managed via DB, kept here as fallback during transition.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     VERIFIED: int
     COMMUNITY_MANAGER: int
@@ -132,15 +136,8 @@ class RolesSettings(BaseModel):
     CHALLENGE_CREATOR: int | None = None
     BOX_CREATOR: int | None = None
     SHERLOCK_CREATOR: int | None = None
-    APRIL_ROLE_1: int | None = None
-    APRIL_ROLE_2: int | None = None
-    RANK_FIVE: int | None = None
-    RANK_TWENTY_FIVE: int | None = None
-    RANK_FIFTY: int | None = None
-    RANK_HUNDRED: int | None = None
     RANK_ONE: int | None = None
     RANK_TEN: int | None = None
-    ACADEMY_CBBH: int | None = None
     SEASON_HOLO: int | None = None
     SEASON_PLATINUM: int | None = None
     SEASON_RUBY: int | None = None
@@ -189,7 +186,7 @@ class Global(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_nested_delimiter="__",
-        extra="forbid",
+        extra="ignore",
         populate_by_name=True,
     )
 
@@ -201,8 +198,6 @@ class Global(BaseSettings):
     HTB_API_KEY: str
     guild_ids: list[int]
     dev_guild_ids: list[int] = Field(default_factory=list)
-    APRIL_FLAG_1: str = ""
-    APRIL_FLAG_2: str = ""
 
     SENTRY_DSN: str | None = None
     LOG_LEVEL: str | int = "INFO"
@@ -216,9 +211,7 @@ class Global(BaseSettings):
     WEBHOOK_TOKEN: str = ""
 
     SLACK_FEEDBACK_WEBHOOK: str = ""
-    SLACK_WEBHOOK: str = ""
     JIRA_WEBHOOK: str = ""
-    JIRA_SPOILER_WEBHOOK: str = ""
 
     # Feedback service ingest (POST /api/ingest/discord)
     FEEDBACK_SERVICE_URL: str = ""
@@ -226,7 +219,7 @@ class Global(BaseSettings):
 
     ROOT: Path | None = None
     VERSION: str = "unknown"
-    SEASON_ID: int = 0
+    SEASON_ID: int = Field(default=0, validation_alias=AliasChoices("SEASON_ID", "CURRENT_SEASON_ID"))
 
     @field_validator("guild_ids", "dev_guild_ids", mode="before")
     @classmethod
@@ -275,6 +268,18 @@ class Global(BaseSettings):
         }
 
 
-settings = Global(
-    _env_file=os.environ.get("ENV_PATH") if os.environ.get("BOT_ENVIRONMENT") else ".test.env"
-)
+def resolve_env_file() -> str | None:
+    """Choose the env file used to build settings.
+
+    Deployed processes set ``APP_DEPLOYED``. ``BOT_ENVIRONMENT`` is still accepted
+    so existing Vault configs keep booting. Either flag loads ``ENV_PATH`` when
+    it is set, and otherwise uses the process environment. Local runs load
+    ``.test.env``.
+    """
+    deployed = os.environ.get("APP_DEPLOYED") or os.environ.get("BOT_ENVIRONMENT")
+    if deployed:
+        return os.environ.get("ENV_PATH")
+    return ".test.env"
+
+
+settings = Global(_env_file=resolve_env_file())

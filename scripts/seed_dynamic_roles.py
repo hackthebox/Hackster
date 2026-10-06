@@ -14,6 +14,7 @@ import sys
 
 from dotenv import dotenv_values
 from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -114,7 +115,12 @@ JOINABLE_SEED_DATA = [
 ]
 
 
-async def _upsert_role(session, values: dict) -> None:
+def role_env_var(env_suffix: str) -> str:
+    """Return the nested ``ROLE__`` env var for a seed suffix."""
+    return f"ROLE__{env_suffix}"
+
+
+async def _upsert_role(session: AsyncSession, values: dict) -> None:
     """Insert or update a dynamic role using MariaDB upsert."""
     stmt = insert(DynamicRole).values(values)
     # On duplicate key, update all fields except the unique key (key, category)
@@ -129,6 +135,7 @@ async def _upsert_role(session, values: dict) -> None:
 
 
 async def seed(env_file: str) -> None:
+    """Upsert dynamic roles from ``ROLE__`` variables in ``env_file``."""
     env_values = dotenv_values(env_file)
     logger.info(f"Loaded env from {env_file} ({len(env_values)} values)")
 
@@ -138,7 +145,7 @@ async def seed(env_file: str) -> None:
     async with AsyncSessionLocal() as session:
         # Seed standard dynamic roles
         for env_suffix, category, key, display_name, extra in SEED_DATA:
-            env_var = f"ROLE_{env_suffix}"
+            env_var = role_env_var(env_suffix)
             role_id_str = env_values.get(env_var)
             if not role_id_str:
                 logger.warning(f"Skipping {env_var}: not found in {env_file}")
@@ -161,7 +168,7 @@ async def seed(env_file: str) -> None:
 
         # Seed joinable roles
         for env_suffix, key, display_name, description in JOINABLE_SEED_DATA:
-            env_var = f"ROLE_{env_suffix}"
+            env_var = role_env_var(env_suffix)
             role_id_str = env_values.get(env_var)
             if not role_id_str:
                 logger.warning(f"Skipping joinable {env_var}/{key}: not found in {env_file}")

@@ -23,4 +23,4 @@ while ! mysqladmin ping --skip-ssl -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_
 done
 
 # Run migrations & start the bot
-alembic upgrade head && exec uv run task start
+alembic upgrade head && exec uv run --frozen --no-dev task start

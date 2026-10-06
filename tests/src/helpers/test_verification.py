@@ -6,8 +6,38 @@ import discord
 import pytest
 
 from src.core import settings
-from src.helpers.verification import get_user_details, process_labs_identification
+from src.helpers.verification import get_season_rank, get_user_details, process_labs_identification
 from tests.helpers import MockRoleManager
+
+
+class TestGetSeasonRank(unittest.IsolatedAsyncioTestCase):
+    @pytest.mark.asyncio
+    async def test_get_season_rank_success(self):
+        htb_uid = 12345
+
+        with aioresponses.aioresponses() as m:
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}",
+                status=200,
+                payload={"data": {"season": {"tier": "Gold"}}},
+            )
+
+            result = await get_season_rank(htb_uid)
+            self.assertEqual(result, "Gold")
+
+    @pytest.mark.asyncio
+    async def test_get_season_rank_empty_data(self):
+        htb_uid = 12345
+
+        with aioresponses.aioresponses() as m:
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}",
+                status=200,
+                payload={"data": None},
+            )
+
+            result = await get_season_rank(htb_uid)
+            self.assertIsNone(result)
 
 
 class TestGetUserDetails(unittest.IsolatedAsyncioTestCase):
