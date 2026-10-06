@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from discord import ApplicationContext, Interaction, WebhookMessage, slash_command, Member
+from discord import ApplicationContext, Interaction, Member, WebhookMessage, slash_command
 from discord.errors import Forbidden
 from discord.ext import commands
 from discord.ext.commands import has_any_role
@@ -12,7 +12,6 @@ from src.database.session import AsyncSessionLocal
 from src.helpers.ban import unmute_member
 from src.helpers.checks import member_is_staff
 from src.helpers.duration import validate_duration
-from src.helpers.schedule import schedule
 
 
 class MuteCog(commands.Cog):
@@ -56,8 +55,7 @@ class MuteCog(commands.Cog):
         if isinstance(member, Member):
             role = ctx.guild.get_role(settings.roles.MUTED)
             await member.add_roles(role)
-        timestamp=datetime.fromtimestamp(dur)
-        self.bot.loop.create_task(schedule(unmute_member(ctx.guild, member), run_at=timestamp))
+        timestamp = datetime.fromtimestamp(dur)
         await member.timeout(timestamp, reason=reason if reason else "Time to shush, innit?")
         try:
             await member.send(f"You have been muted for {duration}. Reason:\n>>> {reason}")
