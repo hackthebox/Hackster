@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,7 +31,7 @@ def _validate_non_zero_channel_id(value: int) -> int:
 class BotSettings(BaseModel):
     """Discord bot settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     NAME: str = "Hackster"
     TOKEN: str
@@ -50,7 +50,7 @@ class BotSettings(BaseModel):
 class DatabaseSettings(BaseModel):
     """Database settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     HOST: str = "localhost"
     PORT: int = 3306
@@ -58,16 +58,13 @@ class DatabaseSettings(BaseModel):
     USER: str = "bot"
     PASSWORD: str = ""
     CHARSET: str = "utf8mb4"
-    ASYNC: bool | None = None
 
-    def assemble_db_connection(self, async_: bool | None = None) -> str:
+    def assemble_db_connection(self, async_: bool) -> str:
         """Build a SQLAlchemy MariaDB URL.
 
-        ``async_`` overrides ``ASYNC``. Alembic passes ``False`` because it needs
-        a sync driver. When neither is set, the async driver is used.
+        The app passes ``True``. Alembic passes ``False`` because it needs a sync driver.
         """
-        use_async = self.ASYNC if async_ is None else async_
-        driver = "pymysql" if use_async is False else "asyncmy"
+        driver = "asyncmy" if async_ else "pymysql"
         return (
             f"mariadb+{driver}://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/"
             f"{self.DATABASE}?charset={self.CHARSET}"
@@ -77,7 +74,7 @@ class DatabaseSettings(BaseModel):
 class ChannelsSettings(BaseModel):
     """Channel IDs."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     DEVLOG: int = 0
     SR_MOD: int
@@ -111,7 +108,7 @@ class RolesSettings(BaseModel):
     Dynamic roles (optional): managed via DB, kept here as fallback during transition.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     VERIFIED: int
     COMMUNITY_MANAGER: int
@@ -189,7 +186,7 @@ class Global(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_nested_delimiter="__",
-        extra="forbid",
+        extra="ignore",
         populate_by_name=True,
     )
 
@@ -222,7 +219,7 @@ class Global(BaseSettings):
 
     ROOT: Path | None = None
     VERSION: str = "unknown"
-    SEASON_ID: int = 0
+    SEASON_ID: int = Field(default=0, validation_alias=AliasChoices("SEASON_ID", "CURRENT_SEASON_ID"))
 
     @field_validator("guild_ids", "dev_guild_ids", mode="before")
     @classmethod
@@ -261,12 +258,12 @@ class Global(BaseSettings):
 def resolve_env_file() -> str | None:
     """Choose the env file used to build settings.
 
-    Deployed processes set ``APP_ENV_FILE``. ``BOT_ENVIRONMENT`` is still accepted
+    Deployed processes set ``APP_DEPLOYED``. ``BOT_ENVIRONMENT`` is still accepted
     so existing Vault configs keep booting. Either flag loads ``ENV_PATH`` when
     it is set, and otherwise uses the process environment. Local runs load
     ``.test.env``.
     """
-    deployed = os.environ.get("APP_ENV_FILE") or os.environ.get("BOT_ENVIRONMENT")
+    deployed = os.environ.get("APP_DEPLOYED") or os.environ.get("BOT_ENVIRONMENT")
     if deployed:
         return os.environ.get("ENV_PATH")
     return ".test.env"
