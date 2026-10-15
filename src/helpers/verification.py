@@ -130,11 +130,33 @@ async def get_user_details(labs_id: int | str) -> dict:
     return profile
 
 
+async def get_active_season_id(session: aiohttp.ClientSession) -> int | None:
+    """Return the id of the currently active season from the season list."""
+    season_list_url = f"{settings.API_V4_URL}/season/list"
+    async with session.get(season_list_url) as r:
+        if r.status != 200:
+            logger.error(f"Non-OK HTTP status code returned from season list lookup: {r.status}.")
+            return None
+        response = await r.json()
+
+    for season in response.get("data") or []:
+        if season.get("active"):
+            season_id = season.get("id")
+            if isinstance(season_id, int):
+                return season_id
+
+    logger.error("No active season found in season list.")
+    return None
+
+
 async def get_season_rank(htb_uid: int) -> str | None:
     """Get season rank from HTB."""
-    season_api_url = f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}"
-
     async with get_labs_session() as session:
+        season_id = await get_active_season_id(session)
+        if season_id is None:
+            return None
+
+        season_api_url = f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{season_id}"
         async with session.get(season_api_url) as r:
             if r.status == 200:
                 response = await r.json()

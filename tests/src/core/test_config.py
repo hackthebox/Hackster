@@ -100,10 +100,6 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(hasattr(settings.roles, "VIP"))
         self.assertTrue(hasattr(settings.roles, "BOX_CREATOR"))
 
-    def test_season_id_loads_from_nested_env_config(self):
-        """Test that SEASON_ID is loaded under the new nested env contract."""
-        self.assertEqual(settings.SEASON_ID, 1)
-
     def test_unknown_settings_are_ignored(self):
         """Test that leftover role and top-level env values do not stop settings from loading."""
         config = self.minimal_settings(
@@ -115,13 +111,6 @@ class TestConfig(unittest.TestCase):
         )
         self.assertFalse(hasattr(config, "SLACK_WEBHOOK"))
         self.assertFalse(hasattr(config.roles, "RANK_FIVE"))
-
-    def test_current_season_id_fills_season_id(self):
-        """Test that the legacy CURRENT_SEASON_ID env var still sets the season."""
-        with patch.dict(os.environ, {"CURRENT_SEASON_ID": "4"}):
-            os.environ.pop("SEASON_ID", None)
-            config = self.minimal_settings()
-        self.assertEqual(config.SEASON_ID, 4)
 
     def test_assemble_db_connection_selects_driver(self):
         """Test that the caller chooses the async or sync MariaDB driver."""

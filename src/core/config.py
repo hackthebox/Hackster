@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -219,7 +219,6 @@ class Global(BaseSettings):
 
     ROOT: Path | None = None
     VERSION: str = "unknown"
-    SEASON_ID: int = Field(default=0, validation_alias=AliasChoices("SEASON_ID", "CURRENT_SEASON_ID"))
 
     @field_validator("guild_ids", "dev_guild_ids", mode="before")
     @classmethod

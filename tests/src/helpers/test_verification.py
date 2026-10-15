@@ -9,6 +9,17 @@ from src.core import settings
 from src.helpers.verification import get_season_rank, get_user_details, process_labs_identification
 from tests.helpers import MockRoleManager
 
+_ACTIVE_SEASON_ID = 21
+
+
+def _season_list_payload(active_id: int = _ACTIVE_SEASON_ID) -> dict:
+    return {
+        "data": [
+            {"id": 15, "name": "Season 11", "active": False, "state": "ended"},
+            {"id": active_id, "name": "Season 12", "active": True, "state": "active"},
+        ]
+    }
+
 
 class TestGetSeasonRank(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
@@ -17,7 +28,12 @@ class TestGetSeasonRank(unittest.IsolatedAsyncioTestCase):
 
         with aioresponses.aioresponses() as m:
             m.get(
-                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}",
+                f"{settings.API_V4_URL}/season/list",
+                status=200,
+                payload=_season_list_payload(),
+            )
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{_ACTIVE_SEASON_ID}",
                 status=200,
                 payload={"data": {"season": {"tier": "Gold"}}},
             )
@@ -31,9 +47,28 @@ class TestGetSeasonRank(unittest.IsolatedAsyncioTestCase):
 
         with aioresponses.aioresponses() as m:
             m.get(
-                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}",
+                f"{settings.API_V4_URL}/season/list",
+                status=200,
+                payload=_season_list_payload(),
+            )
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{_ACTIVE_SEASON_ID}",
                 status=200,
                 payload={"data": None},
+            )
+
+            result = await get_season_rank(htb_uid)
+            self.assertIsNone(result)
+
+    @pytest.mark.asyncio
+    async def test_get_season_rank_without_active_season(self):
+        htb_uid = 12345
+
+        with aioresponses.aioresponses() as m:
+            m.get(
+                f"{settings.API_V4_URL}/season/list",
+                status=200,
+                payload={"data": [{"id": 15, "name": "Season 11", "active": False, "state": "ended"}]},
             )
 
             result = await get_season_rank(htb_uid)
