@@ -1,5 +1,6 @@
 import logging
 import traceback
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, TypeVar
 
 import aiohttp
@@ -21,6 +22,44 @@ from src.core import settings
 from src.helpers.ban import BanCodes, ban_member, _send_ban_notice
 
 logger = logging.getLogger(__name__)
+
+# (expires_at, season_id). expires_at is the active season's end_date.
+_active_season_cache: tuple[datetime, int] | None = None
+
+
+def clear_active_season_cache() -> None:
+    """Drop the cached active season id."""
+    global _active_season_cache
+    _active_season_cache = None
+
+
+def _parse_season_end(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _cached_active_season_id() -> int | None:
+    if _active_season_cache is None:
+        return None
+    expires_at, season_id = _active_season_cache
+    if datetime.now(timezone.utc) >= expires_at:
+        return None
+    return season_id
+
+
+def _store_active_season_id(season_id: int, expires_at: datetime) -> None:
+    """Cache the season id until its end_date. A date already in the past is not cached."""
+    global _active_season_cache
+    if expires_at <= datetime.now(timezone.utc):
+        return
+    _active_season_cache = (expires_at, season_id)
 
 
 async def send_verification_instructions(
@@ -130,11 +169,40 @@ async def get_user_details(labs_id: int | str) -> dict:
     return profile
 
 
+async def get_active_season_id(session: aiohttp.ClientSession) -> int | None:
+    """Return the id of the currently active season from the season list."""
+    cached_season_id = _cached_active_season_id()
+    if cached_season_id is not None:
+        return cached_season_id
+
+    season_list_url = f"{settings.API_V4_URL}/season/list"
+    async with session.get(season_list_url) as r:
+        if r.status != 200:
+            logger.error(f"Non-OK HTTP status code returned from season list lookup: {r.status}.")
+            return None
+        response = await r.json()
+
+    for season in response.get("data") or []:
+        if season.get("active"):
+            season_id = season.get("id")
+            if isinstance(season_id, int):
+                expires_at = _parse_season_end(season.get("end_date"))
+                if expires_at is not None:
+                    _store_active_season_id(season_id, expires_at)
+                return season_id
+
+    logger.error("No active season found in season list.")
+    return None
+
+
 async def get_season_rank(htb_uid: int) -> str | None:
     """Get season rank from HTB."""
-    season_api_url = f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}"
-
     async with get_labs_session() as session:
+        season_id = await get_active_season_id(session)
+        if season_id is None:
+            return None
+
+        season_api_url = f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{season_id}"
         async with session.get(season_api_url) as r:
             if r.status == 200:
                 response = await r.json()

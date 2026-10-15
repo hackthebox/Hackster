@@ -6,18 +6,51 @@ import discord
 import pytest
 
 from src.core import settings
-from src.helpers.verification import get_season_rank, get_user_details, process_labs_identification
+from src.helpers.verification import (
+    clear_active_season_cache,
+    get_season_rank,
+    get_user_details,
+    process_labs_identification,
+)
 from tests.helpers import MockRoleManager
+
+_ACTIVE_SEASON_ID = 21
+
+
+def _season_list_payload(
+    active_id: int = _ACTIVE_SEASON_ID,
+    end_date: str = "2099-01-01T00:00:00.000000Z",
+) -> dict:
+    return {
+        "data": [
+            {"id": 15, "name": "Season 11", "active": False, "state": "ended"},
+            {
+                "id": active_id,
+                "name": "Season 12",
+                "active": True,
+                "state": "active",
+                "end_date": end_date,
+            },
+        ]
+    }
 
 
 class TestGetSeasonRank(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        clear_active_season_cache()
+
     @pytest.mark.asyncio
     async def test_get_season_rank_success(self):
         htb_uid = 12345
 
         with aioresponses.aioresponses() as m:
             m.get(
-                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}",
+                f"{settings.API_V4_URL}/season/list",
+                status=200,
+                payload=_season_list_payload(),
+            )
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{_ACTIVE_SEASON_ID}",
                 status=200,
                 payload={"data": {"season": {"tier": "Gold"}}},
             )
@@ -31,13 +64,81 @@ class TestGetSeasonRank(unittest.IsolatedAsyncioTestCase):
 
         with aioresponses.aioresponses() as m:
             m.get(
-                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{settings.SEASON_ID}",
+                f"{settings.API_V4_URL}/season/list",
+                status=200,
+                payload=_season_list_payload(),
+            )
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{htb_uid}/{_ACTIVE_SEASON_ID}",
                 status=200,
                 payload={"data": None},
             )
 
             result = await get_season_rank(htb_uid)
             self.assertIsNone(result)
+
+    @pytest.mark.asyncio
+    async def test_get_season_rank_without_active_season(self):
+        htb_uid = 12345
+
+        with aioresponses.aioresponses() as m:
+            m.get(
+                f"{settings.API_V4_URL}/season/list",
+                status=200,
+                payload={"data": [{"id": 15, "name": "Season 11", "active": False, "state": "ended"}]},
+            )
+
+            result = await get_season_rank(htb_uid)
+            self.assertIsNone(result)
+
+    @pytest.mark.asyncio
+    async def test_get_season_rank_reuses_cached_season_id(self):
+        first_uid = 12345
+        second_uid = 67890
+
+        with aioresponses.aioresponses() as m:
+            m.get(
+                f"{settings.API_V4_URL}/season/list",
+                status=200,
+                payload=_season_list_payload(),
+            )
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{first_uid}/{_ACTIVE_SEASON_ID}",
+                status=200,
+                payload={"data": {"season": {"tier": "Gold"}}},
+            )
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{second_uid}/{_ACTIVE_SEASON_ID}",
+                status=200,
+                payload={"data": {"season": {"tier": "Silver"}}},
+            )
+
+            self.assertEqual(await get_season_rank(first_uid), "Gold")
+            self.assertEqual(await get_season_rank(second_uid), "Silver")
+
+    @pytest.mark.asyncio
+    async def test_expired_season_is_not_cached(self):
+        first_uid = 12345
+        second_uid = 67890
+        season_list_url = f"{settings.API_V4_URL}/season/list"
+        expired = _season_list_payload(end_date="2020-01-01T00:00:00.000000Z")
+
+        with aioresponses.aioresponses() as m:
+            m.get(season_list_url, status=200, payload=expired)
+            m.get(season_list_url, status=200, payload=expired)
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{first_uid}/{_ACTIVE_SEASON_ID}",
+                status=200,
+                payload={"data": {"season": {"tier": "Gold"}}},
+            )
+            m.get(
+                f"{settings.API_V4_URL}/user/achievement/season/{second_uid}/{_ACTIVE_SEASON_ID}",
+                status=200,
+                payload={"data": {"season": {"tier": "Silver"}}},
+            )
+
+            self.assertEqual(await get_season_rank(first_uid), "Gold")
+            self.assertEqual(await get_season_rank(second_uid), "Silver")
 
 
 class TestGetUserDetails(unittest.IsolatedAsyncioTestCase):
