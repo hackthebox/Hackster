@@ -1,9 +1,14 @@
 from discord import Bot, Member, Role
+from fastapi import HTTPException
 
 from typing import Literal
 
+from src.database.models.dynamic_role import RoleCategory
 from src.webhooks.handlers.base import BaseHandler
 from src.webhooks.types import WebhookBody, WebhookEvent
+
+# Plan names (casefolded) that carry no Discord role.
+_NO_ROLE_SUBSCRIPTIONS = frozenset({"free"})
 
 
 class MPHandler(BaseHandler):
@@ -29,18 +34,36 @@ class MPHandler(BaseHandler):
         """
         Handles the subscription change event.
         """
-        discord_id, _ = self.validate_common_properties(body)
+        discord_id, account_id = self.validate_common_properties(body)
         subscription_name = self.validate_property(
             body.properties.get("subscription_name"), "subscription_name"
         )
 
-        member = await self.get_guild_member(discord_id, bot)
+        name = str(subscription_name).strip()
+        labs = RoleCategory.SUBSCRIPTION_LABS.value
+        role_group = bot.role_manager.get_group_ids(labs)
 
-        subscription_id = bot.role_manager.get_post_or_rank(subscription_name)
+        # A plan with no Discord role: drop whatever subscription role the member holds.
+        if name.casefold() in _NO_ROLE_SUBSCRIPTIONS:
+            member = await self.get_guild_member(discord_id, bot)
+            await self.swap_role_in_group(
+                member, None, role_group, bot, allow_no_role=True
+            )
+            return self.success()
+
+        subscription_id = bot.role_manager.get_role_id(labs, name)
         if not subscription_id:
-            raise ValueError(f"Invalid subscription name: {subscription_name}")
+            # 4xx, not 500: the sender must not retry an event that can never succeed.
+            self.logger.warning(
+                "No role configured for subscription name '%s'",
+                name,
+                extra={"account_id": account_id, "discord_id": discord_id},
+            )
+            raise HTTPException(
+                status_code=422, detail=f"Unknown subscription name: {name}"
+            )
 
-        role_group = bot.role_manager.get_group_ids("subscription_labs")
+        member = await self.get_guild_member(discord_id, bot)
         await self.swap_role_in_group(member, subscription_id, role_group, bot)
 
         return self.success()

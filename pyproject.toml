@@ -58,6 +58,7 @@ dev = [
     "ipdb>=0.13.13,<0.14.0",
     "aioresponses>=0.7.4,<0.8.0",
     "pytest-mock>=3.10.0,<4.0.0",
+    "httpx>=0.27,<1.0",
 ]
 
 [tool.taskipy.tasks]

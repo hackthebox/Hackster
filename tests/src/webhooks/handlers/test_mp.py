@@ -1,4 +1,5 @@
 import pytest
+from fastapi import HTTPException
 from unittest.mock import AsyncMock, MagicMock
 
 from src.webhooks.handlers.mp import MPHandler
@@ -50,7 +51,7 @@ class TestMPHandler:
         handler.get_guild_member = AsyncMock(return_value=mock_member)
 
         bot.role_manager = _make_role_manager(
-            get_post_or_rank=lambda what: 555,
+            get_role_id=lambda category, key: 555,
             get_group_ids=lambda cat: [555, 666, 777],
         )
         mock_role = MagicMock()
@@ -84,9 +85,14 @@ class TestMPHandler:
         handler.validate_property = MagicMock(return_value=subscription_name)
         handler.get_guild_member = AsyncMock(return_value=mock_member)
 
-        bot.role_manager = _make_role_manager(get_post_or_rank=lambda what: None)
-        with pytest.raises(ValueError, match="Invalid subscription name"):
+        bot.role_manager = _make_role_manager(
+            get_role_id=lambda category, key: None,
+            get_group_ids=lambda cat: [],
+        )
+        with pytest.raises(HTTPException) as exc_info:
             await handler._handle_subscription_change(body, bot)
+        assert exc_info.value.status_code == 422
+        handler.get_guild_member.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_handle_hof_change_success_top1(self, bot):
